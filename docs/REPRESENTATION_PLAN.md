@@ -165,32 +165,35 @@ populated rows (pending).
 
 ### Phase 1 — Population tool
 
-**SHIPPED: `bin/populate_myprivatelib.sh` v1.2.0** (project conventions:
+**SHIPPED: `bin/populate_myprivatelib.sh` v1.3.0** (project conventions:
 versioned header, config, `--dry-run`/`--debug`, MariaDB lifecycle, tests,
 CI, docs): scan `Books` → hash → md5-resolve `bookid`s → rebuild `myprivatelib`
-row-by-row with FRESH keys → per-run TSV report
-(matched/unmatched/corrupt/skipped).  Matched files are the whole
-collection: the ladder (a) md5 tier resolves them exactly; ladder (b)
-(author/series/title) remains as the fallback for unmatched files.
+row-by-row with the **flibusta source keys verbatim** (v1.3.0, per
+`docs/DO_IT_20260906_141511.md`: no synthetic keys — the v1.2.0
+tool-assigned 1..N ids are gone) → FK integrity gate (9 reference
+paths) → per-run TSV report (matched/unmatched/corrupt/skipped).  Matched
+files are the whole collection: the ladder (a) md5 tier resolves them
+exactly; ladder (b) (author/series/title) remains as the fallback for
+unmatched files.
 
 **Key strategy (v1.1.0, the fix for "app shows no books"):** the v1.0.0
 `INSERT … SELECT *` copied flibusta's ids wholesale — foreign ids broke
 the app's key bookkeeping, so MultiLib.exe listed catalog basics but no
 books.  v1.1.0 lets myprivatelib's `AUTO_INCREMENT` generate every key
-(v1.2.0 revision, per `docs/DO_IT.md`: the app treats server-generated
-PK columns differently from the original schema's plain ones — the tool
-now strips `AUTO_INCREMENT` from all 16 PK columns of the target schema
-and assigns every key explicitly, 1..N, referencing them through
-session variables):
-one `INSERT` per row, `LAST_INSERT_ID()` captured into a session variable
-(`@bid_`/`@aid_`/`@gid_`/`@sid_`), child rows referencing only captured
-ids; one SQL script in one client session with `TRUNCATE` first.  Only
-books on disk are represented; `mlbook.filename` holds the CATALOG value
-(the transliterated name the app displays — v1.1.1 dropped the on-disk
-path), `arcname` the on-disk zip member; `mlgenrename` pulls the used
-genres' ancestor categories so the genre tree renders, with
-`parentgenreid` remapped to the fresh parent id (or NULL when an ancestor
-is absent); `mlrating` comes from `flibusta.mlrating` (the
+(v1.3.0 revision, per `docs/DO_IT.md` + `docs/DO_IT_20260906_141511.md`:
+the app treats server-generated PK columns differently from the original
+schema's plain ones — the tool still strips `AUTO_INCREMENT` from all 16
+PK columns of the target schema, but the keys themselves are now the
+**flibusta source keys, copied verbatim** — no 1..N counters, no session
+variables, no `LAST_INSERT_ID()`):
+one `INSERT` per row carrying the source key values unchanged; one SQL
+script in one client session with `TRUNCATE` first and a post-reload FK
+integrity gate.  Only books on disk are represented; `mlbook.filename`
+holds the CATALOG value (the transliterated name the app displays —
+v1.1.1 dropped the on-disk path), `arcname` the on-disk zip member;
+`mlgenrename` pulls the used genres' ancestor categories so the genre
+tree renders, with `parentgenreid` copied verbatim (the source tree is
+self-consistent); `mlrating` comes from `flibusta.mlrating` (the
 `Flibusta_Load_mlrating.sql` aggregate).  A parity mismatch on ANY
 managed table aborts before any `TRUNCATE`.
 

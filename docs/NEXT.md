@@ -1,9 +1,9 @@
 # NEXT — where to resume
 
-> Updated: 2026-09-06 — schema renamed `privetelib` -> `myprivatelib`
-> project-wide and populate tool bumped to v1.2.0 (AUTO_INCREMENT strip
-> + explicit tool-assigned keys, per `docs/DO_IT.md`).  Live DB migrated
-> and re-populated; see the v1.2.0 section below.
+> Updated: 2026-09-06 — populate tool bumped to v1.3.0 (key strategy
+> reversed: flibusta source keys copied verbatim, NO synthetic keys, per
+> `docs/DO_IT_20260906_141511.md`; the v1.2.0 AUTO_INCREMENT strip
+> stays).  Live DB purged and re-populated; see the v1.3.0 section below.
 
 ## Resume checklist
 
@@ -60,31 +60,34 @@ mandatory prerequisite before Phase 1 populates anything:
   mock-mysql suite `tests/test_backup_myprivatelib.sh` (23 assertions).
 - Verified live 2026-09-04: backup -> verify -> restore round-trip green.
 
-### Shipped: the population tool (`bin/populate_myprivatelib.sh` v1.2.0)
+### Shipped: the population tool (`bin/populate_myprivatelib.sh` v1.3.0)
+
+**v1.3.0 (2026-09-06, `docs/DO_IT_20260906_141511.md`):** the key
+strategy is reversed — keys are the **flibusta source keys, copied
+verbatim**; the tool generates NO synthetic keys.  The v1.2.0
+tool-assigned 1..N counters and `@<var>_<old>` session-variable remaps
+are gone.  Matching is unchanged (md5-exact), and the AUTO_INCREMENT
+strip from `docs/DO_IT.md` stays (a verbatim source key is a plain PK
+value, not a server-generated one).  A post-reload **FK integrity gate**
+verifies 9 reference paths — with verbatim keys a wrong reference can no
+longer be hidden by a remap.  Mock suite grown to **35 assertions**
+(source-key INSERTs, no-`SET @var` guarantee, FK gate incl. the
+abort-on-orphans path).
 
 **v1.2.0 (2026-09-06, `docs/DO_IT.md`):** MultiLib.exe treats
 server-generated (AUTO_INCREMENT) PK columns differently from the
 original schema's plain PK columns — the root cause the v1.1.x fixes
-could not reach.  Two changes, applied to ALL 16 AUTO_INCREMENT PK
-columns of the ml* schema (including app-owned tables — schema-only,
-rows untouched):
+could not reach.  The strip (below) was introduced here and is retained
+by v1.3.0; its tool-assigned-keys half is superseded.
 
 1. **Strip** — before any data lands, schema-driven
    `ALTER TABLE ... MODIFY COLUMN` statements re-declare each PK column
    verbatim from `SHOW CREATE TABLE` minus the `AUTO_INCREMENT` keyword
    (idempotent; verified via `information_schema.COLUMNS.EXTRA` before
    and after the rebuild).
-2. **Explicit keys** — with AUTO_INCREMENT gone, `LAST_INSERT_ID()`
-   cannot work; keys are assigned by the tool (authorid/genreid/seqid/
-   bookid = 1..N in deterministic emission order, and — the strip
-   surfaced this — the child tables' own PKs too: la_id/gn_id/sq_id/
-   rt_id/ci_id, which the auto counter used to fill) and referenced
-   through the same `@<var>_<old>` session variables as before.  The
-   rebuild stays byte-deterministic (suite-verified).
-
-Mock suite grown to **33 assertions** (strip ALTERs + verification
-query, explicit-key INSERTs incl. child PKs, no-LAST_INSERT_ID
-guarantee).
+2. ~~Explicit keys~~ — superseded in v1.3.0 by source keys verbatim
+   (the strip's `la_id/gn_id/sq_id/rt_id/ci_id` finding is what makes
+   the verbatim child PKs work: they are plain NOT NULL columns now).
 
 The rename (`privetelib` -> `myprivatelib`) is project-wide: tools,
 configs, suites, docs.  At migration time the live server had no
@@ -94,23 +97,26 @@ configs, suites, docs.  At migration time the live server had no
 
 Rebuilds `myprivatelib` from the `Books` collection: hash each file (zip by
 decompressed content, loose fb2 directly) -> join the one-shot `(md5, bookid)`
-map -> rebuild the 9 managed tables **row-by-row with EXPLICIT keys**
-(since v1.2.0): the tool strips `AUTO_INCREMENT` from all 16 PK columns
-of the target schema first, then assigns every id itself
-(authorid/genreid/seqid/bookid = 1..N), captured into session variables
-(`@bid_<old>`, `@aid_<old>`, …) that child rows reference — the server
-never generates a key, all in a single client session. The v1.0.0 "exact
-copy" (`INSERT…SELECT *` carrying flibusta's ids wholesale) is GONE:
-those foreign ids broke the app's key bookkeeping (exactly why
-MultiLib.exe showed catalog basics but no books). Reference entities are
+map -> rebuild the 9 managed tables **row-by-row with SOURCE keys
+verbatim** (since v1.3.0): the tool strips `AUTO_INCREMENT` from all 16
+PK columns of the target schema first, then inserts every row with the
+flibusta key values unchanged — the md5-resolved `bookid`, the source
+`authorid`/`genreid`/`seqid`, and the child PKs (`la_id`/`gn_id`/
+`sq_id`/`rt_id`/`ci_id`) straight from the source rows.  No synthetic
+keys anywhere: no 1..N counters, no session-variable remaps, no
+`LAST_INSERT_ID()` — and a post-reload FK integrity gate (9 reference
+paths) proves every reference resolves.  The purge-and-reload runs in a
+single client session (`TRUNCATE` first). Reference entities are
 inserted for OUR books only (distinct authors/genres/series of the
 resolved bookids); **v1.1.1 fixes the
-two app-test findings**: `mlgenrename` pulls each used genre's ancestor
-categories (the catalog's 1000001+ tree rows) so the genre tree renders
-instead of a flat list, and `mlbook.filename` carries the CATALOG value
-(the transliterated name the app displays — the on-disk path was the user's
-mistake, not the app's contract) — `arcname` keeps the on-disk zip member
-name, `filesize` the on-disk bytes. `mlrating` copies the per-book aggregate
+two app-test findings** (both retained): `mlgenrename` pulls each used
+genre's ancestor categories (the catalog's 1000001+ tree rows) so the
+genre tree renders instead of a flat list — `parentgenreid` is the
+source value verbatim, the tree is self-consistent — and
+`mlbook.filename` carries the CATALOG value (the transliterated name the
+app displays — the on-disk path was the user's mistake, not the app's
+contract) — `arcname` keeps the on-disk zip member name, `filesize` the
+on-disk bytes. `mlrating` copies the per-book aggregate
 from `flibusta.mlrating` (the `Flibusta_Load_mlrating.sql` output). Parity
 is checked for ALL 9 tables BEFORE any TRUNCATE — a mismatch aborts, never a
 partial rebuild. `flibusta` read-only; app-owned tables never touched.
@@ -120,9 +126,19 @@ Report TSV per run
 ```bash
 ./bin/backup_myprivatelib.sh                # FIRST: safety backup of current myprivatelib
 ./bin/populate_myprivatelib.sh --dry-run   # walk + resolve + summarize, write nothing
-./bin/populate_myprivatelib.sh             # rebuild (AUTO_INCREMENT strip + explicit-key row-by-row INSERTs)
+./bin/populate_myprivatelib.sh             # rebuild (AUTO_INCREMENT strip + source-key-verbatim INSERTs)
 ```
 
+- **v1.3.0 rebuilt live 2026-09-06 (14:56, verbatim keys)**: same match
+  numbers (2156 files -> 2148 matched, 8 unmatched, 2138 bookids). All 9
+  managed tables reloaded with the **flibusta source keys verbatim**:
+  mlbook bookid 9461..882939 (sparse, NOT 1..N), every one of the 2138
+  bookids present in flibusta, 0 md5 collisions (a target row's md5 never
+  maps to a different source bookid), 0 AUTO_INCREMENT columns, FK gate
+  9 paths / 0 orphans, genre tree 14 roots + 70 children / 0 dangling.
+  Payload matches the source row-for-row except `ext='fb2'` (forced, as
+  designed — 35 rows carry legacy pdf/doc catalog values). Safety backup
+  before the purge: `myprivatelib_20260906-145121.sql.gz`.
 - **v1.1.1 re-rebuilt live 2026-09-04 (22:22)**: 2156 files -> 2148 matched
   (99.6%), 8 unmatched, 2138 bookids. myprivatelib rows: mlbook **2138**,
   mlauthor 2798, mlgenre 5468, mlseq 2619, mlrating 1948 (distribution

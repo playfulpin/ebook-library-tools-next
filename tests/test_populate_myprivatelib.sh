@@ -2,16 +2,16 @@
 # -----------------------------------------------------------------------------
 # tests/test_populate_myprivatelib.sh
 #
-# Regression suite for bin/populate_myprivatelib.sh v1.2.x (rebuild of the
+# Regression suite for bin/populate_myprivatelib.sh v1.3.0 (rebuild of the
 # app-registered personal library DB from the on-disk Books collection by
-# md5-matching against the flibusta catalog, with EXPLICIT tool-assigned
-# keys and an AUTO_INCREMENT-free target schema).
+# md5-matching against the flibusta catalog, with SOURCE keys copied
+# VERBATIM (no synthetic keys) and an AUTO_INCREMENT-free target schema).
 # No real MariaDB is needed: the suite installs mock `mysql`, `unzip`,
 # `zcat`, `tasklist` and `powershell.exe` earlier in PATH that record their
 # argv, serve fixture catalog tables from $MOCK_FIXTURES, and capture the
 # generated rebuild SQL (piped via stdin) into $MOCK_SQL_LOG.
 #
-# Asserts the v1.2.0 contract:
+# Asserts the v1.3.0 contract:
 #   - walk: zip-wrapped FB2 hashed by DECOMPRESSED content (unzip -p with
 #     zcat fallback), arcname from `unzip -Z1`, loose fb2 hashed directly,
 #     desktop.ini / non-book files skipped, unreadable zips marked corrupt
@@ -20,10 +20,11 @@
 #     duplicate md5s resolve to the lowest bookid and are counted
 #   - rebuild: AUTO_INCREMENT STRIP first (schema-driven ALTERs on all 16
 #     PK columns, attribute-preserving, verified via information_schema)
-#     then TRUNCATE + row-by-row INSERTs with EXPLICIT keys - authorid /
-#     genreid / seqid / bookid = 1..N in deterministic emission order,
-#     referenced via session variables (@bid_/@aid_/@gid_/@sid_) that
-#     child rows use; NO flibusta ids copied anywhere, NO LAST_INSERT_ID()
+#     then TRUNCATE + row-by-row INSERTs carrying the flibusta SOURCE keys
+#     VERBATIM - bookid = the md5-resolved catalog bookid, authorid /
+#     genreid / seqid and the child PKs (la_id/gn_id/sq_id/rt_id/ci_id)
+#     straight from the source rows; NO tool-assigned 1..N counters, NO
+#     session-variable remaps (@bid_/... absent), NO LAST_INSERT_ID()
 #   - mlbook.filename = the CATALOG value (flibusta.mlbook.filename, the
 #     transliterated name the app expects - NOT the on-disk path), while
 #     arcname = on-disk zip member name, filesize = on-disk bytes,
@@ -31,8 +32,9 @@
 #   - reference tables (mlauthorname, mlgenrename, mlseqname) populated
 #     for the personal library's books only; mlgenrename includes the
 #     used genres' ANCESTOR CATEGORIES (fetched from the catalog) so the
-#     genre tree is preserved, parentgenreid remapped to the fresh parent
-#     id (NULL when an ancestor is absent)
+#     genre tree is preserved, with source genreid/parentgenreid copied
+#     verbatim (no remap; a fetched ancestor that is also a used genre
+#     is deduped by id)
 #   - mlrating copied from flibusta.mlrating (per-book aggregate), only
 #     for books that have a rating
 #   - chunked reads (POP_CHUNK) merge + dedupe to a deterministic script
@@ -40,10 +42,11 @@
 #     any TRUNCATE (all-or-nothing; a partial rebuild would leave
 #     dangling key references)
 #   - report: per-run TSV written only outside --dry-run
+#   - FK integrity gate after the reload: 9 reference paths, 0 orphans
 #   - guards: target DB missing -> exit 1; source == target -> exit 2
 #   - MariaDB lifecycle mocks (already running untouched, down -> start /
 #     use / stop, no tasklist disables management, --dry-run reports only)
-#   - version header stays in sync with `--version` (1.1.x)
+#   - version header stays in sync with `--version` (1.3.x)
 #
 # Usage:  bash tests/test_populate_myprivatelib.sh
 # Runs anywhere (pure text processing; the mocks avoid any DB dependency).
@@ -235,6 +238,14 @@ elif [[ "$args" == *"SHOW CREATE TABLE myprivatelib."* ]]; then
 elif [[ "$args" == *"SELECT table_name, table_rows FROM"* ]]; then
     echo "${MOCK_TABLE_ROWS:-mlbook 3
 mlauthor 3}"
+elif [[ "$args" == *"LEFT JOIN myprivatelib.mlbook p ON p.bookid = c.bookid"* ]]; then
+    # FK integrity gate: mock all reference paths as clean (0 orphans);
+    # MOCK_FK_ORPHANS='path count' makes the gate fail (test-only hook)
+    if [[ -n "${MOCK_FK_ORPHANS:-}" ]]; then
+        printf '%s\n' "$MOCK_FK_ORPHANS"
+    else
+        printf 'chk\t0\n'
+    fi
 else
     echo "Query OK, 0 rows affected"
 fi
@@ -310,13 +321,13 @@ mlauthor 3}" \
 sql()  { grep -c "$1" "$MOCK_SQL_LOG" 2>/dev/null || echo 0; }
 argv() { grep -c "$1" "$MOCK_LOG" 2>/dev/null || echo 0; }
 
-echo "== populate_myprivatelib (explicit keys) =="
+echo "== populate_myprivatelib (source keys verbatim) =="
 
 # --- version / usage -----------------------------------------------------------
 version="$(sed -n 's/^# Version:[[:space:]]*//p' "$TOOL" | head -n 1)"
 case "$version" in
-    1.2.*) report "version_header" ok "header $version" ;;
-    *)     report "version_header" fail "got '$version', expected 1.2.x" ;;
+    1.3.*) report "version_header" ok "header $version" ;;
+    *)     report "version_header" fail "got '$version', expected 1.3.x" ;;
 esac
 
 bash "$TOOL" --version >"$TMPDIR/v.txt" 2>&1
@@ -395,7 +406,7 @@ else
     report "password_never_on_cmdline" ok
 fi
 
-# --- real run: TRUNCATE + row-by-row INSERTs with FRESH keys ------------------------
+# --- real run: TRUNCATE + row-by-row INSERTs with SOURCE keys verbatim ---------------
 rm -f "$MOCK_LOG"; rm -rf "$REPORT_DIR"
 MOCK_RC=0 run_tool
 argv_log="$(cat "$MOCK_LOG" 2>/dev/null || true)"
@@ -442,92 +453,99 @@ else
     report "autoinc_strip_verified" fail "argv=$(grep 'EXTRA FROM' "$MOCK_LOG" | head -1)"
 fi
 
-# reference tables: authors (explicit @aid_), genres (explicit @gid_ + parent
-# remap), series (explicit @sid_)
-if grep -q "INSERT INTO myprivatelib.mlauthorname (authorid,FirstName,MiddleName,LastName,NickName,FullName,Email,TotalCount,NormalCount) VALUES (1,'A','','One','','A One','',60,49);" "$MOCK_SQL_LOG" \
-   && grep -q "SET @aid_5001 = 1;" "$MOCK_SQL_LOG" \
-   && grep -q "SET @aid_5002 = 2;" "$MOCK_SQL_LOG" \
-   && grep -q "SET @aid_5003 = 3;" "$MOCK_SQL_LOG" \
-   && grep -q "'B','','Two','','B Two','',30,25" "$MOCK_SQL_LOG"; then
-    report "authors_explicit_keys" ok
+# reference tables: authors, genres (tree + ancestors), series - keys are the
+# SOURCE values verbatim, no SET @var bookkeeping anywhere
+if grep -q "INSERT INTO myprivatelib.mlauthorname (authorid,FirstName,MiddleName,LastName,NickName,FullName,Email,TotalCount,NormalCount) VALUES (5001,'A','','One','','A One','',60,49);" "$MOCK_SQL_LOG" \
+   && grep -q "VALUES (5002,'B','','Two','','B Two','',30,25);" "$MOCK_SQL_LOG" \
+   && grep -q "VALUES (5003,'C','','Three','','C Three','',10,8);" "$MOCK_SQL_LOG"; then
+    report "authors_source_keys" ok
 else
-    report "authors_explicit_keys" fail "sql=$(grep -E 'mlauthorname|@aid_' "$MOCK_SQL_LOG" 2>/dev/null | tr '\n' '|')"
+    report "authors_source_keys" fail "sql=$(grep mlauthorname "$MOCK_SQL_LOG" 2>/dev/null | tr '\n' '|')"
 fi
-if grep -q "SET @gid_9001 = 1;" "$MOCK_SQL_LOG" \
-   && grep -q "VALUES (2,@gid_9001,'sf_hard','Hard SF',5,4);" "$MOCK_SQL_LOG" \
-   && grep -q "VALUES (5,NULL,'fantasy','Fantasy',7,5);" "$MOCK_SQL_LOG" \
-   && grep -q "VALUES (1,NULL,'sf','Science Fiction',10,8);" "$MOCK_SQL_LOG" \
-   && grep -q "VALUES (3,NULL,'','Category Name',0,0);" "$MOCK_SQL_LOG" \
-   && grep -q "SET @gid_9100 = 3;" "$MOCK_SQL_LOG" \
-   && grep -q "VALUES (4,@gid_9100,'sf_city','City SF',3,3);" "$MOCK_SQL_LOG"; then
-    report "genres_tree_ancestors_remap" ok
+if grep -q "VALUES (9001,NULL,'sf','Science Fiction',10,8);" "$MOCK_SQL_LOG" \
+   && grep -q "VALUES (9002,9001,'sf_hard','Hard SF',5,4);" "$MOCK_SQL_LOG" \
+   && grep -q "VALUES (9004,9100,'sf_city','City SF',3,3);" "$MOCK_SQL_LOG" \
+   && grep -q "VALUES (9100,NULL,'','Category Name',0,0);" "$MOCK_SQL_LOG" \
+   && grep -q "VALUES (9003,7777,'fantasy','Fantasy',7,5);" "$MOCK_SQL_LOG"; then
+    report "genres_tree_source_keys" ok
 else
-    report "genres_tree_ancestors_remap" fail "sql=$(grep -E 'mlgenrename|@gid_' "$MOCK_SQL_LOG" 2>/dev/null | tr '\n' '|')"
+    report "genres_tree_source_keys" fail "sql=$(grep mlgenrename "$MOCK_SQL_LOG" 2>/dev/null | tr '\n' '|')"
 fi
-if grep -q "INSERT INTO myprivatelib.mlseqname (seqid,seqname,TotalCount,NormalCount) VALUES (1,'Series One',3,3);" "$MOCK_SQL_LOG" \
-   && grep -q "SET @sid_7001 = 1;" "$MOCK_SQL_LOG"; then
-    report "series_explicit_keys" ok
+if grep -q "INSERT INTO myprivatelib.mlseqname (seqid,seqname,TotalCount,NormalCount) VALUES (7001,'Series One',3,3);" "$MOCK_SQL_LOG"; then
+    report "series_source_keys" ok
 else
-    report "series_explicit_keys" fail "sql=$(grep -E 'mlseqname|@sid_' "$MOCK_SQL_LOG" 2>/dev/null | tr '\n' '|')"
+    report "series_source_keys" fail "sql=$(grep mlseqname "$MOCK_SQL_LOG" 2>/dev/null | tr '\n' '|')"
+fi
+# no synthetic-key machinery at all: no session-variable remaps, no counters
+if ! grep -qE "SET @(bid|aid|gid|sid)_" "$MOCK_SQL_LOG"; then
+    report "no_session_var_remapping" ok
+else
+    report "no_session_var_remapping" fail "found: $(grep -E 'SET @' "$MOCK_SQL_LOG" 2>/dev/null | tr '\n' '|')"
 fi
 
 # mlbook: one row per resolved book; filename = CATALOG value
-# (flibusta.mlbook.filename), arcname = on-disk zip member; explicit @bid_
+# (flibusta.mlbook.filename), arcname = on-disk zip member, SOURCE bookid
 if grep -q "INSERT INTO myprivatelib.mlbook (bookid,library,title,lang,date_in,filename,filesize,arcname,ext,deleted,md5" "$MOCK_SQL_LOG" \
-   && grep -q "VALUES (1,'myprivatelib','Title One','ru','2024-01-14 16:55:25','Title_One_FB2'," "$MOCK_SQL_LOG" \
-   && grep -q "'Title_Two_FB2'" "$MOCK_SQL_LOG" \
-   && grep -q "'Kniga_Tri_FB2'" "$MOCK_SQL_LOG" \
-   && grep -q "'01-Book One.fb2','fb2'" "$MOCK_SQL_LOG" \
-   && grep -q "SET @bid_111 = 1;" "$MOCK_SQL_LOG" \
-   && grep -q "SET @bid_222 = 2;" "$MOCK_SQL_LOG" \
-   && grep -q "SET @bid_333 = 3;" "$MOCK_SQL_LOG"; then
-    report "mlbook_filename_from_catalog_explicit_keys" ok
+   && grep -q "VALUES (111,'myprivatelib','Title One','ru','2024-01-14 16:55:25','Title_One_FB2'," "$MOCK_SQL_LOG" \
+   && grep -q "VALUES (222,'myprivatelib','Title Two" "$MOCK_SQL_LOG" \
+   && grep -q "VALUES (333,'myprivatelib','Книга Три" "$MOCK_SQL_LOG" \
+   && grep -q "'01-Book One.fb2','fb2'" "$MOCK_SQL_LOG"; then
+    report "mlbook_catalog_filename_source_bookid" ok
 else
-    report "mlbook_filename_from_catalog_explicit_keys" fail "sql=$(grep -E 'mlbook|@bid_' "$MOCK_SQL_LOG" 2>/dev/null | tr '\n' '|')"
+    report "mlbook_catalog_filename_source_bookid" fail "sql=$(grep 'INSERT INTO myprivatelib.mlbook' "$MOCK_SQL_LOG" 2>/dev/null | tr '\n' '|')"
 fi
 
-# joins reference ONLY the assigned keys
-if grep -q "INSERT INTO myprivatelib.mlauthor (la_id,bookid,authorid,role) VALUES (1,@bid_111,@aid_5001,'a');" "$MOCK_SQL_LOG" \
-   && grep -q "VALUES (2,@bid_222,@aid_5001,'a');" "$MOCK_SQL_LOG" \
-   && grep -q "VALUES (4,@bid_333,@aid_5003,'a');" "$MOCK_SQL_LOG" \
-   && grep -q "INSERT INTO myprivatelib.mlgenre (gn_id,bookid,genreid) VALUES (1,@bid_111,@gid_9001);" "$MOCK_SQL_LOG" \
-   && grep -q "INSERT INTO myprivatelib.mlgenre (gn_id,bookid,genreid) VALUES (4,@bid_222,@gid_9004);" "$MOCK_SQL_LOG" \
-   && grep -q "INSERT INTO myprivatelib.mlseq (sq_id,bookid,seqid,seqnum) VALUES (1,@bid_111,@sid_7001,1);" "$MOCK_SQL_LOG"; then
-    report "joins_use_assigned_keys" ok
+# joins reference ONLY the SOURCE keys verbatim
+if grep -q "INSERT INTO myprivatelib.mlauthor (la_id,bookid,authorid,role) VALUES (901146,111,5001,'a');" "$MOCK_SQL_LOG" \
+   && grep -q "VALUES (901147,222,5001,'a');" "$MOCK_SQL_LOG" \
+   && grep -q "VALUES (901149,333,5003,'a');" "$MOCK_SQL_LOG" \
+   && grep -q "INSERT INTO myprivatelib.mlgenre (gn_id,bookid,genreid) VALUES (1127730,111,9001);" "$MOCK_SQL_LOG" \
+   && grep -q "INSERT INTO myprivatelib.mlgenre (gn_id,bookid,genreid) VALUES (1127733,222,9004);" "$MOCK_SQL_LOG" \
+   && grep -q "INSERT INTO myprivatelib.mlseq (sq_id,bookid,seqid,seqnum) VALUES (359598,111,7001,1);" "$MOCK_SQL_LOG"; then
+    report "joins_use_source_keys" ok
 else
-    report "joins_use_assigned_keys" fail "sql=$(grep -E 'mlauthor|mlgenre|mlseq ' "$MOCK_SQL_LOG" 2>/dev/null | tr '\n' '|')"
+    report "joins_use_source_keys" fail "sql=$(grep -E 'mlauthor|mlgenre|mlseq ' "$MOCK_SQL_LOG" 2>/dev/null | tr '\n' '|')"
 fi
 
 # mlrating: only books WITH a rating (111, 222); 333 has none
 rating_count="$(sql 'INSERT INTO myprivatelib.mlrating')"
-if grep -q "INSERT INTO myprivatelib.mlrating (rt_id,bookid,rating) VALUES (1,@bid_111,'5');" "$MOCK_SQL_LOG" \
-   && grep -q "VALUES (2,@bid_222,'4');" "$MOCK_SQL_LOG" \
+if grep -q "INSERT INTO myprivatelib.mlrating (rt_id,bookid,rating) VALUES (309521,111,'5');" "$MOCK_SQL_LOG" \
+   && grep -q "VALUES (309522,222,'4');" "$MOCK_SQL_LOG" \
    && [[ "$rating_count" == "2" ]]; then
     report "mlrating_aggregate_only" ok
 else
     report "mlrating_aggregate_only" fail "count=$rating_count sql=$(grep mlrating "$MOCK_SQL_LOG" 2>/dev/null | tr '\n' '|')"
 fi
-if grep -q "INSERT INTO myprivatelib.mlcustinfo (ci_id,bookid,di_history,custominfo) VALUES (1,@bid_111,'','custom info');" "$MOCK_SQL_LOG"; then
-    report "mlcustinfo_assigned_key" ok
+if grep -q "INSERT INTO myprivatelib.mlcustinfo (ci_id,bookid,di_history,custominfo) VALUES (130083,111,'','custom info');" "$MOCK_SQL_LOG"; then
+    report "mlcustinfo_source_key" ok
 else
-    report "mlcustinfo_assigned_key" fail "sql=$(grep mlcustinfo "$MOCK_SQL_LOG" 2>/dev/null | tr '\n' '|')"
+    report "mlcustinfo_source_key" fail "sql=$(grep mlcustinfo "$MOCK_SQL_LOG" 2>/dev/null | tr '\n' '|')"
 fi
 
-# the old exact-copy pattern must be GONE; no flibusta ids may leak into VALUES
+# the old synthetic-key patterns must be GONE: no INSERT..SELECT copies, no
+# LAST_INSERT_ID, no @var captures (keys are source-verbatim now)
 if ! grep -q "INSERT INTO myprivatelib.mlbook SELECT" "$MOCK_SQL_LOG" \
    && ! grep -q "INSERT INTO myprivatelib.mlauthorname SELECT" "$MOCK_SQL_LOG" \
-   && ! grep -qE "INSERT INTO myprivatelib[.a-z]* VALUES \\([0-9]+," "$MOCK_SQL_LOG" \
-   && ! grep -q "LAST_INSERT_ID" "$MOCK_SQL_LOG"; then
-    report "no_exact_copy_no_raw_ids" ok
+   && ! grep -q "LAST_INSERT_ID" "$MOCK_SQL_LOG" \
+   && ! grep -qE "SET @[a-z]+_" "$MOCK_SQL_LOG"; then
+    report "no_exact_copy_no_synthetic_keys" ok
 else
-    report "no_exact_copy_no_raw_ids" fail "sql=$(grep -E 'SELECT \*|LAST_INSERT_ID' "$MOCK_SQL_LOG" 2>/dev/null | tr '\n' '|')"
+    report "no_exact_copy_no_synthetic_keys" fail "sql=$(grep -E 'SELECT \*|LAST_INSERT_ID|SET @' "$MOCK_SQL_LOG" 2>/dev/null | tr '\n' '|')"
+fi
+
+# FK integrity gate: after the reload, the tool must verify 9 reference paths
+fk="$(grep -c "LEFT JOIN myprivatelib." "$MOCK_LOG" 2>/dev/null || echo 0)"
+if [[ "$fk" -ge 9 ]] && grep -q "FK integrity OK" "$ERR"; then
+    report "fk_integrity_gate" ok "9 paths"
+else
+    report "fk_integrity_gate" fail "paths=$fk err=$(grep -i 'fk' "$ERR" | tr '\n' '|')"
 fi
 
 # chunked reads: POP_CHUNK=2 -> two IN-lists; merged + deduped deterministically
 if [[ "$argv_log" == *"bookid IN (111,222)"* ]] && [[ "$argv_log" == *"bookid IN (333)"* ]]; then
     report "chunked_reads" ok
 else
-    report "chunked_reads" fail "argv=$(echo "$argv_log" | grep -o 'IN ([0-9,]*)' | tr '\n' '|')"
+    report "chunked_reads" fail "argv=$(echo "$argv_log" | grep -o "IN ([0-9,]*)" | tr '\n' '|')"
 fi
 
 if grep -q "bookids registered" "$OUT" && grep -q "3" "$OUT" <<<"$(grep 'bookids registered' "$OUT")"; then

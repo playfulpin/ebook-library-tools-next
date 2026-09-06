@@ -9,6 +9,41 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **`bin/populate_myprivatelib.sh` v1.2.0 -> v1.3.0 — key strategy
+  reversed: flibusta SOURCE keys copied verbatim, NO synthetic keys
+  (docs/`DO_IT_20260906_141511.md`).**  The synthetic 1..N key
+  generation introduced in v1.2.0 violated the population contract:
+  the target must map `flibusta` -> `myprivatelib` strictly by the md5
+  checksum of the uncompressed file, with keys preserved per source
+  definition.  Changes:
+
+  - every managed INSERT now carries the flibusta key values unchanged:
+    the md5-resolved `bookid`, the source `authorid`/`genreid`/
+    `seqid`, and the child PKs (`la_id`/`gn_id`/`sq_id`/`rt_id`/
+    `ci_id`) straight from the source rows — no tool-assigned
+    counters, no `@<var>_<old>` session-variable remaps, no
+    `LAST_INSERT_ID()`;
+  - `mlgenrename.parentgenreid` is the source value verbatim (the
+    source tree is self-consistent, so no parent remap is needed); the
+    ancestor fetch dedupes by id when a fetched ancestor is also a used
+    genre (both carry the same source id now);
+  - the v1.2.0 AUTO_INCREMENT strip is retained unchanged — a verbatim
+    source key is a plain PK value, not a server-generated one, and the
+    `la_id`/`gn_id`/`sq_id`/`rt_id`/`ci_id` columns are plain `NOT
+    NULL` (the strip is exactly what allows the verbatim child PKs to
+    load);
+  - new post-reload **FK integrity gate**: 9 reference paths checked,
+    any orphan aborts the run — with verbatim keys a wrong reference can
+    no longer be hidden by a remap;
+  - the rebuild remains a purge-and-reload (`TRUNCATE` all 9 managed
+    tables first) in a single client session, byte-deterministic;
+  - mock suite grown to **35 assertions** (source-key INSERTs for all
+    9 tables, no-`SET @var` guarantee, FK gate incl. the
+    abort-on-orphans path);
+  - `myprivatelib` purged and re-populated live; verification: key
+    counts match the distinct-md5 bookids, 0 AUTO_INCREMENT columns, 0
+    orphan references.
+
 - **`bin/populate_myprivatelib.sh` v1.1.1 -> v1.2.0 — AUTO_INCREMENT
   stripped from the target schema; explicit tool-assigned keys (docs/
   `DO_IT.md`).**  App re-testing showed MultiLib.exe still misbehaves with

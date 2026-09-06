@@ -442,25 +442,29 @@ why the catalog's AUTO_INCREMENT watermarks run far ahead of the row
 counts (e.g. `mlseqname`: 80,744 rows but watermark 112,843) — the ids
 are sparse, inherited from the source catalog.
 
-**Consequence for `myprivatelib`:** copying flibusta's ids wholesale
-(the v1.0.0 populate) broke the app's key bookkeeping — the app showed
-catalog basics but no books. The v1.1.0 populate therefore regenerates
-**every** key; **v1.2.0 (per `docs/DO_IT.md`) goes further: the app also
-treats server-generated (AUTO_INCREMENT) PK columns differently from the
-original schema's plain PK columns**, so the populate tool first strips
+**Consequence for `myprivatelib`:** **v1.3.0 (per
+`docs/DO_IT_20260906_141511.md`) is the current contract: keys are the
+flibusta SOURCE keys, copied verbatim — the tool generates NO synthetic
+keys.**  The md5 match resolves an on-disk file to the catalog `bookid`,
+and that `bookid` (plus the source `authorid`/`genreid`/`seqid` and the
+child PKs `la_id`/`gn_id`/`sq_id`/`rt_id`/`ci_id`) is inserted unchanged,
+so every reference relationship in `myprivatelib` is identical to
+flibusta's.  The **v1.2.0 (per `docs/DO_IT.md`) AUTO_INCREMENT strip
+stays**: the app treats server-generated PK columns differently from the
+original schema's plain PK columns, so the populate tool first strips
 `AUTO_INCREMENT` from all 16 PK columns of the target schema
 (schema-driven, attribute-preserving `ALTER TABLE ... MODIFY COLUMN`
 from `SHOW CREATE TABLE`, verified via `information_schema.COLUMNS.EXTRA`)
-and then assigns **every** key explicitly: `INSERT` one row with a
-contiguous tool-assigned id → capture it into a session variable
-(`@bid_<old>`, `@aid_<old>`, `@gid_<old>`, `@sid_<old>`) → child rows
-reference only captured variables — the server never generates a key.
-(The strip also exposed that the child tables' own PKs — `la_id`,
-`gn_id`, `sq_id`, `rt_id`, `ci_id` — must be assigned explicitly too;
-the v1.2.0 emitters cover all of them, since a stripped PK is plain
-`NOT NULL` with no default.)
-`TRUNCATE` at the top of the one-session script restarts the assignment
-at 1, so every run is a clean, idempotent rebuild with **contiguous ids**.
+— which is exactly what makes verbatim keys loadable: a stripped PK is
+plain `NOT NULL` with no default, and the source value satisfies it
+(The strip had also exposed that the child tables' own PKs must be
+supplied explicitly — v1.3.0 supplies them verbatim.)  History: v1.0.0
+copied ids via `INSERT…SELECT` without the strip; v1.1.x regenerated
+keys via `LAST_INSERT_ID()`; v1.2.0 assigned contiguous 1..N ids — all
+three are superseded by the verbatim-copy contract.
+`TRUNCATE` at the top of the one-session script makes every run a clean,
+idempotent purge-and-reload, and a post-reload **FK integrity gate**
+verifies 9 reference paths (any orphan aborts).
 The catalog side is unchanged (its AUTO_INCREMENT is the dump loader's
 legacy and the app's own databases keep the original DDL). See
 `bin/populate_myprivatelib.sh` and [6.5](#65-populate_myprivatelibsh--the-personal-library-rebuild).
@@ -624,11 +628,11 @@ writes `flibusta`:
 | `bin/reconcile_library.sh` | `mlauthorname` snapshot | none | Collection progress: disk `Books` folders vs recommended-author list |
 | `bin/estimate_download_size.sh` | `mlbook.filesize` per author | none | Size the next to-collect round |
 | `bin/backup_myprivatelib.sh` | — | mysqldump of `myprivatelib` | Safety net: backup / verify / restore / list |
-| `bin/populate_myprivatelib.sh` | `flibusta.mlbook` (md5 map + catalog rows), `mlauthor`, `mlauthorname`, `mlgenre`, `mlgenrename`, `mlseq`, `mlseqname`, `mlrating`, `mlcustinfo` | `myprivatelib` managed tables (fresh keys) | Rebuild the personal library from the `Books` folder |
+| `bin/populate_myprivatelib.sh` | `flibusta.mlbook` (md5 map + catalog rows), `mlauthor`, `mlauthorname`, `mlgenre`, `mlgenrename`, `mlseq`, `mlseqname`, `mlrating`, `mlcustinfo` | `myprivatelib` managed tables (source keys verbatim) | Rebuild the personal library from the `Books` folder |
 
 ### 6.5 populate_myprivatelib.sh — the personal-library rebuild
 
-**populate_myprivatelib.sh data flow** (v1.2.0):
+**populate_myprivatelib.sh data flow** (v1.3.0):
 
 ```
 Books folder ──walk──▶ hash each file (zip → decompressed FB2 md5;
@@ -643,15 +647,19 @@ flibusta (chunked reads, POP_CHUNK=500) ──▶ one SQL script, one session:
         │     ALTER PK columns  (strip AUTO_INCREMENT — schema-driven,
         │                           all 16 PK columns, rows untouched)
         │     TRUNCATE the 9 managed tables
-        │     INSERT mlauthorname  (explicit @aid_* per author; our books only)
-        │     INSERT mlgenrename   (explicit @gid_*; used genres + their
-        │                           ancestor category rows pulled from the
-        │                           catalog, parent remap, parents first)
-        │     INSERT mlseqname     (explicit @sid_* per series)
-        │     INSERT mlbook        (explicit @bid_*; catalog filename,
-        │                           on-disk arcname/filesize, ext='fb2')
-        │     INSERT mlauthor / mlgenre / mlseq     (reference captured vars)
-        │     INSERT mlrating / mlcustinfo          (reference captured vars)
+        │     INSERT mlauthorname  (source authorid verbatim; our books only)
+        │     INSERT mlgenrename   (source genreid/parentgenreid verbatim;
+        │                           used genres + their ancestor category
+        │                           rows pulled from the catalog, deduped
+        #                           by id)
+        │     INSERT mlseqname     (source seqid verbatim)
+        │     INSERT mlbook        (source bookid verbatim; catalog
+        │                           filename, on-disk arcname/filesize,
+        │                           ext='fb2')
+        │     INSERT mlauthor / mlgenre / mlseq     (source keys + source
+        │                           child PKs la_id/gn_id/sq_id verbatim)
+        │     INSERT mlrating / mlcustinfo          (source rt_id/ci_id)
+        │     FK integrity gate: 9 reference paths, 0 orphans required
         ▼
 myprivatelib rebuilt — only books on disk; flibusta never written
 ```
@@ -663,9 +671,9 @@ Key behaviours worth knowing:
   aborts on mismatch (a partial rebuild would leave dangling keys).
 * **Genre tree** — each used genre's ancestor rows are fetched
   iteratively (bounded, with a tried-set so a dangling parent is not
-  re-fetched forever) and inserted parent-first so `@gid_*` exists when
-  a child references it; a parent absent from the catalog degrades to
-  `NULL`.
+  re-fetched forever); ids are verbatim, so a fetched ancestor that is
+  also a used genre is deduped by id, and the tree is self-consistent
+  without any parent remap.
 * **`mlbook.filename` = the catalog value** (`flibusta.mlbook.filename`,
   transliterated or numeric — see [7.2](#72-filename--arcname-are-not-the-on-disk-path));
   `arcname` and `filesize` come from the on-disk walk (`arcname` is the
@@ -912,11 +920,14 @@ ahead of row counts because catalog ids are sparse).
 | mlgenrename | 296 | 1,000,025 |
 | mlcoverpage / mldescription / mlactual / mldownloaddata / mlnews / mlnewsname / mluserkeyword / mluserprim | 0 | 1 (or n/a for `mlactual`, which has no auto PK) |
 
-### 9.2 myprivatelib row counts (v1.1.1 rebuild)
+### 9.2 myprivatelib row counts (v1.1.1 rebuild; superseded by the v1.3.0 verbatim-key rebuild — see the CHANGELOG for the current counts)
 
 Personal library after the 2026-09-04 v1.1.1 rebuild (2,156 files →
-2,148 matched → 2,138 bookids). Fresh contiguous keys: every
-`AUTO_INCREMENT` watermark = rows + 1.
+2,148 matched → 2,138 bookids). Keys were regenerated contiguously in
+that build: every `AUTO_INCREMENT` watermark = rows + 1.  **Superseded
+2026-09-06:** the v1.3.0 rebuild copies the flibusta source keys
+verbatim, so the watermark column no longer applies (the PK columns are
+plain after the strip).
 
 | Table | Rows | AUTO_INCREMENT next |
 |---|---|---|

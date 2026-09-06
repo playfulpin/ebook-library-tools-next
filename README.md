@@ -393,33 +393,36 @@ unambiguous.  **Only books present in the `Books` folder are represented**
 ./bin/populate_myprivatelib.sh --debug             # verbose diagnostics
 ```
 
-**Explicit keys, AUTO_INCREMENT-free schema (v1.2.0).**  MultiLib.exe
+**Source keys verbatim, AUTO_INCREMENT-free schema (v1.3.0).**  MultiLib.exe
 treats server-generated (AUTO_INCREMENT) primary-key columns differently
 from the original schema's plain PK columns and misbehaves with a
-populated library (see `docs/DO_IT.md`).  The tool therefore first
+populated library (see `docs/DO_IT.md`), so the tool first
 **strips `AUTO_INCREMENT` from all 16 PK columns** of the target schema
 (schema-driven, attribute-preserving `ALTER TABLE ... MODIFY COLUMN` —
 the column definition is read from `SHOW CREATE TABLE` and only the
 `AUTO_INCREMENT` keyword is dropped; list in `PK_COLUMNS`, verified
-afterwards via `information_schema.COLUMNS.EXTRA`), and then assigns
-EVERY key **explicitly**: one `INSERT` per row with a contiguous id
-(`authorid`/`genreid`/`seqid`/`bookid` = 1..N in deterministic emission
-order), captured into a session variable (`@bid_<old>`, `@aid_<old>`,
-`@gid_<old>`, `@sid_<old>`); the join tables (`mlauthor`, `mlgenre`,
-`mlseq`) and the attached data (`mlrating`, `mlcustinfo`) reference only
-those assigned ids — the server never generates a key.  The whole
-rebuild runs as one SQL script in a single client session (`TRUNCATE`
-first, so every run is a clean rebuild).  Reference entities
-are inserted for the personal library's books only — `mlauthorname`
-(distinct authors), `mlgenrename` (distinct genres **plus their ancestor
-categories, so the genre tree the app renders is preserved**;
-`parentgenreid` remapped to the assigned parent id, or `NULL` when an
-ancestor is absent), `mlseqname` (distinct series).  `mlbook.filename`
-carries the **catalog value** (`flibusta.mlbook.filename`, the
-transliterated name the app displays — not the on-disk path), `arcname`
-the on-disk zip member name (`library='myprivatelib'`, `filesize` =
-on-disk bytes, catalog metadata copied verbatim).
-`mlrating` rows come from `flibusta.mlrating` — the per-book aggregate
+afterwards via `information_schema.COLUMNS.EXTRA`).  Keys themselves are
+**the flibusta source keys, copied verbatim — the tool generates NO
+synthetic keys** (per `docs/DO_IT_20260906_141511.md`): the md5 match
+resolves a file to the catalog `bookid`, and that `bookid` (plus the
+source `authorid`/`genreid`/`seqid` and the child PKs
+`la_id`/`gn_id`/`sq_id`/`rt_id`/`ci_id`) is inserted unchanged — the
+v1.2.0 tool-assigned 1..N counters and session-variable remaps are gone.
+Because every reference now equals its source value, a post-reload
+**FK integrity gate** verifies 9 reference paths (0 orphans required).
+The whole rebuild runs as one SQL script in a single client session
+(`TRUNCATE` first, so every run is a clean purge-and-reload).  Reference
+entities are inserted for the personal library's books only —
+`mlauthorname` (distinct authors), `mlgenrename` (distinct genres
+**plus their ancestor categories, so the genre tree the app renders is
+preserved**; `parentgenreid` is the source value verbatim — the tree is
+self-consistent in the source), `mlseqname` (distinct series).
+`mlbook.filename` carries the **catalog value**
+(`flibusta.mlbook.filename`, the transliterated name the app displays —
+not the on-disk path), `arcname` the on-disk zip member name
+(`library='myprivatelib'`, `filesize` = on-disk bytes, catalog metadata
+copied verbatim).  `mlrating` rows come from `flibusta.mlrating` — the
+per-book aggregate
 rating produced by `BookTracker-import/sql/Flibusta_Load_mlrating.sql`.
 `flibusta` is read-only; app-owned tables in `myprivatelib` (`mlactual`,
 `mldownloaddata`, `mlnews*`, `mluser*`) are never touched.
@@ -499,7 +502,7 @@ Releases are tagged with a tool-prefixed name:
 | `bin/reconcile_library.sh` | 1.0.3 | `reconcile_library-1.0.3` |
 | `bin/estimate_download_size.sh` | 1.0.0 | `estimate_download_size-1.0.0` |
 | `bin/backup_myprivatelib.sh` | 1.0.0 | `backup_myprivatelib-1.0.0` |
-| `bin/populate_myprivatelib.sh` | 1.2.0 | `populate_myprivatelib-1.2.0` |
+| `bin/populate_myprivatelib.sh` | 1.3.0 | `populate_myprivatelib-1.3.0` |
 | `lib/utf8_prefix_generator.awk` | 1.1 | `utf8_prefix_generator-1.1` |
 
 `v2.8.1` and `v6.6.8` predate the tool-prefixed convention.

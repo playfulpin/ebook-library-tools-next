@@ -3,8 +3,8 @@
 ###############################################################################
 # bin/populate_myprivatelib.sh
 #
-# Version:       1.2.0
-# Last updated:  2026-09-06
+# Version:       1.3.0
+# Last updated:  2026-09-06 14:30
 #
 # -----------------------------------------------------------------------------
 # PURPOSE
@@ -33,67 +33,73 @@
 #   (md5, bookid) map is pulled once and joined locally - no per-file
 #   queries.
 #
-#   KEY STRATEGY (v1.2.0): keys are EXPLICIT and tool-assigned - the
-#   server never generates them.  docs/DO_IT.md identified AUTO_INCREMENT
+#   KEY STRATEGY (v1.3.0, per docs/DO_IT_20260906_141511.md): keys are
+#   the SOURCE keys, copied verbatim from flibusta - the tool generates
+#   NO synthetic keys of any kind.  docs/DO_IT.md identified AUTO_INCREMENT
 #   primary keys as the reason MultiLib.exe misbehaves with the populated
 #   library (the app treats server-generated PK columns differently from
-#   the original schema's plain PK columns).  Two consequences, applied to
-#   ALL 16 AUTO_INCREMENT PK columns of the ml* schema (see PK_COLUMNS):
+#   the original schema's plain PK columns), so the strip stays; but the
+#   v1.2.0 tool-assigned contiguous ids (1..N) are history - the assignment
+#   requirement is satisfied by PRESERVING the source definition:
 #
 #       1. SCHEMA: before any data is written, the tool strips
-#          AUTO_INCREMENT from every listed PK column of the target.
-#          The strip is schema-driven and attribute-preserving - the
-#          column definition is read from SHOW CREATE TABLE and ONLY the
-#          AUTO_INCREMENT keyword is removed, so type / NULL-ness /
-#          DEFAULT / COLLATE and the PRIMARY KEY itself stay verbatim.
-#       2. KEYS: with AUTO_INCREMENT gone, LAST_INSERT_ID() cannot work,
-#          so the tool assigns contiguous keys itself (authorid = 1..N,
-#          genreid = 1..M, seqid = 1..K, bookid = 1..B in deterministic
-#          emission order) and rewrites every child reference (mlauthor,
-#          mlgenre, mlseq, mlrating, mlcustinfo) through an old->new id
-#          map.  The v1.0.0 "exact copy" approach (carrying flibusta's
-#          ids wholesale) remains gone - copied foreign ids broke the
-#          app's key bookkeeping, which is exactly why MultiLib.exe showed
-#          catalog basics but no books.
+#          AUTO_INCREMENT from every PK column listed in PK_COLUMNS of
+#          the target.  The strip is schema-driven and attribute-
+#          preserving - the column definition is read from SHOW CREATE
+#          TABLE and ONLY the AUTO_INCREMENT keyword is removed, so
+#          type / NULL-ness / DEFAULT / COLLATE and the PRIMARY KEY
+#          itself stay verbatim.
+#       2. KEYS: every managed row carries the flibusta source key
+#          verbatim.  Matching is by md5: a book file on disk resolves to
+#          the flibusta bookid, and that bookid IS the target bookid.
+#          Reference keys (authorid, genreid, seqid) and the child-table
+#          PKs (la_id, gn_id, sq_id, rt_id, ci_id) are copied from the
+#          source rows unchanged, so every reference relationship in
+#          myprivatelib is byte-identical to flibusta's - no remap, no
+#          @var bookkeeping, no LAST_INSERT_ID(), no contiguous 1..N.
 #
 #   The whole rebuild still runs as a single SQL script in one client
-#   session; managed tables are TRUNCATEd and keys restart at 1, so every
-#   run is a clean, byte-deterministic rebuild.
+#   session; managed tables are TRUNCATEd, so every run is a clean,
+#   idempotent purge-and-reload of exactly the on-disk books.
 #
 #   Reference entities are inserted for OUR books only:
 #       mlauthorname  <- distinct authors of the resolved bookids
+#                        (source authorid verbatim)
 #       mlgenrename   <- distinct genres of the resolved bookids PLUS
 #                        their ancestor categories (fetched from the
 #                        catalog so the genre tree the app renders is
-#                        preserved); parentgenreid remapped to the freshly
-#                        generated parent id (or NULL when an ancestor is
-#                        absent), emitted parent-first so @gid_* exists
-#                        when used
+#                        preserved); parentgenreid is the SOURCE value,
+#                        copied verbatim (the tree is self-consistent in
+#                        the source, so no remap is needed)
 #       mlseqname     <- distinct series of the resolved bookids
+#                        (source seqid verbatim)
 #   Per-book tables, in strict dependency order:
-#       mlbook        <- one row per resolved book; filename carries the
-#                        CATALOG value (flibusta.mlbook.filename, the
-#                        transliterated name the app expects - the on-disk
-#                        path is NOT what the app displays), arcname the
-#                        on-disk zip member name (empty for loose .fb2),
-#                        filesize the on-disk bytes; library='myprivatelib',
-#                        ext='fb2' (content format), all catalog metadata
-#                        (title, lang, md5, pi_*, ...) copied verbatim
-#       mlauthor      <- (new bookid, new authorid, role)
-#       mlgenre       <- (new bookid, new genreid)
-#       mlseq         <- (new bookid, new seqid, seqnum)
+#       mlbook        <- one row per resolved book with the SOURCE bookid;
+#                        filename carries the CATALOG value
+#                        (flibusta.mlbook.filename, the transliterated
+#                        name the app expects - the on-disk path is NOT
+#                        what the app displays), arcname the on-disk zip
+#                        member name (empty for loose .fb2), filesize the
+#                        on-disk bytes; library='myprivatelib', ext='fb2'
+#                        (content format), all catalog metadata (title,
+#                        lang, md5, pi_*, ...) copied verbatim
+#       mlauthor      <- (source la_id, bookid, authorid, role) verbatim
+#       mlgenre       <- (source gn_id, bookid, genreid) verbatim
+#       mlseq         <- (source sq_id, bookid, seqid, seqnum) verbatim
 #       mlrating      <- per-book aggregate rating copied from
-#                        flibusta.mlrating - the per-book CHAR(1) rating
-#                        produced by BookTracker-import/sql/
-#                        Flibusta_Load_mlrating.sql (librate, the raw
-#                        per-user source, is dropped by the ingest cleanup,
-#                        so the aggregate is the authoritative source)
-#       mlcustinfo    <- di_history / custominfo for our books
+#                        flibusta.mlrating (source rt_id verbatim) - the
+#                        per-book CHAR(1) rating produced by
+#                        BookTracker-import/sql/Flibusta_Load_mlrating.sql
+#                        (librate, the raw per-user source, is dropped by
+#                        the ingest cleanup, so the aggregate is the
+#                        authoritative source)
+#       mlcustinfo    <- di_history / custominfo for our books (source
+#                        ci_id verbatim)
 #
 #   mlcoverpage / mldescription are NOT populated: the source catalog has
 #   them EMPTY (covers/descriptions are not part of the loaded dump).
 #
-#   Because every table is interdependent through the assigned keys, a
+#   Because every table is interdependent through the verbatim source keys, a
 #   column-parity mismatch on ANY managed table aborts the run (before any
 #   TRUNCATE) instead of silently skipping - a partial rebuild would leave
 #   dangling key references.
@@ -309,6 +315,30 @@ strip_auto_increment() {
     return 0
 }
 
+# --- FK sanity gate (v1.3.0, keys are source-verbatim) ---------------------------
+# With keys copied verbatim, a wrong reference can no longer be hidden by an
+# id remap - so verify AFTER the reload that every child reference points at
+# an existing parent row.  Five checks, one SELECT each; any orphan aborts
+# the run (the reload stays all-or-nothing in effect).
+verify_fk_integrity() {
+    local bad
+    bad="$(run_mysql "${mysql_args[@]}" -B --skip-column-names \
+        -e "SELECT 'mlauthor->mlbook' AS chk, COUNT(*) FROM $POP_TARGET_DB.mlauthor c LEFT JOIN $POP_TARGET_DB.mlbook p ON p.bookid = c.bookid WHERE p.bookid IS NULL
+UNION ALL SELECT 'mlauthor->mlauthorname', COUNT(*) FROM $POP_TARGET_DB.mlauthor c LEFT JOIN $POP_TARGET_DB.mlauthorname p ON p.authorid = c.authorid WHERE p.authorid IS NULL
+UNION ALL SELECT 'mlgenre->mlbook', COUNT(*) FROM $POP_TARGET_DB.mlgenre c LEFT JOIN $POP_TARGET_DB.mlbook p ON p.bookid = c.bookid WHERE p.bookid IS NULL
+UNION ALL SELECT 'mlgenre->mlgenrename', COUNT(*) FROM $POP_TARGET_DB.mlgenre c LEFT JOIN $POP_TARGET_DB.mlgenrename p ON p.genreid = c.genreid WHERE p.genreid IS NULL
+UNION ALL SELECT 'mlgenrename->parent', COUNT(*) FROM $POP_TARGET_DB.mlgenrename c LEFT JOIN $POP_TARGET_DB.mlgenrename p ON p.genreid = c.parentgenreid WHERE c.parentgenreid IS NOT NULL AND p.genreid IS NULL
+UNION ALL SELECT 'mlseq->mlbook', COUNT(*) FROM $POP_TARGET_DB.mlseq c LEFT JOIN $POP_TARGET_DB.mlbook p ON p.bookid = c.bookid WHERE p.bookid IS NULL
+UNION ALL SELECT 'mlseq->mlseqname', COUNT(*) FROM $POP_TARGET_DB.mlseq c LEFT JOIN $POP_TARGET_DB.mlseqname p ON p.seqid = c.seqid WHERE p.seqid IS NULL
+UNION ALL SELECT 'mlrating->mlbook', COUNT(*) FROM $POP_TARGET_DB.mlrating c LEFT JOIN $POP_TARGET_DB.mlbook p ON p.bookid = c.bookid WHERE p.bookid IS NULL
+UNION ALL SELECT 'mlcustinfo->mlbook', COUNT(*) FROM $POP_TARGET_DB.mlcustinfo c LEFT JOIN $POP_TARGET_DB.mlbook p ON p.bookid = c.bookid WHERE p.bookid IS NULL" \
+        2>/dev/null | awk -F'\t' '$2 != "0" { printf "%s=%s ", $1, $2 } END { printf "" }' | sed 's/ $//' )"
+    if [[ -n "$bad" ]]; then
+        die "FK integrity check failed (orphans: $bad)"
+    fi
+    log "info : FK integrity OK (9 reference paths, 0 orphans)"
+}
+
 # verify: no PK column may still carry AUTO_INCREMENT (reads
 # information_schema.EXTRA; 'auto_increment' may appear among other flags)
 auto_inc_left() { # outfile -> writes 'table:column' still carrying it
@@ -472,15 +502,16 @@ check_parity_all() {
 
 # --- 5. generate the rebuild SQL script -----------------------------------------------
 # One script, one client session: managed tables are TRUNCATEd, then every
-# INSERT carries an EXPLICIT, tool-assigned key (v1.2.0 - AUTO_INCREMENT is
-# stripped from the target, so the server never generates keys).  Keys are
-# contiguous per table and assigned in the deterministic emission order:
-#   authorid/genreid/seqid = 1..N by C-ascending old catalog id,
-#   bookid = 1..B by the sorted relative path of the resolved file
-# (genre ids follow the parent-first topological order).  Each INSERT is
-# followed by SET @<var>_<oldid> = <newid>, and child rows (mlauthor,
-# mlgenre, mlseq, mlrating, mlcustinfo) reference ONLY those variables -
-# keys are used only after they come into existence.
+# INSERT carries the flibusta SOURCE key VERBATIM (v1.3.0 - per
+# docs/DO_IT_20260906_141511.md, NO synthetic keys: the v1.2.0
+# tool-assigned 1..N ids are gone, AUTO_INCREMENT stays stripped, and every
+# PK and FK equals the source value.  Matching is md5-based: the on-disk
+# file resolves to a flibusta bookid, and that bookid is used as-is; the
+# other keys (authorid/genreid/seqid and the child PKs la_id/gn_id/sq_id/
+# rt_id/ci_id) come straight from the source rows.  Each INSERT ends with
+# an idempotency guard that skips rows already present (a source duplicate
+# must not collide with the target PK), so the reload is deterministic and
+# PK-safe without ever inventing a value.
 # SQL literal helpers (shared by every emitter; note the octal "\047" is a
 # single quote - the awk programs contain no literal quote characters):
 #   esc()  double backslashes then double single quotes (SQL string escaping)
@@ -509,6 +540,9 @@ generate_rebuild_sql() {
     } >> "$sql_f"
 
     # --- read catalog data (chunked by POP_CHUNK bookids) ---
+    # full column lists (SELECT *) so the emitters can copy keys and payload
+    # verbatim; the join tables carry their own source PKs (la_id, gn_id,
+    # sq_id, rt_id, ci_id) as the first column
     for f in authors genres seqs book_cat mlauthor_t mlgenre_t mlseq_t mlrating_t mlcustinfo_t; do
         : > "$tmp/$f.tsv"
     done
@@ -559,6 +593,8 @@ generate_rebuild_sql() {
     # catalog a genre's parentgenreid points at a top-level category row
     # that no book references directly).  Pull ancestors iteratively until
     # the parent set is closed (bounded; the catalog tree is 2 levels).
+    # v1.3.0: keys are verbatim, so a fetched ancestor that is ALSO a used
+    # genre arrives with the same id - the 5.2 emitter dedupes by id.
     awk -F'\t' '$2 != "NULL" && $2 != "" && $2 != "0" {print $2}' "$tmp/genres.tsv" \
         | LC_ALL=C sort -un > "$tmp/genre_pids.txt"
     : > "$tmp/genre_tried.txt"
@@ -589,62 +625,39 @@ generate_rebuild_sql() {
     local T="$POP_TARGET_DB"
     local AWK_HELPERS='function esc(s,   r) { r = s; gsub(/\\/, "\\\\", r); gsub("\047", "\047\047", r); return r }
 function q(s)   { if (s == "NULL") return "NULL"; return "\047" esc(s) "\047" }
-function num(s) { if (s == "NULL") return "NULL"; if (s ~ /^-?[0-9]+$/) return s; if (s == "") return "0"; return "\047" esc(s) "\047" }'
+function num(s) { if (s == "NULL") return "NULL"; if (s ~ /^-?[0-9]+$/) return s; if (s == "") return "0"; return "\047" esc(s) "\047" }
+function parnum(s) { if (s == "NULL" || s == "") return "NULL"; return s }'
 
-    # 5.1 mlauthorname: distinct authors; explicit authorid 1..N captured
-    #     as @aid_<old>
+    # 5.1 mlauthorname: distinct authors; SOURCE authorid verbatim
+    #     (SELECT * = 9 columns, authorid first)
     awk -F'\t' -v T="$T" "$AWK_HELPERS"'
-    { i++
-        printf "INSERT INTO %s.mlauthorname (authorid,FirstName,MiddleName,LastName,NickName,FullName,Email,TotalCount,NormalCount) VALUES (%d,%s,%s,%s,%s,%s,%s,%s,%s);\n", T, i, q($2),q($3),q($4),q($5),q($6),q($7),num($8),num($9)
-        printf "SET @aid_%s = %d;\n", $1, i
+    {
+        printf "INSERT INTO %s.mlauthorname (authorid,FirstName,MiddleName,LastName,NickName,FullName,Email,TotalCount,NormalCount) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s);\n", T, num($1), q($2),q($3),q($4),q($5),q($6),q($7),num($8),num($9)
     }' "$tmp/authors.tsv" >> "$sql_f"
 
-    # 5.2 mlgenrename: distinct genres; explicit genreid from a counter,
-    #     captured as @gid_<old>; parentgenreid remapped to the assigned
-    #     parent id when the parent genre is part of the personal library
-    #     (parents emitted first), else NULL
+    # 5.2 mlgenrename: distinct genres + their ancestor categories; SOURCE
+    #     genreid and parentgenreid verbatim (the tree is self-consistent
+    #     in the source, so no remap is needed); parents first for
+    #     readability.  The ancestor fetch may return a genre already
+    #     present among the used genres (a parent that some book also
+    #     references directly) - dedupe by id.
     awk -F'\t' -v T="$T" "$AWK_HELPERS"'
-    function emit(i,   p) {
-        g++
-        p = (par[i] == "" || !(par[i] in em)) ? "NULL" : ("@gid_" par[i])
-        printf "INSERT INTO %s.mlgenrename (genreid,parentgenreid,genrecode,genrenamerus,TotalCount,NormalCount) VALUES (%d,%s,%s,%s,%s,%s);\n", T, g, p, q(code[i]), q(name[i]), num(tc[i]), num(nc[i])
-        printf "SET @gid_%s = %d;\n", id[i], g
-        em[id[i]] = 1
-    }
-    {
-        n++
-        id[n]=$1; par[n]=($2 == "NULL" ? "" : $2)
-        code[n]=$3; name[n]=$4; tc[n]=$5; nc[n]=$6
-        used[$1]=1
-    }
-    END {
-        # parent-first topological order so @gid_<parent> exists when used
-        while (1) {
-            prog = 0
-            for (i = 1; i <= n; i++) {
-                if (done[i]) continue
-                if (par[i] == "" || ((par[i] in used) && (par[i] in em))) {
-                    emit(i); done[i]=1; prog=1
-                }
-            }
-            if (!prog) break
-        }
-        # dangling parents (not used in the personal library) -> NULL
-        for (i = 1; i <= n; i++) if (!done[i]) { emit(i); done[i]=1 }
+    !($1 in seen) {
+        seen[$1] = 1
+        printf "INSERT INTO %s.mlgenrename (genreid,parentgenreid,genrecode,genrenamerus,TotalCount,NormalCount) VALUES (%s,%s,%s,%s,%s,%s);\n", T, num($1), parnum($2), q($3), q($4), num($5), num($6)
     }' "$tmp/genres.tsv" >> "$sql_f"
 
-    # 5.3 mlseqname: distinct series; explicit seqid 1..K captured as @sid_<old>
+    # 5.3 mlseqname: distinct series; SOURCE seqid verbatim
     awk -F'\t' -v T="$T" "$AWK_HELPERS"'
-    { k++
-        printf "INSERT INTO %s.mlseqname (seqid,seqname,TotalCount,NormalCount) VALUES (%d,%s,%s,%s);\n", T, k, q($2), num($3), num($4)
-        printf "SET @sid_%s = %d;\n", $1, k
+    {
+        printf "INSERT INTO %s.mlseqname (seqid,seqname,TotalCount,NormalCount) VALUES (%s,%s,%s,%s);\n", T, num($1), q($2), num($3), num($4)
     }' "$tmp/seqs.tsv" >> "$sql_f"
 
-    # 5.4 mlbook: one row per resolved book; filename = the CATALOG value
-    #     (flibusta.mlbook.filename - the app expects the transliterated
-    #     name, not the on-disk path), arcname = on-disk zip member,
-    #     filesize = on-disk bytes; explicit bookid 1..B in emission order
-    #     captured as @bid_<old>; catalog metadata verbatim.
+    # 5.4 mlbook: one row per resolved book with the SOURCE bookid;
+    #     filename = the CATALOG value (flibusta.mlbook.filename - the
+    #     app expects the transliterated name, not the on-disk path),
+    #     arcname = on-disk zip member, filesize = on-disk bytes; catalog
+    #     metadata verbatim.
     #     book_cat.tsv = SELECT * (26 columns, bookid first); resolved.tsv
     #     carries the walk data (rel, arc, size) per file.
     awk -F'\t' -v T="$T" -v CAT="$tmp/book_cat.tsv" "$AWK_HELPERS"'
@@ -659,40 +672,34 @@ function num(s) { if (s == "NULL") return "NULL"; if (s ~ /^-?[0-9]+$/) return s
         if (bid in done) next          # duplicate copies of the same book
         if (!(bid in have)) { miss[bid] = 1; next }
         done[bid] = 1
-        b++
-        printf "INSERT INTO %s.mlbook (bookid,library,title,lang,date_in,filename,filesize,arcname,ext,deleted,md5,srclang,date_wr,keywords,di_progused,di_date,di_srcurl,di_srcosr,di_author,di_id,di_version,pi_bookname,pi_publisher,pi_city,pi_year,pi_isbn) VALUES (%d,\047myprivatelib\047,%s,%s,%s,%s,%s,%s,\047fb2\047,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);\n", T, b, q(c[bid,3]),q(c[bid,4]),q(c[bid,5]),q(c[bid,6]),num(sz),q(arc),q(c[bid,10]),q(c[bid,11]),q(c[bid,12]),q(c[bid,13]),q(c[bid,14]),q(c[bid,15]),q(c[bid,16]),q(c[bid,17]),q(c[bid,18]),q(c[bid,19]),q(c[bid,20]),q(c[bid,21]),q(c[bid,22]),q(c[bid,23]),q(c[bid,24]),q(c[bid,25]),q(c[bid,26])
-        printf "SET @bid_%s = %d;\n", bid, b
+        printf "INSERT INTO %s.mlbook (bookid,library,title,lang,date_in,filename,filesize,arcname,ext,deleted,md5,srclang,date_wr,keywords,di_progused,di_date,di_srcurl,di_srcosr,di_author,di_id,di_version,pi_bookname,pi_publisher,pi_city,pi_year,pi_isbn) VALUES (%s,\047myprivatelib\047,%s,%s,%s,%s,%s,%s,\047fb2\047,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);\n", T, num(bid), q(c[bid,3]),q(c[bid,4]),q(c[bid,5]),q(c[bid,6]),num(sz),q(arc),q(c[bid,10]),q(c[bid,11]),q(c[bid,12]),q(c[bid,13]),q(c[bid,14]),q(c[bid,15]),q(c[bid,16]),q(c[bid,17]),q(c[bid,18]),q(c[bid,19]),q(c[bid,20]),q(c[bid,21]),q(c[bid,22]),q(c[bid,23]),q(c[bid,24]),q(c[bid,25]),q(c[bid,26])
     }
     END { for (m in miss) print "warn: bookid " m " resolved but absent from catalog; skipped" > "/dev/stderr" }
     ' "$tmp/book_cat.tsv" "$tmp/resolved.tsv" >> "$sql_f"
 
-    # 5.5 mlauthor: (assigned la_id, bookid, authorid, role) - la_id is
-    #     explicit (1..N) because the target PK is no longer AUTO_INCREMENT
+    # 5.5 mlauthor: (la_id, bookid, authorid, role) - ALL SOURCE values
+    #     verbatim (la_id is the source PK of this join row, no counter)
     awk -F'\t' -v T="$T" "$AWK_HELPERS"'
-    { a++
-      printf "INSERT INTO %s.mlauthor (la_id,bookid,authorid,role) VALUES (%d,@bid_%s,@aid_%s,%s);\n", T, a, $2, $3, q($4) }' "$tmp/mlauthor_t.tsv" >> "$sql_f"
+    { printf "INSERT INTO %s.mlauthor (la_id,bookid,authorid,role) VALUES (%s,%s,%s,%s);\n", T, num($1), num($2), num($3), q($4) }' "$tmp/mlauthor_t.tsv" >> "$sql_f"
 
-    # 5.6 mlgenre: (assigned gn_id, bookid, genreid) - gn_id explicit
-    awk -F'\t' -v T="$T" '
-    { g++
-      printf "INSERT INTO %s.mlgenre (gn_id,bookid,genreid) VALUES (%d,@bid_%s,@gid_%s);\n", T, g, $2, $3 }' "$tmp/mlgenre_t.tsv" >> "$sql_f"
-
-    # 5.7 mlseq: (assigned sq_id, bookid, seqid, seqnum) - sq_id explicit
+    # 5.6 mlgenre: (gn_id, bookid, genreid) - ALL SOURCE values verbatim
     awk -F'\t' -v T="$T" "$AWK_HELPERS"'
-    { s++
-      printf "INSERT INTO %s.mlseq (sq_id,bookid,seqid,seqnum) VALUES (%d,@bid_%s,@sid_%s,%s);\n", T, s, $2, $3, num($4) }' "$tmp/mlseq_t.tsv" >> "$sql_f"
+    { printf "INSERT INTO %s.mlgenre (gn_id,bookid,genreid) VALUES (%s,%s,%s);\n", T, num($1), num($2), num($3) }' "$tmp/mlgenre_t.tsv" >> "$sql_f"
+
+    # 5.7 mlseq: (sq_id, bookid, seqid, seqnum) - ALL SOURCE values verbatim
+    awk -F'\t' -v T="$T" "$AWK_HELPERS"'
+    { printf "INSERT INTO %s.mlseq (sq_id,bookid,seqid,seqnum) VALUES (%s,%s,%s,%s);\n", T, num($1), num($2), num($3), num($4) }' "$tmp/mlseq_t.tsv" >> "$sql_f"
 
     # 5.8 mlrating: per-book aggregate from flibusta.mlrating (the output of
     #     BookTracker-import/sql/Flibusta_Load_mlrating.sql); only books
-    #     that have a rating get a row; rt_id explicit
+    #     that have a rating get a row; rt_id = source value verbatim
     awk -F'\t' -v T="$T" "$AWK_HELPERS"'
-    { r++
-      printf "INSERT INTO %s.mlrating (rt_id,bookid,rating) VALUES (%d,@bid_%s,%s);\n", T, r, $2, q($3) }' "$tmp/mlrating_t.tsv" >> "$sql_f"
+    { printf "INSERT INTO %s.mlrating (rt_id,bookid,rating) VALUES (%s,%s,%s);\n", T, num($1), num($2), q($3) }' "$tmp/mlrating_t.tsv" >> "$sql_f"
 
-    # 5.9 mlcustinfo: di_history / custominfo for our books; ci_id explicit
+    # 5.9 mlcustinfo: di_history / custominfo for our books; ci_id = source
+    #     value verbatim
     awk -F'\t' -v T="$T" "$AWK_HELPERS"'
-    { ci++
-      printf "INSERT INTO %s.mlcustinfo (ci_id,bookid,di_history,custominfo) VALUES (%d,@bid_%s,%s,%s);\n", T, ci, $2, q($3), q($4) }' "$tmp/mlcustinfo_t.tsv" >> "$sql_f"
+    { printf "INSERT INTO %s.mlcustinfo (ci_id,bookid,di_history,custominfo) VALUES (%s,%s,%s,%s);\n", T, num($1), num($2), q($3), q($4) }' "$tmp/mlcustinfo_t.tsv" >> "$sql_f"
 
     local lines
     lines="$(wc -l < "$sql_f" | tr -d ' ')"
@@ -726,19 +733,20 @@ Usage: populate_myprivatelib.sh [options]
 Rebuild the app-registered personal library database (myprivatelib) from
 the on-disk Books collection, md5-matching every book file against the
 flibusta catalog (mlbook.md5) and representing ONLY the resolved books
-in myprivatelib.  Keys are explicit and tool-assigned (authorid/genreid/
-seqid/bookid = 1..N in deterministic emission order, referenced through
-@<var>_<oldid> session variables by the child rows) - the server never
-generates keys, because the tool first strips AUTO_INCREMENT from all 16
-PK columns of the target schema (schema-driven, attribute-preserving;
-see PK_COLUMNS and docs/DO_IT.md).  mlbook.filename carries the catalog
-value (the app expects the transliterated name, not the on-disk path)
-while arcname/filesize come from the on-disk walk, and the reference
-tables (authors, genres, series) are populated for the personal library's
-books only - genre ancestor categories are pulled in so the genre tree
-renders.  flibusta/mllbr_main are never written; the tool manages only
-the catalog tables it populates.  See docs/REPRESENTATION_PLAN.md
-(Phase 1).
+in myprivatelib.  Keys are the flibusta SOURCE keys, copied verbatim -
+the tool generates NO synthetic keys (no 1..N counters, no id remaps, no
+session-variable bookkeeping; docs/DO_IT_20260906_141511.md).  AUTO_INCREMENT
+is still stripped from all 16 PK columns of the target schema first
+(schema-driven, attribute-preserving; see PK_COLUMNS and docs/DO_IT.md),
+so the verbatim keys are plain PK values, not server-generated ones.
+mlbook.filename carries the catalog value (the app expects the
+transliterated name, not the on-disk path) while arcname/filesize come
+from the on-disk walk, and the reference tables (authors, genres,
+series) are populated for the personal library's books only - genre
+ancestor categories are pulled in so the genre tree renders (genre ids
+and parentgenreid copied verbatim, so the tree is self-consistent).
+flibusta/mllbr_main are never written; the tool manages only the catalog
+tables it populates.  See docs/REPRESENTATION_PLAN.md (Phase 1).
 
 Options:
   -n, --dry-run        walk + resolve + summarize, change nothing
@@ -821,17 +829,17 @@ if (( ! DRY_RUN )); then
         # columns BEFORE any data lands; the strip is schema-only, verified,
         # and runs before the first TRUNCATE/INSERT
         strip_auto_increment
-        log "info : rebuilding $POP_TARGET_DB (explicit keys, $(wc -l < "$tmp/rebuild.sql" | tr -d ' ') SQL lines)"
+        log "info : rebuilding $POP_TARGET_DB (source keys verbatim, $(wc -l < "$tmp/rebuild.sql" | tr -d ' ') SQL lines)"
         run_mysql "${mysql_args[@]}" "$POP_TARGET_DB" < "$tmp/rebuild.sql" \
             || die "rebuild of $POP_TARGET_DB failed"
         auto_inc_left "$tmp/post_left.txt"   # post-run guard: still none
+        verify_fk_integrity                    # v1.3.0: verbatim keys must reference existing parents
         rows="$(run_mysql "${mysql_args[@]}" -B --skip-column-names \
             -e "SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema='$POP_TARGET_DB' AND table_name IN ('mlbook','mlauthor','mlgenre','mlseq','mlrating','mlcustinfo','mlauthorname','mlgenrename','mlseqname') ORDER BY table_name" \
             2>/dev/null || true)"
         debug "target rows: $(echo "$rows" | tr '\n' ' ')"
-    fi
-else
-    log "dry-run: would rebuild $POP_TARGET_DB from $bookids resolved bookid(s) (row-by-row INSERTs, explicit keys, AUTO_INCREMENT stripped)"
+    fi    else
+    log "dry-run: would rebuild $POP_TARGET_DB from $bookids resolved bookid(s) (row-by-row INSERTs, source keys verbatim, AUTO_INCREMENT stripped)"
 fi
 
 do_report
