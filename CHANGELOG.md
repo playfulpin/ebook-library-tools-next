@@ -9,6 +9,59 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **`bin/populate_myprivatelib.sh` v1.1.1 -> v1.2.0 — AUTO_INCREMENT
+  stripped from the target schema; explicit tool-assigned keys (docs/
+  `DO_IT.md`).**  App re-testing showed MultiLib.exe still misbehaves with
+  a populated library: it treats server-generated (AUTO_INCREMENT)
+  primary-key columns differently from the original schema's plain PK
+  columns.  Two changes, applied to ALL 16 AUTO_INCREMENT PK columns of
+  the ml* schema (mlauthor.la_id, mlauthorname.authorid, mlbook.bookid,
+  mlcoverpage.cp_id, mlcustinfo.ci_id, mldescription.ds_id,
+  mldownloaddata.dd_id, mlgenre.gn_id, mlgenrename.genreid, mlnews.cb_id,
+  mlnewsname.critid, mlrating.rt_id, mlseq.sq_id, mlseqname.seqid,
+  mluserkeyword.kw_id, mluserprim.up_id):
+  - **schema**: before any data lands, the tool emits schema-driven,
+    attribute-preserving `ALTER TABLE ... MODIFY COLUMN` statements that
+    re-declare each PK column verbatim from `SHOW CREATE TABLE` minus the
+    `AUTO_INCREMENT` keyword (type / NULL-ness / DEFAULT / COLLATE and
+    the PRIMARY KEY untouched; idempotent — already-plain columns emit
+    nothing); the strip includes the app-owned tables (mlactual,
+    mldownloaddata, mlnews*, mluser*, mlcoverpage, mldescription) but is
+    a schema-only fix that never touches their rows; verified afterwards
+    (and post-run) via `information_schema.COLUMNS.EXTRA`, run aborts if
+    any column still carries the flag;
+  - **keys**: with AUTO_INCREMENT gone `LAST_INSERT_ID()` cannot work, so
+    keys are assigned EXPLICITLY — authorid/genreid/seqid/bookid = 1..N
+    in deterministic emission order, captured as `@aid_/@gid_/@sid_/
+    @bid_<old>` and referenced by the join/attached-data tables exactly
+    as before; the rebuild stays byte-deterministic (POP_CHUNK=
+    independence, suite-verified) and every run restarts keys at 1.
+  - **child tables carry their own PKs too**: the strip surfaced a
+    generator gap the AUTO_INCREMENT path had hidden — the child emitters
+    (mlauthor, mlgenre, mlseq, mlrating, mlcustinfo) omitted their PK
+    columns (la_id/gn_id/sq_id/rt_id/ci_id), which previously came from
+    the auto counter; since those columns are plain `NOT NULL` after the
+    strip, the first live rebuild failed with "Field 'la_id' doesn't
+    have a default value".  All five emitters now assign these PKs
+    explicitly (1..N) as well.
+  Mock suite grown to 33 assertions (strip ALTERs + verification query,
+  explicit-key INSERTs incl. child PKs, no-LAST_INSERT_ID guarantee);
+  the live `myprivatelib` DB was created fresh from the app schema
+  (createtable.sql) and rebuilt + verified (0 AUTO_INCREMENT PK columns;
+  contiguous keys 1..N in all nine managed tables; 0 dangling FK
+  references; genre tree intact: 14 roots + 70 children; row counts
+  unchanged: 2,138 books / 187 authors).
+
+- **Schema rename project-wide: `privetelib` -> `myprivatelib`**
+  (docs/`DO_IT.md`): tool names (`bin/populate_myprivatelib.sh`,
+  `bin/backup_myprivatelib.sh`), configs, test suites (33-assertion
+  populate, 23-assertion backup),  `POP_TARGET_DB` default, backup dir
+  default, docs and the DB reference.  The live server had no
+  `privetelib` at migration time (it had been dropped during earlier app
+  re-testing), so `myprivatelib` was created fresh from the app's own
+  DDL (BookTracker-import/sql/createtable.sql) instead of renamed;
+  backup archives keep their historical filenames.
+
 - **Docs: `docs/MultiLib_Flibusta_DB.md` rewritten (rev 2) and
   `data/sql/qry_catalog_reference.sql` added.**  The DB reference is
   re-grounded in the live schema (every figure re-verified read-only
@@ -19,11 +72,11 @@ All notable changes to the author-toolchain scripts in this repository:
     counts — e.g. «Фантастика» = 1000022) + **272 leaf genres** (real
     codes, `parentgenreid` -> a root); the tree is exactly two levels,
     books join ONLY leaves, and the join is closed (0 orphans in both
-    DBs).  `privetelib` after the v1.1.1 rebuild: 84 = 14 roots + 70
+    DBs).  `myprivatelib` after the v1.1.1 rebuild: 84 = 14 roots + 70
     leaves with remapped parent ids;
   - **key strategy**: sparse catalog ids (watermarks run far past row
     counts — `mlseqname` 80,744 rows / watermark 112,843) vs
-    `privetelib`'s contiguous fresh keys (watermark = rows + 1 on all
+    `myprivatelib`'s contiguous fresh keys (watermark = rows + 1 on all
     nine managed tables);
   - **filename contract corrected to v1.1.1**: `mlbook.filename` = the
     CATALOG value (71% of flibusta rows are a numeric bookid fallback;
@@ -31,7 +84,7 @@ All notable changes to the author-toolchain scripts in this repository:
     zip member / `'-'` for loose `.fb2`, `filesize` = on-disk bytes;
   - **index inventory** with the flibusta-only oddity (indexes named
     `MiddleName`/`NickName` defined on the `LastName` column, absent in
-    `privetelib`) and the corrected `mlbook.md5` non-unique index;
+    `myprivatelib`) and the corrected `mlbook.md5` non-unique index;
   - **mlbook census**: ~200 legacy `ext` values (fb2 728,881, pdf
     58,117, ...), `deleted` 0/1 split, `md5` 100% populated;
   - full live row counts + AUTO_INCREMENT watermarks for both DBs,
@@ -42,7 +95,7 @@ All notable changes to the author-toolchain scripts in this repository:
     `@title`/`@md5` session variables; verified to run cleanly against
     `flibusta` 2026-09-04).
 
-- **`bin/populate_privetelib.sh` v1.1.0 -> v1.1.1 — genre tree restored
+- **`bin/populate_myprivatelib.sh` v1.1.0 -> v1.1.1 — genre tree restored
   + catalog `filename` (fixes two MultiLib.exe test findings).**  App
 tests after the v1.1.0 rebuild surfaced two issues, both fixed:
   - **genres**: the app renders `mlgenrename` as a tree, and in the
@@ -54,7 +107,7 @@ tests after the v1.1.0 rebuild surfaced two issues, both fixed:
     pulls each used genre's ANCESTOR CATEGORIES from
     `flibusta.mlgenrename` (iterative, bounded, dangling parents
     safely skipped via a tried-set) and remaps `parentgenreid` to the
-    freshly generated parent id, parent-first — privetelib carries the
+    freshly generated parent id, parent-first — myprivatelib carries the
     same 2-level tree the app expects (e.g. «Фантастика» ->
     «Научная фантастика»).
   - **filename**: `mlbook.filename` now carries the CATALOG value
@@ -77,11 +130,11 @@ tests after the v1.1.0 rebuild surfaced two issues, both fixed:
   (0 on-disk paths left; note ~71% of flibusta books carry a NUMERIC
   `filename` = their bookid — a loader fallback — which the tool now
   copies faithfully).  Pre-rebuild safety backup:
-  `/mnt/c/Backup_Go7/privetelib-backups/privetelib_20260904-221300.sql.gz`
+  `/mnt/c/Backup_Go7/myprivatelib-backups/myprivatelib_20260904-221300.sql.gz`
   (the v1.1.0 state).
 
-- **New `bin/backup_privetelib.sh` v1.0.0 — backup / restore of the
-  app-registered personal library DB (`privetelib`).**  privetelib is the
+- **New `bin/backup_myprivatelib.sh` v1.0.0 — backup / restore of the
+  app-registered personal library DB (`myprivatelib`).**  myprivatelib is the
   sibling library the MultiLib desktop app created in-app (Flibusta
   plugin, empty, same 17-table ml* schema as `flibusta`, connectable from
   the app) — the target of the representation plan
@@ -92,13 +145,13 @@ tests after the v1.1.0 rebuild surfaced two issues, both fixed:
   up the current state first and refuses to overwrite a non-empty library
   without `--force`; `verify` checks gzip + dump sanity; `list` shows the
   backups.  Registered in `bump-version.sh`/`test_version_sync.sh`/CI;
-  mock-mysql suite `tests/test_backup_privetelib.sh` (23 assertions:
+  mock-mysql suite `tests/test_backup_myprivatelib.sh` (23 assertions:
   argv contract incl. password-never-on-cmdline, gz artifact, retention,
   restore guards, dry-run, lifecycle mocks).
 
   Live round-trip verified 2026-09-04: backup -> verify -> restore (with
   the automatic pre-restore safety backup) against the real (empty)
-  privetelib, server lifecycle managed per invocation.  Two environment
+  myprivatelib, server lifecycle managed per invocation.  Two environment
   issues surfaced and were handled:
   1. WSL2 mirrored-networking connect hangs — a `mysql` connect to
      127.0.0.1:3306 can block indefinitely instead of failing fast (the
@@ -107,18 +160,18 @@ tests after the v1.1.0 rebuild surfaced two issues, both fixed:
      (which does NOT accept that flag in MariaDB 10.4) is bounded with
      `timeout` (`MYSQL_CALL_TIMEOUT`, default 90s) and its stderr is now
      shown on failure instead of swallowed.
-  2. `privetelib.mlcustinfo.frm` was corrupt (error 1033 on LOCK TABLES)
+  2. `myprivatelib.mlcustinfo.frm` was corrupt (error 1033 on LOCK TABLES)
      — a damaged table definition in the app-created library.  Repaired
      by recreating the (empty) table from the valid schema:
-     `CREATE TABLE privetelib.mlcustinfo LIKE flibusta.mlcustinfo`.
-     The post-repair backup `privetelib_20260904-004417.sql.gz` is the
+     `CREATE TABLE myprivatelib.mlcustinfo LIKE flibusta.mlcustinfo`.
+     The post-repair backup `myprivatelib_20260904-004417.sql.gz` is the
      known-good artifact.
-- **`bin/populate_privetelib.sh` v1.0.0 -> v1.1.0 — fresh-key, row-by-row
-  rebuild of `privetelib` (fixes the app showing no books).**  The v1.0.0
+- **`bin/populate_myprivatelib.sh` v1.0.0 -> v1.1.0 — fresh-key, row-by-row
+  rebuild of `myprivatelib` (fixes the app showing no books).**  The v1.0.0
   exact-copy approach (`INSERT … SELECT *` carrying flibusta's ids
   wholesale) was wrong: the copied foreign ids were meaningless to the
   app's own key bookkeeping, which is why MultiLib.exe showed catalog
-  basics but zero books.  v1.1.0 generates EVERY key in privetelib's own
+  basics but zero books.  v1.1.0 generates EVERY key in myprivatelib's own
   `AUTO_INCREMENT` columns: one `INSERT` per row, `LAST_INSERT_ID()`
   captured into a session variable (`@bid_<old>`, `@aid_<old>`,
   `@gid_<old>`, `@sid_<old>`), and the join/attached tables
@@ -137,7 +190,7 @@ tests after the v1.1.0 rebuild surfaced two issues, both fixed:
     series);
   - `mlbook.filename`/`arcname` carry the **real on-disk relative path**
     (e.g. `А/Аб/Абби Линн/Series X/0Мироходец.zip`) and the zip member
-    name (`library='privetelib'`, `filesize` = on-disk bytes, `ext='fb2'`,
+    name (`library='myprivatelib'`, `filesize` = on-disk bytes, `ext='fb2'`,
     catalog metadata verbatim);
   - `mlrating` copied from `flibusta.mlrating` — the per-book CHAR(1)
     aggregate produced by `BookTracker-import/sql/
@@ -147,7 +200,7 @@ tests after the v1.1.0 rebuild surfaced two issues, both fixed:
     `TRUNCATE` (all-or-nothing — a partial rebuild would leave dangling
     key references).
 
-  Mock suite `tests/test_populate_privetelib.sh` rewritten (31
+  Mock suite `tests/test_populate_myprivatelib.sh` rewritten (31
   assertions): fresh-key captures, no raw flibusta ids in any `VALUES`,
   real filename/arcname, genre parent remap + parent-first ordering,
   mlrating only for rated books, chunked-read determinism (`POP_CHUNK`
@@ -163,14 +216,14 @@ tests after the v1.1.0 rebuild surfaced two issues, both fixed:
   `mlseqname` 422 — only the entities the personal library actually
   uses, vs. 216,491 / 296 / 80,744 in the v1.0.0 exact-copy state.
   Pre-rebuild safety backups saved to
-  `/mnt/c/Backup_Go7/privetelib-backups/` (latest:
-  `privetelib_20260904-210914.sql.gz`, the 6 MB v1.0.0 state).
+  `/mnt/c/Backup_Go7/myprivatelib-backups/` (latest:
+  `myprivatelib_20260904-210914.sql.gz`, the 6 MB v1.0.0 state).
   Note: the zip member names inside the Books archives are themselves
   double-encoded (UTF-8 bytes decoded as cp866 when the zips were
   created) — `arcname` stores the member bytes verbatim so the app's
   zip reader sees exactly what is in the archive.
 
-- **New `bin/populate_privetelib.sh` v1.0.0 — rebuild `privetelib` from
+- **New `bin/populate_myprivatelib.sh` v1.0.0 — rebuild `myprivatelib` from
   the on-disk `Books` collection (representation plan Phase 1).**  The
   matching key is the md5 finding (see below): every book file is hashed
   (zip-wrapped FB2 by its DECOMPRESSED content via `unzip -p`/`zcat`,
@@ -185,13 +238,13 @@ tests after the v1.1.0 rebuild surfaced two issues, both fixed:
   `mlauthorname`, `mlgenrename`, `mlseqname`; a per-run column-parity
   check (Phase 0.1, verified identical for all 9) skips mismatched
   tables with a warning.  `flibusta` is NEVER written; app-owned
-  `privetelib` tables (`mlactual`, `mldownloaddata`, `mlnews*`,
+  `myprivatelib` tables (`mlactual`, `mldownloaddata`, `mlnews*`,
   `mluser*`) are never touched; `mlcoverpage`/`mldescription` stay empty
   (the loaded dump has both EMPTY — covers/descriptions require the
   separate extended-data torrents loaded first; this corrects the plan's
   "enrichment comes free" assumption).  Registered in
   `bump-version.sh`/`test_version_sync.sh`/CI; mock suite
-  `tests/test_populate_privetelib.sh` (23 assertions: walk/hash
+  `tests/test_populate_myprivatelib.sh` (23 assertions: walk/hash
   incl. corrupt-zip + zcat fallback + desktop.ini skip, map contract,
   dupe resolution, chunked rebuild, parity skip, dry-run no-writes,
   report, guards, lifecycle mocks).
@@ -203,10 +256,10 @@ tests after the v1.1.0 rebuild surfaced two issues, both fixed:
   «Девочка…» — exact-content mismatches; the fallback ladder's
   candidates), 2138 distinct bookids registered (10 files were duplicate
   copies of already-collected books), 0 catalog md5 duplicates.
-  privetelib rows after the run: mlbook 2138, mlauthor 2798 (multi-author
+  myprivatelib rows after the run: mlbook 2138, mlauthor 2798 (multi-author
   links), mlgenre 5468, mlseq 2619, mlrating 1948, mlcustinfo 757,
   mlauthorname 216491, mlgenrename 296, mlseqname 80744.  Pre-population
-  empty-state backup: `privetelib_20260904-164703.sql.gz`.  Spot-check:
+  empty-state backup: `myprivatelib_20260904-164703.sql.gz`.  Spot-check:
   bookid 767638 (MeXXanik «Адвокат Чехов») resolves with both authors;
   `flibusta` untouched (read-only source).
 - **Catalog finding: `flibusta.mlbook.md5` is 100% populated and is the
@@ -221,7 +274,7 @@ tests after the v1.1.0 rebuild surfaced two issues, both fixed:
   `filename` holds transliterated librusec-style names, `arcname` is 0%
   populated).  Also measured: `mlcoverpage` and `mldescription` are
   EMPTY in the loaded dump, so the self-contained enrichment in
-  `privetelib` is ratings (361,761), series, genres and `mlcustinfo`
+  `myprivatelib` is ratings (361,761), series, genres and `mlcustinfo`
   (163,161) — covers/descriptions only after the extended-data torrents
   are loaded.
 - **`bin/bump-version.sh` 1.0.0 -> 1.0.1: fix a comment that broke shell

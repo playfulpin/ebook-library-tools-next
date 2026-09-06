@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# tests/test_backup_privetelib.sh
+# tests/test_backup_myprivatelib.sh
 #
-# Regression suite for bin/backup_privetelib.sh (mysqldump backup / restore
+# Regression suite for bin/backup_myprivatelib.sh (mysqldump backup / restore
 # of the app-registered personal library DB).  No real MariaDB is needed: the
 # suite installs mock `mysql` and `mysqldump` earlier in PATH that record
 # their argv (and, for restore, the stdin fed to the client).
@@ -24,14 +24,14 @@
 #     on exit, --dry-run only reports would-start / would-stop
 #   - version header stays in sync with `--version` (1.0.x)
 #
-# Usage:  bash tests/test_backup_privetelib.sh
+# Usage:  bash tests/test_backup_myprivatelib.sh
 # Runs anywhere (pure text processing; the mock avoids any DB dependency).
 # -----------------------------------------------------------------------------
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-TOOL="$REPO_ROOT/bin/backup_privetelib.sh"
+TOOL="$REPO_ROOT/bin/backup_myprivatelib.sh"
 
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -77,7 +77,7 @@ cat > "$MOCK_BIN/mysqldump" <<'MOCK_EOF'
 printf 'MYSQLDUMP %s\n' "$*" >> "${MOCK_LOG:-/dev/null}"
 {
     echo "-- MariaDB dump 10.4  Distrib 10.4.7-MariaDB, for Win64"
-    echo "-- Host: 127.0.0.1    Database: privetelib"
+    echo "-- Host: 127.0.0.1    Database: myprivatelib"
     for i in $(seq 1 17); do
         echo "CREATE TABLE \`mltable_$i\` ("
         echo "  \`id\` int(11) NOT NULL"
@@ -116,13 +116,13 @@ run_tool() { # [args...] ; stdout->$OUT, stderr->$ERR ; rc->$RC
         MARIA_TASKLIST="${MARIA_TASKLIST_OVERRIDE:-$TMPDIR/no-such-tasklist}" \
         MARIA_MOCK_RUNNING="${MARIA_MOCK_RUNNING:-0}" \
         CONF_FILE="$TMPDIR/no-such.conf" \
-        BACKUP_DIR="$BACKUP_DIR" BACKUP_DB="${BACKUP_DB:-privetelib}" \
+        BACKUP_DIR="$BACKUP_DIR" BACKUP_DB="${BACKUP_DB:-myprivatelib}" \
         BACKUP_KEEP="${BACKUP_KEEP:-0}" \
         bash "$TOOL" "$@" >"$OUT" 2>"$ERR"
     RC=$?
 }
 
-echo "== backup_privetelib =="
+echo "== backup_myprivatelib =="
 
 # --- version / usage -----------------------------------------------------------
 version="$(sed -n 's/^# Version:[[:space:]]*//p' "$TOOL" | head -n 1)"
@@ -132,7 +132,7 @@ case "$version" in
 esac
 
 bash "$TOOL" --version >"$TMPDIR/v.txt" 2>&1
-if [[ "$(cat "$TMPDIR/v.txt")" == "bin/backup_privetelib.sh v$version" ]]; then
+if [[ "$(cat "$TMPDIR/v.txt")" == "bin/backup_myprivatelib.sh v$version" ]]; then
     report "version_flag" ok
 else
     report "version_flag" fail "got '$(cat "$TMPDIR/v.txt")'"
@@ -163,15 +163,15 @@ fi
 rm -f "$MOCK_LOG"
 MOCK_RC=0 run_tool backup
 argv="$(cat "$MOCK_LOG")"
-if [[ "$argv" == *"MYSQLDUMP -h 127.0.0.1 --protocol=TCP -P 3306 -u root --default-character-set=utf8 privetelib"* ]]; then
+if [[ "$argv" == *"MYSQLDUMP -h 127.0.0.1 --protocol=TCP -P 3306 -u root --default-character-set=utf8 myprivatelib"* ]]; then
     report "backup_argv_contract" ok
 else
     report "backup_argv_contract" fail "got: $argv"
 fi
-gz="$(ls -1 "$BACKUP_DIR"/privetelib_*.sql.gz 2>/dev/null | head -n 1 || true)"
+gz="$(ls -1 "$BACKUP_DIR"/myprivatelib_*.sql.gz 2>/dev/null | head -n 1 || true)"
 if (( RC == 0 )) && [[ -n "$gz" ]] && gzip -t "$gz" \
    && [[ "$(zcat "$gz" | grep -c '^CREATE TABLE')" == "17" ]] \
-   && grep -q "backed up privetelib (17 tables)" "$ERR"; then
+   && grep -q "backed up myprivatelib (17 tables)" "$ERR"; then
     report "backup_creates_gz" ok
 else
     report "backup_creates_gz" fail "rc=$RC gz=${gz:-none} stderr=$(head -2 "$ERR")"
@@ -191,7 +191,7 @@ fi
 rm -rf "$BACKUP_DIR"
 MOCK_RC=0 run_tool --dry-run backup
 if (( RC == 0 )) && [[ ! -e "$BACKUP_DIR" ]] \
-   && grep -q "would back up privetelib" "$ERR"; then
+   && grep -q "would back up myprivatelib" "$ERR"; then
     report "dry_run_no_write" ok
 else
     report "dry_run_no_write" fail "rc=$RC dir=${BACKUP_DIR:-absent} stderr=$(head -2 "$ERR")"
@@ -199,11 +199,11 @@ fi
 
 # --- retention: BACKUP_KEEP=1 prunes older backups ---------------------------------
 rm -rf "$BACKUP_DIR"; mkdir -p "$BACKUP_DIR"
-printf 'old1'  > "$BACKUP_DIR/privetelib_20200101-000000.sql.gz"
-printf 'old2'  > "$BACKUP_DIR/privetelib_20200102-000000.sql.gz"
+printf 'old1'  > "$BACKUP_DIR/myprivatelib_20200101-000000.sql.gz"
+printf 'old2'  > "$BACKUP_DIR/myprivatelib_20200102-000000.sql.gz"
 MOCK_RC=0 BACKUP_KEEP=1 run_tool backup
-if (( RC == 0 )) && [[ "$(ls -1 "$BACKUP_DIR"/privetelib_*.sql.gz | wc -l)" == "1" ]] \
-   && ! ls "$BACKUP_DIR"/privetelib_2020010*.sql.gz >/dev/null 2>&1 \
+if (( RC == 0 )) && [[ "$(ls -1 "$BACKUP_DIR"/myprivatelib_*.sql.gz | wc -l)" == "1" ]] \
+   && ! ls "$BACKUP_DIR"/myprivatelib_2020010*.sql.gz >/dev/null 2>&1 \
    && grep -q "pruning backups beyond the newest 1" "$ERR"; then
     report "retention_prunes" ok
 else
@@ -212,14 +212,14 @@ fi
 
 # --- list ---------------------------------------------------------------------------
 MOCK_RC=0 run_tool list
-if (( RC == 0 )) && grep -q "privetelib_.*\.sql\.gz" "$OUT"; then
+if (( RC == 0 )) && grep -q "myprivatelib_.*\.sql\.gz" "$OUT"; then
     report "list_shows_backups" ok
 else
     report "list_shows_backups" fail "rc=$RC stdout=$(head -3 "$OUT")"
 fi
 
 # --- verify --------------------------------------------------------------------------
-gz="$(ls -1 "$BACKUP_DIR"/privetelib_*.sql.gz | head -n 1)"
+gz="$(ls -1 "$BACKUP_DIR"/myprivatelib_*.sql.gz | head -n 1)"
 MOCK_RC=0 run_tool verify "$gz"
 if (( RC == 0 )) && grep -q "OK: .* (17 tables, gzip valid)" "$ERR"; then
     report "verify_ok" ok
@@ -247,10 +247,10 @@ rm -f "$MOCK_LOG" "$MOCK_STDIN"
 MOCK_DB_ROWS=0 MOCK_RC=0 run_tool restore "$gz"
 argv="$(cat "$MOCK_LOG")"
 stdin="$(cat "$MOCK_STDIN" 2>/dev/null || true)"
-if (( RC == 0 )) && grep -q "restored privetelib from" "$ERR" \
-   && [[ "$argv" == *" privetelib" ]] \
+if (( RC == 0 )) && grep -q "restored myprivatelib from" "$ERR" \
+   && [[ "$argv" == *" myprivatelib" ]] \
    && [[ "$stdin" == *"CREATE TABLE"* ]] \
-   && grep -q "backed up privetelib (17 tables)" "$ERR"; then
+   && grep -q "backed up myprivatelib (17 tables)" "$ERR"; then
     report "restore_over_empty" ok
 else
     report "restore_over_empty" fail "rc=$RC argv=$argv stdin_len=${#stdin}"
@@ -267,7 +267,7 @@ fi
 # --- restore --force over non-empty: proceeds -------------------------------------------
 rm -f "$MOCK_LOG" "$MOCK_STDIN"
 MOCK_DB_ROWS=3 MOCK_RC=0 run_tool restore --force "$gz"
-if (( RC == 0 )) && grep -q "restored privetelib from" "$ERR"; then
+if (( RC == 0 )) && grep -q "restored myprivatelib from" "$ERR"; then
     report "restore_force_nonempty" ok
 else
     report "restore_force_nonempty" fail "rc=$RC stderr=$(head -2 "$ERR")"
@@ -281,10 +281,10 @@ else
     report "restore_dryrun_missing_still_errors" fail "rc=$RC stderr=$(head -2 "$ERR")"
 fi
 mkdir -p "$BACKUP_DIR"
-gz_src="$(ls -1 "$BACKUP_DIR"/privetelib_*.sql.gz 2>/dev/null | head -n 1)"
+gz_src="$(ls -1 "$BACKUP_DIR"/myprivatelib_*.sql.gz 2>/dev/null | head -n 1)"
 gz2="$BACKUP_DIR/sample.sql.gz"
 zcat "$gz_src" | gzip -c > "$gz2"
-rm -f "$BACKUP_DIR"/privetelib_*.sql.gz
+rm -f "$BACKUP_DIR"/myprivatelib_*.sql.gz
 MOCK_DB_ROWS=0 MOCK_RC=0 run_tool --dry-run restore "$gz2"
 if (( RC == 0 )) && [[ -z "$(ls -1 "$BACKUP_DIR" | grep -v sample)" ]] \
    && grep -q "would restore $gz2" "$ERR"; then

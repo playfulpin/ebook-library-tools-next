@@ -158,11 +158,11 @@ check_tool reconcile_library \
 check_tool estimate_download_size \
     "bin/estimate_download_size.sh" "" "bin/estimate_download_size.sh"
 
-check_tool backup_privetelib \
-    "bin/backup_privetelib.sh" "" "bin/backup_privetelib.sh"
+check_tool backup_myprivatelib \
+    "bin/backup_myprivatelib.sh" "" "bin/backup_myprivatelib.sh"
 
-check_tool populate_privetelib \
-    "bin/populate_privetelib.sh" "" "bin/populate_privetelib.sh"
+check_tool populate_myprivatelib \
+    "bin/populate_myprivatelib.sh" "" "bin/populate_myprivatelib.sh"
 
 # --- summary --------------------------------------------------------------------
 echo

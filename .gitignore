@@ -9,8 +9,10 @@ _Save_Stuff/
 commit_msg/
 reports/
 
-# Raw flibusta dump archives (lib*.sql.gz) — never committed, they live on disk only
+# Raw flibusta dump archives (lib*.sql.gz and decompressed lib*.sql) —
+# never committed, they live on disk only
 data/archives/flibusta_gz/
+data/archives/flibusta/
 
 # Temporary outputs and captures
 tmp_*

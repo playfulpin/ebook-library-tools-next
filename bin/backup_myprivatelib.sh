@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# bin/backup_privetelib.sh
+# bin/backup_myprivatelib.sh
 #
 # Version:       1.0.0
 # Last updated:  2026-09-04
@@ -10,7 +10,7 @@
 # PURPOSE
 # -----------------------------------------------------------------------------
 #   Backup and restore the app-registered personal library database
-#   (privetelib) before anything is ever populated into it.  privetelib is
+#   (myprivatelib) before anything is ever populated into it.  myprivatelib is
 #   the sibling library the MultiLib desktop app created (same 17-table ml*
 #   schema as flibusta, empty, connectable from the app); this tool is the
 #   safety net that must exist BEFORE the population tool (Phase 1 of
@@ -43,7 +43,7 @@
 # -----------------------------------------------------------------------------
 # USAGE
 # -----------------------------------------------------------------------------
-#   ./bin/backup_privetelib.sh [options] [backup | restore FILE | verify FILE | list]
+#   ./bin/backup_myprivatelib.sh [options] [backup | restore FILE | verify FILE | list]
 #
 #   Actions (positional; default: backup):
 #       backup               dump + gzip the library DB into BACKUP_DIR
@@ -65,9 +65,9 @@
 #       1   operational failure (client missing, server down, bad backup)
 #       2   usage error
 #
-#   Environment / config (config/backup_privetelib.conf; all overridable):
-#       BACKUP_DIR      where backups live (default: /mnt/c/Backup_Go7/privetelib-backups)
-#       BACKUP_DB       the library database to back up (default: privetelib)
+#   Environment / config (config/backup_myprivatelib.conf; all overridable):
+#       BACKUP_DIR      where backups live (default: /mnt/c/Backup_Go7/myprivatelib-backups)
+#       BACKUP_DB       the library database to back up (default: myprivatelib)
 #       BACKUP_KEEP     keep only the N newest backups; 0 = keep all (default: 0)
 #       MYSQLDUMP_CLIENT  mysqldump binary (default: mysqldump)
 #       MYSQL_CLIENT / MYSQL_HOST / MYSQL_PORT / MYSQL_USER / MYSQL_PASSWORD /
@@ -98,11 +98,11 @@ MYSQLDUMP_CLIENT="${MYSQLDUMP_CLIENT:-mysqldump}"
 MYSQL_CONNECT_TIMEOUT="${MYSQL_CONNECT_TIMEOUT:-10}"
 
 # --- config file ---------------------------------------------------------------
-CONF_FILE="${CONF_FILE:-$PROJECT_ROOT/config/backup_privetelib.conf}"
+CONF_FILE="${CONF_FILE:-$PROJECT_ROOT/config/backup_myprivatelib.conf}"
 [[ -f "$CONF_FILE" ]] && source "$CONF_FILE"
 
-BACKUP_DIR="${BACKUP_DIR:-/mnt/c/Backup_Go7/privetelib-backups}"
-BACKUP_DB="${BACKUP_DB:-privetelib}"
+BACKUP_DIR="${BACKUP_DIR:-/mnt/c/Backup_Go7/myprivatelib-backups}"
+BACKUP_DB="${BACKUP_DB:-myprivatelib}"
 BACKUP_KEEP="${BACKUP_KEEP:-0}"
 DRY_RUN=0
 DEBUG=0
@@ -305,11 +305,11 @@ do_list() {
 
 print_help() {
     cat >&2 <<'EOF'
-Usage: backup_privetelib.sh [options] [backup | restore FILE | verify FILE | list]
+Usage: backup_myprivatelib.sh [options] [backup | restore FILE | verify FILE | list]
 
-Backup and restore the personal library database (privetelib) with
+Backup and restore the personal library database (myprivatelib) with
 mysqldump.  This is the safety net that must exist BEFORE anything is
-populated into privetelib (see docs/REPRESENTATION_PLAN.md).
+populated into myprivatelib (see docs/REPRESENTATION_PLAN.md).
 
 Actions (positional; default: backup):
   backup               dump + gzip the library DB into BACKUP_DIR
@@ -328,7 +328,7 @@ Options:
 
 Exit codes: 0 success, 1 operational failure, 2 usage error.
 
-Environment / config (config/backup_privetelib.conf, all overridable):
+Environment / config (config/backup_myprivatelib.conf, all overridable):
   BACKUP_DIR / BACKUP_DB / BACKUP_KEEP
   MYSQLDUMP_CLIENT, MYSQL_CLIENT, MYSQL_HOST, MYSQL_PORT, MYSQL_USER,
   MYSQL_PASSWORD (MYSQL_PWD only), MYSQL_EXTRA_ARGS,
@@ -348,7 +348,7 @@ while (( $# > 0 )); do
         -n|--dry-run) DRY_RUN=1; shift ;;
         -d|--debug)   DEBUG=1; shift ;;
         -h|--help)    print_help; exit 0 ;;
-        -v|--version) echo "bin/backup_privetelib.sh v$SCRIPT_VERSION"; exit 0 ;;
+        -v|--version) echo "bin/backup_myprivatelib.sh v$SCRIPT_VERSION"; exit 0 ;;
         -*)
             echo "Error: unknown option '$1'" >&2; echo "Try '$0 --help'." >&2; exit 2 ;;
         *)

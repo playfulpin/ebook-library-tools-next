@@ -2,7 +2,7 @@
 
 > **Scope:** everything we know about the MariaDB instance that backs the
 > MultiLib desktop app and the Flibusta catalog — the `flibusta`,
-> `privetelib` and `mllbr_main` databases, every table's schema and
+> `myprivatelib` and `mllbr_main` databases, every table's schema and
 > purpose, the relationships between them, how data gets loaded and
 > updated (both the BookTracker-import catalog pipeline and the
 > MultiLib_Utilities personal-library toolchain), and the hard-won
@@ -52,7 +52,7 @@
    6.2 [The six ingest stages](#62-the-six-ingest-stages)
    6.3 [mlrating: per-user librate → per-book aggregate](#63-mlrating-per-user-librate--per-book-aggregate)
    6.4 [MultiLib_Utilities tools](#64-multilib_utilities-tools)
-   6.5 [populate_privetelib.sh — the personal-library rebuild](#65-populate_privetelibsh--the-personal-library-rebuild)
+   6.5 [populate_myprivatelib.sh — the personal-library rebuild](#65-populate_myprivatelibsh--the-personal-library-rebuild)
    6.6 [Data flow end to end](#66-data-flow-end-to-end)
 7. [Key findings and implementation details](#7-key-findings-and-implementation-details)
    7.1 [md5 matching: the strongest lookup tier](#71-md5-matching-the-strongest-lookup-tier)
@@ -69,7 +69,7 @@
    8.2 [Invariants](#82-invariants)
 9. [Appendix: snapshots and reference data](#9-appendix-snapshots-and-reference-data)
    9.1 [flibusta row counts + AUTO_INCREMENT watermarks](#91-flibusta-row-counts--auto_increment-watermarks)
-   9.2 [privetelib row counts (v1.1.1 rebuild)](#92-privetelib-row-counts-v111-rebuild)
+   9.2 [myprivatelib row counts (v1.1.1 rebuild)](#92-myprivatelib-row-counts-v111-rebuild)
    9.3 [mlrating distribution (both DBs)](#93-mlrating-distribution-both-dbs)
    9.4 [mlbook column reference and value census](#94-mlbook-column-reference-and-value-census)
    9.5 [mllbr_main schema](#95-mllbr_main-schema)
@@ -87,16 +87,16 @@ dump tables — it reads only the `ml*` catalog shape.
 
 The **Flibusta catalog** lives in the `flibusta` database (869,130 books
 at the last load, 2026-09-01 dump). The **personal library** lives in
-`privetelib` — an empty sibling library created in-app with the Flibusta
+`myprivatelib` — an empty sibling library created in-app with the Flibusta
 plugin, now populated from the on-disk `Books` collection by
-`bin/populate_privetelib.sh`. A third database, `mllbr_main`, is the
+`bin/populate_myprivatelib.sh`. A third database, `mllbr_main`, is the
 app's original built-in library and uses a *different, smaller* schema.
 
 The catalog is maintained by the sibling project **BookTracker-import**
 (download → extract → ingest into `flibusta`). This project
 (MultiLib_Utilities) builds on top of it: it exports author lists,
 sizes the next collecting round, reconciles disk vs catalog, backs up
-the personal library, and finally populates `privetelib` from the
+the personal library, and finally populates `myprivatelib` from the
 `Books` folder. Both projects share the same MariaDB instance, the same
 connection contract (§8.1) and the same MariaDB lifecycle helper.
 
@@ -111,14 +111,14 @@ connection contract (§8.1) and the same MariaDB lifecycle helper.
 | Client | WSL2 Ubuntu `mysql` CLI — **Ubuntu 24.04 ships client 8.0.46** against the 10.4.7 server (works; see §7.7 for why versions must be handled) |
 | Storage engine | **MyISAM** everywhere in the ml\* schema (no InnoDB, no FK enforcement) |
 | Collations | `utf8_general_ci` for the ml\* tables; **`mlactual` alone is `utf8_unicode_ci`**; `mllbr_main` is `utf8_general_ci` |
-| Databases | `flibusta`, `privetelib`, `mllbr_main` (+ system DBs) |
+| Databases | `flibusta`, `myprivatelib`, `mllbr_main` (+ system DBs) |
 
 ### 1.2 The three libraries
 
 | Database | Role | Schema | Populated by |
 |---|---|---|---|
 | `flibusta` | The full catalog — read-only source for everything | 17-table `ml*` | BookTracker-import ingest pipeline (§6.1–6.3) |
-| `privetelib` | The **personal** library (the end-user's own collection) | Same 17-table `ml*` | `bin/populate_privetelib.sh` from the `Books` folder (§6.5) |
+| `myprivatelib` | The **personal** library (the end-user's own collection) | Same 17-table `ml*` | `bin/populate_myprivatelib.sh` from the `Books` folder (§6.5) |
 | `mllbr_main` | The app's original built-in library | Different, 4-table schema (`mldownload`, `mlgenrelist`, `mlgroup`, `mlgroupname`) | The app itself |
 
 ### 1.3 Who writes what
@@ -126,10 +126,10 @@ connection contract (§8.1) and the same MariaDB lifecycle helper.
 * **BookTracker-import** writes `flibusta`: loads the 12 dump files +
   one legacy filename table, converts `lib*` → `ml*`, creates the base
   tables, builds `mlrating`, checks, then drops the staging tables
-  (§6.2). It never touches `privetelib` or `mllbr_main`.
+  (§6.2). It never touches `myprivatelib` or `mllbr_main`.
 * **MultiLib_Utilities tools** (export, reconcile, estimate, backup,
   populate) **never write `flibusta` or `mllbr_main`**. The populate
-  tool writes only the nine managed catalog tables inside `privetelib`.
+  tool writes only the nine managed catalog tables inside `myprivatelib`.
 * **The app itself** owns `mlactual`, `mldownloaddata`, `mlnews*`,
   `mluser*` in any ml\* library — the tools leave those rows alone, so
   app-written rows survive population runs.
@@ -143,7 +143,7 @@ connection contract (§8.1) and the same MariaDB lifecycle helper.
 ```
 MariaDB 10.4.7 (127.0.0.1:3306)
 ├── flibusta          # the catalog — 17 ml* tables, read-only source
-├── privetelib        # the personal library — same 17 ml* tables
+├── myprivatelib        # the personal library — same 17 ml* tables
 ├── mllbr_main        # the app's original library — 4 tables, different shape
 ├── mysql             # server system tables
 ├── information_schema
@@ -152,7 +152,7 @@ MariaDB 10.4.7 (127.0.0.1:3306)
 
 ### 2.2 The 17-table ml\* schema
 
-`flibusta` and `privetelib` share the same 17 tables. **Column
+`flibusta` and `myprivatelib` share the same 17 tables. **Column
 definitions are identical for all 17** (the populate tool re-verifies
 column parity on all nine tables it manages on every run; index sets
 differ slightly — see §4.4). They fall into six groups:
@@ -179,7 +179,7 @@ different, minimal schema (full column reference in [9.5](#95-mllbr_main-schema)
 | `mlgroupname` | 3 | Group names, with a `groupidparrent` self-reference |
 
 This is why the app supports "switching libraries": the Flibusta plugin
-creates a *second* library (`privetelib`) with the full `ml*` schema,
+creates a *second* library (`myprivatelib`) with the full `ml*` schema,
 and the app's UI can point at either.
 
 ---
@@ -187,7 +187,7 @@ and the app's UI can point at either.
 ## 3. Table reference (the 17-table ml\* schema)
 
 All definitions below were read live from `flibusta` on 2026-09-04 and
-are column-identical in `privetelib`. Types are abbreviated
+are column-identical in `myprivatelib`. Types are abbreviated
 (`int(11)`, `varchar(n)`, `char(n)`, `datetime`, `binary(1)`).
 `NOT NULL` is the norm; nullable columns are marked.
 
@@ -200,17 +200,17 @@ are column-identical in `privetelib`. Types are abbreviated
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `bookid` | int | no | PK, auto-increment |
-| `library` | varchar(64) | no | Source library name — `'flibusta'` (catalog) or `'privetelib'` (personal); **single-valued in each DB** |
+| `library` | varchar(64) | no | Source library name — `'flibusta'` (catalog) or `'myprivatelib'` (personal); **single-valued in each DB** |
 | `title` | varchar(255) | no | Book title |
 | `lang` | varchar(10) | no | Language code (indexed) |
 | `date_in` | datetime | **yes** | Date the book entered the catalog |
 | `filename` | varchar(255) | no | Catalog "file name" — see [7.2](#72-filename--arcname-are-not-the-on-disk-path) (indexed) |
-| `filesize` | int | no | Size in bytes — decompressed FB2 size in the catalog; **on-disk bytes in `privetelib`** |
-| `arcname` | varchar(255) | no | Zip member name — **empty in the catalog**; on-disk member in `privetelib` |
-| `ext` | varchar(5) | no | Content format (indexed). Catalog: mostly `fb2` but 200+ distinct legacy values; `privetelib`: always `fb2` |
+| `filesize` | int | no | Size in bytes — decompressed FB2 size in the catalog; **on-disk bytes in `myprivatelib`** |
+| `arcname` | varchar(255) | no | Zip member name — **empty in the catalog**; on-disk member in `myprivatelib` |
+| `ext` | varchar(5) | no | Content format (indexed). Catalog: mostly `fb2` but 200+ distinct legacy values; `myprivatelib`: always `fb2` |
 | `deleted` | char(1) | no | `'0'`/`'1'` (indexed) — see census in [9.4](#94-mlbook-column-reference-and-value-census) |
 | `md5` | char(32) | no | Hex md5 of the **book content** (indexed, non-unique) — see [7.1](#71-md5-matching-the-strongest-lookup-tier) |
-| `srclang` | varchar(10) | no | Source language (empty in `privetelib` rows copied from the catalog) |
+| `srclang` | varchar(10) | no | Source language (empty in `myprivatelib` rows copied from the catalog) |
 | `date_wr` | char(32) | **yes** | Written date (free-form) |
 | `keywords` | varchar(255) | no | Keywords |
 | `di_progused` | varchar(255) | no | Producing program |
@@ -417,7 +417,7 @@ Live census (2026-09-04):
   itself a non-root (no grandchildren).
 * **Books join only leaf genres:** `mlgenre.genreid` spans 1–296 and no
   row ever references a `1,000,001+` id; 272 distinct genreids are
-  used and **all resolve** (0 orphans in `flibusta` and `privetelib`).
+  used and **all resolve** (0 orphans in `flibusta` and `myprivatelib`).
 
 **Consequence for the personal library:** the app renders this tree.
 When the v1.1.0 populate imported only the leaf genres our books use,
@@ -425,7 +425,7 @@ every row landed with `parentgenreid = NULL` and the tree collapsed to a
 flat list — the app's genre panel looked wrong. **v1.1.1 fixed this** by
 pulling each used genre's *ancestor category rows* from the catalog and
 remapping `parentgenreid` to the freshly generated root ids (parents
-emitted first). Result in `privetelib`: **84 rows = 14 root categories
+emitted first). Result in `myprivatelib`: **84 rows = 14 root categories
 (the ones our books' genres fall under) + 70 leaf genres**, all
 parent/child pointers valid. Examples verified live: «Фантастика»
 (root id 13) → «Научная фантастика» (`sf`), «Альтернативная
@@ -442,27 +442,39 @@ why the catalog's AUTO_INCREMENT watermarks run far ahead of the row
 counts (e.g. `mlseqname`: 80,744 rows but watermark 112,843) — the ids
 are sparse, inherited from the source catalog.
 
-**Consequence for `privetelib`:** copying flibusta's ids wholesale
+**Consequence for `myprivatelib`:** copying flibusta's ids wholesale
 (the v1.0.0 populate) broke the app's key bookkeeping — the app showed
 catalog basics but no books. The v1.1.0 populate therefore regenerates
-**every** key: `INSERT` one row → capture `LAST_INSERT_ID()` into a
-session variable (`@bid_<old>`, `@aid_<old>`, `@gid_<old>`,
-`@sid_<old>`) → child rows reference only captured variables. `TRUNCATE`
-at the top of the one-session script resets the counters, so every run
-is a clean, idempotent rebuild with **contiguous ids** (verified:
-`privetelib` watermarks = rows + 1 on all nine tables). See
-`bin/populate_privetelib.sh` and [6.5](#65-populate_privetelibsh--the-personal-library-rebuild).
+**every** key; **v1.2.0 (per `docs/DO_IT.md`) goes further: the app also
+treats server-generated (AUTO_INCREMENT) PK columns differently from the
+original schema's plain PK columns**, so the populate tool first strips
+`AUTO_INCREMENT` from all 16 PK columns of the target schema
+(schema-driven, attribute-preserving `ALTER TABLE ... MODIFY COLUMN`
+from `SHOW CREATE TABLE`, verified via `information_schema.COLUMNS.EXTRA`)
+and then assigns **every** key explicitly: `INSERT` one row with a
+contiguous tool-assigned id → capture it into a session variable
+(`@bid_<old>`, `@aid_<old>`, `@gid_<old>`, `@sid_<old>`) → child rows
+reference only captured variables — the server never generates a key.
+(The strip also exposed that the child tables' own PKs — `la_id`,
+`gn_id`, `sq_id`, `rt_id`, `ci_id` — must be assigned explicitly too;
+the v1.2.0 emitters cover all of them, since a stripped PK is plain
+`NOT NULL` with no default.)
+`TRUNCATE` at the top of the one-session script restarts the assignment
+at 1, so every run is a clean, idempotent rebuild with **contiguous ids**.
+The catalog side is unchanged (its AUTO_INCREMENT is the dump loader's
+legacy and the app's own databases keep the original DDL). See
+`bin/populate_myprivatelib.sh` and [6.5](#65-populate_myprivatelibsh--the-personal-library-rebuild).
 
 ### 4.4 Index inventory
 
-Live `SHOW INDEX` (2026-09-04), `flibusta` — `privetelib` is identical
+Live `SHOW INDEX` (2026-09-04), `flibusta` — `myprivatelib` is identical
 **except where noted**:
 
 | Table | Indexes |
 |---|---|
 | `mlbook` | PRIMARY(`bookid`); non-unique single-column: `lang`, `filename`, `ext`, `deleted`, `md5` |
 | `mlauthor` | PRIMARY(`la_id`); `bookid`; `authorid`; UNIQUE `bookseq`(`bookid,authorid,role`) |
-| `mlauthorname` | PRIMARY(`authorid`); `TotalCount`; `NormalCount`; `FirstName`; `LastName`; `FullName`. **flibusta-only oddity:** two extra indexes literally *named* `MiddleName` and `NickName` but **defined on the `LastName` column** (a convert-script artifact). `privetelib` does **not** have them — the populate parity check compares columns only, so this difference is invisible to it and harmless |
+| `mlauthorname` | PRIMARY(`authorid`); `TotalCount`; `NormalCount`; `FirstName`; `LastName`; `FullName`. **flibusta-only oddity:** two extra indexes literally *named* `MiddleName` and `NickName` but **defined on the `LastName` column** (a convert-script artifact). `myprivatelib` does **not** have them — the populate parity check compares columns only, so this difference is invisible to it and harmless |
 | `mlgenre` | PRIMARY(`gn_id`); `bookid`; `genreid` |
 | `mlgenrename` | PRIMARY(`genreid`); `parentgenreid`; `genrecode`; `genrenamerus`; `TotalCount`; `NormalCount` |
 | `mlseq` | PRIMARY(`sq_id`); `bookid`; `seqId`(`seqid`); UNIQUE `bookseq`(`bookid,seqid,seqnum`) |
@@ -611,12 +623,12 @@ writes `flibusta`:
 | `bin/export_authors_from_db.sh` | `mlauthorname` (via `data/sql/qry_*.sql`) | none | Regenerate the author-list fixture from the catalog |
 | `bin/reconcile_library.sh` | `mlauthorname` snapshot | none | Collection progress: disk `Books` folders vs recommended-author list |
 | `bin/estimate_download_size.sh` | `mlbook.filesize` per author | none | Size the next to-collect round |
-| `bin/backup_privetelib.sh` | — | mysqldump of `privetelib` | Safety net: backup / verify / restore / list |
-| `bin/populate_privetelib.sh` | `flibusta.mlbook` (md5 map + catalog rows), `mlauthor`, `mlauthorname`, `mlgenre`, `mlgenrename`, `mlseq`, `mlseqname`, `mlrating`, `mlcustinfo` | `privetelib` managed tables (fresh keys) | Rebuild the personal library from the `Books` folder |
+| `bin/backup_myprivatelib.sh` | — | mysqldump of `myprivatelib` | Safety net: backup / verify / restore / list |
+| `bin/populate_myprivatelib.sh` | `flibusta.mlbook` (md5 map + catalog rows), `mlauthor`, `mlauthorname`, `mlgenre`, `mlgenrename`, `mlseq`, `mlseqname`, `mlrating`, `mlcustinfo` | `myprivatelib` managed tables (fresh keys) | Rebuild the personal library from the `Books` folder |
 
-### 6.5 populate_privetelib.sh — the personal-library rebuild
+### 6.5 populate_myprivatelib.sh — the personal-library rebuild
 
-**populate_privetelib.sh data flow** (v1.1.1):
+**populate_myprivatelib.sh data flow** (v1.2.0):
 
 ```
 Books folder ──walk──▶ hash each file (zip → decompressed FB2 md5;
@@ -628,24 +640,26 @@ flibusta.mlbook ──one bounded read──▶ (md5, bookid) map (869k rows,
 resolve: file md5 → bookid (2148/2156 = 99.6% on the real collection)
         │
 flibusta (chunked reads, POP_CHUNK=500) ──▶ one SQL script, one session:
+        │     ALTER PK columns  (strip AUTO_INCREMENT — schema-driven,
+        │                           all 16 PK columns, rows untouched)
         │     TRUNCATE the 9 managed tables
-        │     INSERT mlauthorname  (fresh @aid_* per author; our books only)
-        │     INSERT mlgenrename   (fresh @gid_*; used genres + their
+        │     INSERT mlauthorname  (explicit @aid_* per author; our books only)
+        │     INSERT mlgenrename   (explicit @gid_*; used genres + their
         │                           ancestor category rows pulled from the
         │                           catalog, parent remap, parents first)
-        │     INSERT mlseqname     (fresh @sid_* per series)
-        │     INSERT mlbook        (fresh @bid_*; catalog filename,
+        │     INSERT mlseqname     (explicit @sid_* per series)
+        │     INSERT mlbook        (explicit @bid_*; catalog filename,
         │                           on-disk arcname/filesize, ext='fb2')
         │     INSERT mlauthor / mlgenre / mlseq     (reference captured vars)
         │     INSERT mlrating / mlcustinfo          (reference captured vars)
         ▼
-privetelib rebuilt — only books on disk; flibusta never written
+myprivatelib rebuilt — only books on disk; flibusta never written
 ```
 
 Key behaviours worth knowing:
 
 * **Column-parity gate** — before any `TRUNCATE`, the tool compares all
-  nine managed tables' columns between `flibusta` and `privetelib` and
+  nine managed tables' columns between `flibusta` and `myprivatelib` and
   aborts on mismatch (a partial rebuild would leave dangling keys).
 * **Genre tree** — each used genre's ancestor rows are fetched
   iteratively (bounded, with a tried-set so a dangling parent is not
@@ -657,23 +671,23 @@ Key behaviours worth knowing:
   `arcname` and `filesize` come from the on-disk walk (`arcname` is the
   zip member name, `'-'` for loose `.fb2`); `ext` is forced to `'fb2'`;
   every other column is copied verbatim from the catalog row
-  (`library` is set to the literal `'privetelib'`).
+  (`library` is set to the literal `'myprivatelib'`).
 * **Row-by-row SQL, one session** — `SET NAMES utf8;
-  SET FOREIGN_KEY_CHECKS=0; TRUNCATE …; INSERT …; SET @x=LAST_INSERT_ID();
-  …` — the whole rebuild streams through a single `mysql` invocation
-  (≈19k SQL lines for 2,138 books), so the captured variables stay alive
-  for the run.
+  SET FOREIGN_KEY_CHECKS=0; ALTER …MODIFY… (strip AUTO_INCREMENT);
+  TRUNCATE …; INSERT …; SET @x=<explicit id>; …` — the whole rebuild
+  streams through a single `mysql` invocation (≈19k SQL lines for 2,138
+  books), so the captured variables stay alive for the run.
 * **md5 duplicates** — a file that resolves to a bookid already
   inserted is skipped (duplicate copies of the same book on disk);
   catalog md5 collisions keep the lowest bookid.
 * **Dry run** (`-n`) walks + resolves + prints what *would* happen but
   writes nothing; the live report TSV
-  (`populate_privetelib_<ts>.tsv`) records per-file `source_file`,
+  (`populate_myprivatelib_<ts>.tsv`) records per-file `source_file`,
   `md5`, `bookid`, `status`.
 * **Lifecycle** — starts MariaDB if down, shuts it down again on exit
   only if it started it (§7.6). `--force`-style re-runs are safe by
   construction (clean rebuild) but the project convention is to take a
-  `backup_privetelib.sh` snapshot first (§8.2).
+  `backup_myprivatelib.sh` snapshot first (§8.2).
 
 ### 6.6 Data flow end to end
 
@@ -689,10 +703,10 @@ flibusta (17 ml* tables: 869k books, 1.07M author links, 361k ratings…)
    ├── export_authors_from_db.sh ──▶ author list fixture (5707 / 13396 names)
    ├── estimate_download_size.sh ──▶ to-collect round sizing
    │
-   └── populate_privetelib.sh (md5 match against mlbook.md5)
+   └── populate_myprivatelib.sh (md5 match against mlbook.md5)
          │
          ▼
-privetelib (the personal library the MultiLib app opens)
+myprivatelib (the personal library the MultiLib app opens)
    │
    └── reconcile_library.sh ──▶ collection-progress report vs the Books folder
 ```
@@ -733,7 +747,7 @@ This was the v1.1.1 correction after the user's app re-test:
 * `libfilename` / `libfilenameold` (the source tables) are the
   transliteration lookups — separate side tables, not part of `mlbook`
   once converted.
-* **In `privetelib`** the tool writes: `filename` = the **catalog
+* **In `myprivatelib`** the tool writes: `filename` = the **catalog
   value** (so the app shows what it expects), `arcname` = the **on-disk
   zip member name** (the bytes stored verbatim — for older archives
   these member names are double-encoded, and storing them faithfully is
@@ -808,9 +822,9 @@ tools run.
   (`'.\flibusta\mlauthor' is marked as crashed and should be repaired`)
   — the server auto-checks them; `mysql_upgrade`/`REPAIR TABLE` clears
   the flags.
-* `privetelib.mlcustinfo.frm` was once corrupt (error 1033 on LOCK
+* `myprivatelib.mlcustinfo.frm` was once corrupt (error 1033 on LOCK
   TABLES); repaired by recreating the empty table from the valid schema:
-  `CREATE TABLE privetelib.mlcustinfo LIKE flibusta.mlcustinfo`.
+  `CREATE TABLE myprivatelib.mlcustinfo LIKE flibusta.mlcustinfo`.
   The backup tool now makes such repairs safe.
 
 ### 7.9 Re-test status after v1.1.1 (open issues)
@@ -818,7 +832,7 @@ tools run.
 The v1.1.1 rebuild (2026-09-04) fixed the two reported app-side
 problems — genre relationships (tree restored, §4.2) and the filename
 contract (§7.2). The user re-tested MultiLib.exe against the rebuilt
-`privetelib`: **"things are getting better but there are still some
+`myprivatelib`: **"things are getting better but there are still some
 problems"** that are deferred. Known-at-this-writing observations worth
 carrying into that work:
 
@@ -830,7 +844,7 @@ carrying into that work:
   stored verbatim they are correct for lookup but will look odd in any
   UI that renders them.
 * `mlactual`, `mldownloaddata`, `mlnews*`, `mluser*` are all empty in
-  `privetelib` — opening/downloading books from inside the app will
+  `myprivatelib` — opening/downloading books from inside the app will
   populate them and is the natural next end-to-end probe.
 
 ---
@@ -860,19 +874,19 @@ Env contract: `MYSQL_CLIENT`, `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`,
 
 1. **`flibusta` and `mllbr_main` are never written** by MultiLib_Utilities.
 2. The tools manage **only** the nine catalog tables they populate in
-   `privetelib`; app-owned tables (`mlactual`, `mldownloaddata`,
+   `myprivatelib`; app-owned tables (`mlactual`, `mldownloaddata`,
    `mlnews*`, `mluser*`) are never touched.
 3. Population is a **clean rebuild**: managed tables are
    `TRUNCATE`-and-reloaded per run — idempotent by construction.
-4. **Keys are regenerated** per run in `privetelib`; flibusta ids are
+4. **Keys are regenerated** per run in `myprivatelib`; flibusta ids are
    used only as the lookup source during the walk.
 5. A column-parity mismatch on **any** managed table aborts the run
    before any `TRUNCATE` (all-or-nothing — a partial rebuild would leave
    dangling key references).
 6. Every tool writes a per-run TSV report to its report dir
    (`/mnt/c/Backup_Go7/merge-reports/` by default).
-7. Take a `backup_privetelib.sh` backup before re-populating a
-   non-empty `privetelib` (restore is safe: it backs up first and
+7. Take a `backup_myprivatelib.sh` backup before re-populating a
+   non-empty `myprivatelib` (restore is safe: it backs up first and
    refuses non-empty overwrites without `--force`).
 
 ---
@@ -898,7 +912,7 @@ ahead of row counts because catalog ids are sparse).
 | mlgenrename | 296 | 1,000,025 |
 | mlcoverpage / mldescription / mlactual / mldownloaddata / mlnews / mlnewsname / mluserkeyword / mluserprim | 0 | 1 (or n/a for `mlactual`, which has no auto PK) |
 
-### 9.2 privetelib row counts (v1.1.1 rebuild)
+### 9.2 myprivatelib row counts (v1.1.1 rebuild)
 
 Personal library after the 2026-09-04 v1.1.1 rebuild (2,156 files →
 2,148 matched → 2,138 bookids). Fresh contiguous keys: every
@@ -934,7 +948,7 @@ copied wholesale) that broke the app.
 | 5 | 75,741 |
 | **total** | **361,761** |
 
-**privetelib** (1,948 of 2,138 books have a rating):
+**myprivatelib** (1,948 of 2,138 books have a rating):
 
 | rating | books |
 |---|---|
@@ -950,20 +964,20 @@ copied wholesale) that broke the app.
 Full `mlbook` census (flibusta, 2026-09-04):
 
 * **`library`:** single-valued per DB — `'flibusta'` (869,130) /
-  `'privetelib'` (2,138).
+  `'myprivatelib'` (2,138).
 * **`ext`:** mostly `fb2` (728,881) but the catalog holds ~200 more
   legacy values — top: `pdf` 58,117, `djvu` 31,468, `epub` 30,436,
   `doc` 9,013, `docx` 2,799, `txt` 2,772, `rtf` 2,186 … down to
-  one-row oddities (`???`, `-бер`, `вщс`). `privetelib`: `fb2` only.
+  one-row oddities (`???`, `-бер`, `вщс`). `myprivatelib`: `fb2` only.
 * **`deleted`:** `'0'` 711,738 / `'1'` 157,392 in `flibusta`; all
-  `'0'` in `privetelib`.
+  `'0'` in `myprivatelib`.
 * **`md5`:** populated on **all** rows in both DBs.
 * **`filename`:** 615,216 numeric (a bare bookid) + 253,914
   transliterated in `flibusta`; 1,987 numeric + 151 transliterated in
-  `privetelib` (the numeric fraction is higher for the personal
+  `myprivatelib` (the numeric fraction is higher for the personal
   collection because of which books were collected).
 * **`arcname`:** 0 populated in `flibusta`; 2,127 member names + 11
-  `'-'` (loose `.fb2`) in `privetelib`.
+  `'-'` (loose `.fb2`) in `myprivatelib`.
 
 ### 9.5 mllbr_main schema
 
@@ -979,7 +993,7 @@ Full `mlbook` census (flibusta, 2026-09-04):
 All four queries below are also shipped as the self-contained, runnable
 script `data/sql/qry_catalog_reference.sql` (queries B/C read `@title` /
 `@md5` session variables; run against `flibusta` by default,
-`privetelib` by pointing `MYSQL_DATABASE` at it).
+`myprivatelib` by pointing `MYSQL_DATABASE` at it).
 
 ```sql
 -- A. Genre tree roots and their child counts (catalog)
@@ -1013,7 +1027,7 @@ FROM mlbook WHERE md5 = @md5;
 SET @tbl = 'mlbook';             -- in qry_catalog_reference.sql
 SELECT TABLE_SCHEMA AS db, GROUP_CONCAT(COLUMN_NAME ORDER BY ORDINAL_POSITION)
 FROM information_schema.COLUMNS
-WHERE TABLE_SCHEMA IN ('flibusta','privetelib') AND TABLE_NAME = @tbl
+WHERE TABLE_SCHEMA IN ('flibusta','myprivatelib') AND TABLE_NAME = @tbl
 GROUP BY TABLE_SCHEMA;
 ```
 

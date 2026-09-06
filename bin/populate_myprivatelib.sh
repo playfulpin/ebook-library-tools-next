@@ -1,26 +1,28 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# bin/populate_privetelib.sh
+# bin/populate_myprivatelib.sh
 #
-# Version:       1.1.1
-# Last updated:  2026-09-04
+# Version:       1.2.0
+# Last updated:  2026-09-06
 #
 # -----------------------------------------------------------------------------
 # PURPOSE
 # -----------------------------------------------------------------------------
-#   Rebuild the app-registered personal library database (privetelib) from
+#   Rebuild the app-registered personal library database (myprivatelib) from
 #   the on-disk Books collection (Phase 1 of docs/REPRESENTATION_PLAN.md).
-#   privetelib is the sibling library the MultiLib desktop app created with
+#   myprivatelib is the sibling library the MultiLib desktop app created with
 #   the Flibusta plugin: same 17-table ml* schema as flibusta, connectable
 #   from the app.  The population contract:
 #
 #       * flibusta and mllbr_main are NEVER written - read-only source
 #       * ONLY books present in the Books folder are represented - no
 #         exact-copy of the flibusta catalog
-#       * the tool manages ONLY the pure catalog tables it populates;
-#         app-owned tables (mlactual, mldownloaddata, mlnews*, mluser*)
-#         are never touched
+#       * the tool writes DATA only into the pure catalog tables it
+#         populates; app-owned tables (mlactual, mldownloaddata, mlnews*,
+#         mluser*) are never filled - but their PRIMARY-KEY schema IS
+#         included in the AUTO_INCREMENT strip (v1.2.0), which is a
+#         schema-only fix that never touches rows
 #       * rebuild semantics: managed tables are cleared and reloaded per
 #         run - idempotent by construction, no drift
 #
@@ -31,18 +33,32 @@
 #   (md5, bookid) map is pulled once and joined locally - no per-file
 #   queries.
 #
-#   KEY STRATEGY (v1.1.0 rewrite): privetelib's own AUTO_INCREMENT columns
-#   generate EVERY key.  The v1.0.0 "exact copy" approach (INSERT ... SELECT
-#   * carrying flibusta's ids wholesale) is gone - copied foreign ids broke
-#   the app's key bookkeeping, which is exactly why MultiLib.exe showed
-#   catalog basics but no books.  Now the tool emits one INSERT per row,
-#   captures the freshly generated id with LAST_INSERT_ID() into a session
-#   variable (@bid_<old>, @aid_<old>, @gid_<old>, @sid_<old>), and child
-#   rows (mlauthor, mlgenre, mlseq, mlrating, mlcustinfo) reference ONLY
-#   those captured ids - keys are used only after they come into existence.
-#   The whole rebuild runs as a single SQL script in one client session, so
-#   the variables live for the entire run; TRUNCATE at the top resets the
-#   auto-increment counters, making every run a clean rebuild.
+#   KEY STRATEGY (v1.2.0): keys are EXPLICIT and tool-assigned - the
+#   server never generates them.  docs/DO_IT.md identified AUTO_INCREMENT
+#   primary keys as the reason MultiLib.exe misbehaves with the populated
+#   library (the app treats server-generated PK columns differently from
+#   the original schema's plain PK columns).  Two consequences, applied to
+#   ALL 16 AUTO_INCREMENT PK columns of the ml* schema (see PK_COLUMNS):
+#
+#       1. SCHEMA: before any data is written, the tool strips
+#          AUTO_INCREMENT from every listed PK column of the target.
+#          The strip is schema-driven and attribute-preserving - the
+#          column definition is read from SHOW CREATE TABLE and ONLY the
+#          AUTO_INCREMENT keyword is removed, so type / NULL-ness /
+#          DEFAULT / COLLATE and the PRIMARY KEY itself stay verbatim.
+#       2. KEYS: with AUTO_INCREMENT gone, LAST_INSERT_ID() cannot work,
+#          so the tool assigns contiguous keys itself (authorid = 1..N,
+#          genreid = 1..M, seqid = 1..K, bookid = 1..B in deterministic
+#          emission order) and rewrites every child reference (mlauthor,
+#          mlgenre, mlseq, mlrating, mlcustinfo) through an old->new id
+#          map.  The v1.0.0 "exact copy" approach (carrying flibusta's
+#          ids wholesale) remains gone - copied foreign ids broke the
+#          app's key bookkeeping, which is exactly why MultiLib.exe showed
+#          catalog basics but no books.
+#
+#   The whole rebuild still runs as a single SQL script in one client
+#   session; managed tables are TRUNCATEd and keys restart at 1, so every
+#   run is a clean, byte-deterministic rebuild.
 #
 #   Reference entities are inserted for OUR books only:
 #       mlauthorname  <- distinct authors of the resolved bookids
@@ -60,7 +76,7 @@
 #                        transliterated name the app expects - the on-disk
 #                        path is NOT what the app displays), arcname the
 #                        on-disk zip member name (empty for loose .fb2),
-#                        filesize the on-disk bytes; library='privetelib',
+#                        filesize the on-disk bytes; library='myprivatelib',
 #                        ext='fb2' (content format), all catalog metadata
 #                        (title, lang, md5, pi_*, ...) copied verbatim
 #       mlauthor      <- (new bookid, new authorid, role)
@@ -77,12 +93,12 @@
 #   mlcoverpage / mldescription are NOT populated: the source catalog has
 #   them EMPTY (covers/descriptions are not part of the loaded dump).
 #
-#   Because every table is interdependent through the generated keys, a
+#   Because every table is interdependent through the assigned keys, a
 #   column-parity mismatch on ANY managed table aborts the run (before any
 #   TRUNCATE) instead of silently skipping - a partial rebuild would leave
 #   dangling key references.
 #
-#   After population, switch MultiLib.exe to privetelib to browse the
+#   After population, switch MultiLib.exe to myprivatelib to browse the
 #   personal collection with ratings/series/genres, and - with arcname
 #   holding the on-disk zip member - try opening a book from the app.
 #
@@ -96,7 +112,7 @@
 # -----------------------------------------------------------------------------
 # USAGE
 # -----------------------------------------------------------------------------
-#   ./bin/populate_privetelib.sh [options]
+#   ./bin/populate_myprivatelib.sh [options]
 #
 #   Options:
 #       -n, --dry-run        walk + resolve + summarize, change nothing
@@ -110,12 +126,12 @@
 #           column-parity mismatch, rebuild error)
 #       2   usage error
 #
-#   Environment / config (config/populate_privetelib.conf; all overridable):
+#   Environment / config (config/populate_myprivatelib.conf; all overridable):
 #       POP_LIBRARY_ROOT   the personal Books tree (default: /mnt/c/Backup_Go7/Books)
 #       POP_REPORT_DIR     where the per-run TSV report goes
 #                          (default: /mnt/c/Backup_Go7/merge-reports)
 #       POP_SOURCE_DB      read-only catalog DB (default: flibusta)
-#       POP_TARGET_DB      the library DB to rebuild (default: privetelib)
+#       POP_TARGET_DB      the library DB to rebuild (default: myprivatelib)
 #       POP_CHUNK          bookids per read query IN-list (default: 500)
 #       MYSQL_CLIENT / MYSQL_HOST / MYSQL_PORT / MYSQL_USER / MYSQL_PASSWORD /
 #       MYSQL_EXTRA_ARGS   same contract as BookTracker-import
@@ -141,13 +157,13 @@ MYSQL_EXTRA_ARGS="${MYSQL_EXTRA_ARGS:---default-character-set=utf8}"
 MYSQL_CONNECT_TIMEOUT="${MYSQL_CONNECT_TIMEOUT:-10}"
 
 # --- config file ---------------------------------------------------------------
-CONF_FILE="${CONF_FILE:-$PROJECT_ROOT/config/populate_privetelib.conf}"
+CONF_FILE="${CONF_FILE:-$PROJECT_ROOT/config/populate_myprivatelib.conf}"
 [[ -f "$CONF_FILE" ]] && source "$CONF_FILE"
 
 POP_LIBRARY_ROOT="${POP_LIBRARY_ROOT:-/mnt/c/Backup_Go7/Books}"
 POP_REPORT_DIR="${POP_REPORT_DIR:-/mnt/c/Backup_Go7/merge-reports}"
 POP_SOURCE_DB="${POP_SOURCE_DB:-flibusta}"
-POP_TARGET_DB="${POP_TARGET_DB:-privetelib}"
+POP_TARGET_DB="${POP_TARGET_DB:-myprivatelib}"
 POP_CHUNK="${POP_CHUNK:-500}"
 
 DRY_RUN=0
@@ -212,6 +228,103 @@ columns_of() { # db table -> comma-separated "name:type" list (or empty)
 }
 
 managed_all=(mlauthorname mlgenrename mlseqname mlbook mlauthor mlgenre mlseq mlrating mlcustinfo)
+
+# --- AUTO_INCREMENT strip (v1.2.0, docs/DO_IT.md) --------------------------------
+# MultiLib.exe treats server-generated (AUTO_INCREMENT) primary-key columns
+# differently from the original schema's plain PK columns and misbehaves
+# with a populated library.  Every PK column below must therefore be plain
+# (no AUTO_INCREMENT) in the target before data is written.
+#   - the list covers ALL 16 AUTO_INCREMENT PK columns of the ml* schema,
+#     including the app-owned tables (mlactual, mldownloaddata, mlnews*,
+#     mluser*, mlcoverpage, mldescription) - the strip is a schema-only
+#     fix and never touches their rows
+#   - the strip is driven by the target's OWN schema: the column definition
+#     is read from SHOW CREATE TABLE and ONLY the AUTO_INCREMENT keyword is
+#     dropped, so type / NULL-ness / DEFAULT / COLLATE stay verbatim and
+#     the PRIMARY KEY remains intact
+PK_COLUMNS=(
+    mlauthor:la_id
+    mlauthorname:authorid
+    mlbook:bookid
+    mlcoverpage:cp_id
+    mlcustinfo:ci_id
+    mldescription:ds_id
+    mldownloaddata:dd_id
+    mlgenre:gn_id
+    mlgenrename:genreid
+    mlnews:cb_id
+    mlnewsname:critid
+    mlrating:rt_id
+    mlseq:sq_id
+    mlseqname:seqid
+    mluserkeyword:kw_id
+    mluserprim:up_id
+)
+
+# column_definition_strip_auto <table> <column>
+# Emit an ALTER TABLE that re-declares the column without AUTO_INCREMENT,
+# using the definition verbatim from SHOW CREATE TABLE (minus the trailing
+# comma and the AUTO_INCREMENT keyword).  Prints nothing when the column
+# carries no AUTO_INCREMENT (idempotent).
+alter_without_auto_inc() { # table column
+    local table="$1" col="$2" ddl line def
+    ddl="$(run_mysql "${mysql_args[@]}" --raw -B --skip-column-names \
+        -e "SHOW CREATE TABLE $POP_TARGET_DB.$table" 2>/dev/null || true)"
+    # the column-def line is the one whose first non-blank token is the
+    # backticked column name followed by a space (KEY/PRIMARY lines never
+    # start with it); --raw keeps the embedded newlines real
+    line="$(printf '%s\n' "$ddl" \
+        | awk -v c="\`$col\`" '{ s = $0; sub(/^ +/, "", s); if (index(s, c " ") == 1) { print s; exit } }')"
+    [[ -z "$line" ]] && return 0
+    def="${line%,}"                       # drop the trailing comma
+    def="${def% }"                        # and a stray trailing space
+    case "$def" in
+        *AUTO_INCREMENT*) ;;              # carries it -> strip
+        *) return 0 ;;                    # already plain -> nothing to do
+    esac
+    def="${def/AUTO_INCREMENT/}"          # the ONLY change: drop the keyword
+    # collapse the leftover double space and any trailing space
+    def="$(printf '%s' "$def" | sed 's/  \+/ /g; s/ $//')"
+    printf 'ALTER TABLE %s.%s MODIFY COLUMN %s;\n' "$POP_TARGET_DB" "$table" "$def"
+}
+
+# generate + execute the strip ALTERs, then verify none is left
+strip_auto_increment() {
+    local t c sql_f="$tmp/strip.sql" n=0
+    : > "$sql_f"
+    for t in "${PK_COLUMNS[@]}"; do
+        c="${t#*:}"; t="${t%%:*}"
+        alter_without_auto_inc "$t" "$c" >> "$sql_f" || return 1
+    done
+    if [[ -s "$sql_f" ]]; then
+        n="$(wc -l < "$sql_f" | tr -d ' ')"
+        log "info : stripping AUTO_INCREMENT from $n PK column(s) in $POP_TARGET_DB"
+        debug "strip SQL: $(tr '\n' '|' < "$sql_f")"
+        run_mysql "${mysql_args[@]}" "$POP_TARGET_DB" < "$sql_f" \
+            || die "AUTO_INCREMENT strip failed"
+        auto_inc_left "$tmp/strip_left.txt"   # dies when a column still carries it
+    else
+        log "info : AUTO_INCREMENT already absent from all PK columns"
+    fi
+    return 0
+}
+
+# verify: no PK column may still carry AUTO_INCREMENT (reads
+# information_schema.EXTRA; 'auto_increment' may appear among other flags)
+auto_inc_left() { # outfile -> writes 'table:column' still carrying it
+    local t c out_f="$1" q
+    : > "$out_f"
+    for t in "${PK_COLUMNS[@]}"; do
+        c="${t#*:}"; t="${t%%:*}"
+        q="$(run_mysql "${mysql_args[@]}" -B --skip-column-names \
+            -e "SELECT EXTRA FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='$POP_TARGET_DB' AND TABLE_NAME='$t' AND COLUMN_NAME='$c'" \
+            2>/dev/null || true)"
+        [[ "${q,,}" == *auto_increment* ]] && printf '%s:%s\n' "$t" "$c" >> "$out_f"
+    done
+    if [[ -s "$out_f" ]]; then
+        die "AUTO_INCREMENT still present on: $(paste -sd' ' "$out_f")"
+    fi
+}
 
 # --- 1. fetch the (md5, bookid) map from the catalog -----------------------------
 # One bounded read of the whole map (869k rows), joined locally - per-file
@@ -358,9 +471,16 @@ check_parity_all() {
 }
 
 # --- 5. generate the rebuild SQL script -----------------------------------------------
-# One script, one client session: TRUNCATE resets the auto-increment counters,
-# then every INSERT generates a fresh key and captures it with LAST_INSERT_ID()
-# into a session variable that later statements reference.
+# One script, one client session: managed tables are TRUNCATEd, then every
+# INSERT carries an EXPLICIT, tool-assigned key (v1.2.0 - AUTO_INCREMENT is
+# stripped from the target, so the server never generates keys).  Keys are
+# contiguous per table and assigned in the deterministic emission order:
+#   authorid/genreid/seqid = 1..N by C-ascending old catalog id,
+#   bookid = 1..B by the sorted relative path of the resolved file
+# (genre ids follow the parent-first topological order).  Each INSERT is
+# followed by SET @<var>_<oldid> = <newid>, and child rows (mlauthor,
+# mlgenre, mlseq, mlrating, mlcustinfo) reference ONLY those variables -
+# keys are used only after they come into existence.
 # SQL literal helpers (shared by every emitter; note the octal "\047" is a
 # single quote - the awk programs contain no literal quote characters):
 #   esc()  double backslashes then double single quotes (SQL string escaping)
@@ -471,21 +591,25 @@ generate_rebuild_sql() {
 function q(s)   { if (s == "NULL") return "NULL"; return "\047" esc(s) "\047" }
 function num(s) { if (s == "NULL") return "NULL"; if (s ~ /^-?[0-9]+$/) return s; if (s == "") return "0"; return "\047" esc(s) "\047" }'
 
-    # 5.1 mlauthorname: distinct authors, fresh authorid captured as @aid_<old>
+    # 5.1 mlauthorname: distinct authors; explicit authorid 1..N captured
+    #     as @aid_<old>
     awk -F'\t' -v T="$T" "$AWK_HELPERS"'
-    {
-        printf "INSERT INTO %s.mlauthorname (FirstName,MiddleName,LastName,NickName,FullName,Email,TotalCount,NormalCount) VALUES (%s,%s,%s,%s,%s,%s,%s,%s);\n", T, q($2),q($3),q($4),q($5),q($6),q($7),num($8),num($9)
-        printf "SET @aid_%s = LAST_INSERT_ID();\n", $1
+    { i++
+        printf "INSERT INTO %s.mlauthorname (authorid,FirstName,MiddleName,LastName,NickName,FullName,Email,TotalCount,NormalCount) VALUES (%d,%s,%s,%s,%s,%s,%s,%s,%s);\n", T, i, q($2),q($3),q($4),q($5),q($6),q($7),num($8),num($9)
+        printf "SET @aid_%s = %d;\n", $1, i
     }' "$tmp/authors.tsv" >> "$sql_f"
 
-    # 5.2 mlgenrename: distinct genres, fresh genreid captured as @gid_<old>;
-    #     parentgenreid remapped to the fresh parent id when the parent genre
-    #     is part of the personal library (parents emitted first), else NULL
+    # 5.2 mlgenrename: distinct genres; explicit genreid from a counter,
+    #     captured as @gid_<old>; parentgenreid remapped to the assigned
+    #     parent id when the parent genre is part of the personal library
+    #     (parents emitted first), else NULL
     awk -F'\t' -v T="$T" "$AWK_HELPERS"'
     function emit(i,   p) {
+        g++
         p = (par[i] == "" || !(par[i] in em)) ? "NULL" : ("@gid_" par[i])
-        printf "INSERT INTO %s.mlgenrename (parentgenreid,genrecode,genrenamerus,TotalCount,NormalCount) VALUES (%s,%s,%s,%s,%s);\n", T, p, q(code[i]), q(name[i]), num(tc[i]), num(nc[i])
-        printf "SET @gid_%s = LAST_INSERT_ID();\n", id[i]
+        printf "INSERT INTO %s.mlgenrename (genreid,parentgenreid,genrecode,genrenamerus,TotalCount,NormalCount) VALUES (%d,%s,%s,%s,%s,%s);\n", T, g, p, q(code[i]), q(name[i]), num(tc[i]), num(nc[i])
+        printf "SET @gid_%s = %d;\n", id[i], g
+        em[id[i]] = 1
     }
     {
         n++
@@ -500,29 +624,29 @@ function num(s) { if (s == "NULL") return "NULL"; if (s ~ /^-?[0-9]+$/) return s
             for (i = 1; i <= n; i++) {
                 if (done[i]) continue
                 if (par[i] == "" || ((par[i] in used) && (par[i] in em))) {
-                    emit(i); done[i]=1; em[id[i]]=1; prog=1
+                    emit(i); done[i]=1; prog=1
                 }
             }
             if (!prog) break
         }
         # dangling parents (not used in the personal library) -> NULL
-        for (i = 1; i <= n; i++) if (!done[i]) { emit(i); done[i]=1; em[id[i]]=1 }
+        for (i = 1; i <= n; i++) if (!done[i]) { emit(i); done[i]=1 }
     }' "$tmp/genres.tsv" >> "$sql_f"
 
-    # 5.3 mlseqname: distinct series, fresh seqid captured as @sid_<old>
+    # 5.3 mlseqname: distinct series; explicit seqid 1..K captured as @sid_<old>
     awk -F'\t' -v T="$T" "$AWK_HELPERS"'
-    {
-        printf "INSERT INTO %s.mlseqname (seqname,TotalCount,NormalCount) VALUES (%s,%s,%s);\n", T, q($2), num($3), num($4)
-        printf "SET @sid_%s = LAST_INSERT_ID();\n", $1
+    { k++
+        printf "INSERT INTO %s.mlseqname (seqid,seqname,TotalCount,NormalCount) VALUES (%d,%s,%s,%s);\n", T, k, q($2), num($3), num($4)
+        printf "SET @sid_%s = %d;\n", $1, k
     }' "$tmp/seqs.tsv" >> "$sql_f"
 
     # 5.4 mlbook: one row per resolved book; filename = the CATALOG value
     #     (flibusta.mlbook.filename - the app expects the transliterated
     #     name, not the on-disk path), arcname = on-disk zip member,
-    #     filesize = on-disk bytes; fresh bookid captured as @bid_<old>;
-    #     catalog metadata verbatim.  book_cat.tsv = SELECT * (26 columns,
-    #     bookid first); resolved.tsv carries the walk data (rel, arc,
-    #     size) per file.
+    #     filesize = on-disk bytes; explicit bookid 1..B in emission order
+    #     captured as @bid_<old>; catalog metadata verbatim.
+    #     book_cat.tsv = SELECT * (26 columns, bookid first); resolved.tsv
+    #     carries the walk data (rel, arc, size) per file.
     awk -F'\t' -v T="$T" -v CAT="$tmp/book_cat.tsv" "$AWK_HELPERS"'
     FILENAME == CAT {
         for (i = 1; i <= 26; i++) c[$1,i] = $i
@@ -535,33 +659,40 @@ function num(s) { if (s == "NULL") return "NULL"; if (s ~ /^-?[0-9]+$/) return s
         if (bid in done) next          # duplicate copies of the same book
         if (!(bid in have)) { miss[bid] = 1; next }
         done[bid] = 1
-        printf "INSERT INTO %s.mlbook (library,title,lang,date_in,filename,filesize,arcname,ext,deleted,md5,srclang,date_wr,keywords,di_progused,di_date,di_srcurl,di_srcosr,di_author,di_id,di_version,pi_bookname,pi_publisher,pi_city,pi_year,pi_isbn) VALUES (\047privetelib\047,%s,%s,%s,%s,%s,%s,\047fb2\047,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);\n", T, q(c[bid,3]),q(c[bid,4]),q(c[bid,5]),q(c[bid,6]),num(sz),q(arc),q(c[bid,10]),q(c[bid,11]),q(c[bid,12]),q(c[bid,13]),q(c[bid,14]),q(c[bid,15]),q(c[bid,16]),q(c[bid,17]),q(c[bid,18]),q(c[bid,19]),q(c[bid,20]),q(c[bid,21]),q(c[bid,22]),q(c[bid,23]),q(c[bid,24]),q(c[bid,25]),q(c[bid,26])
-        printf "SET @bid_%s = LAST_INSERT_ID();\n", bid
+        b++
+        printf "INSERT INTO %s.mlbook (bookid,library,title,lang,date_in,filename,filesize,arcname,ext,deleted,md5,srclang,date_wr,keywords,di_progused,di_date,di_srcurl,di_srcosr,di_author,di_id,di_version,pi_bookname,pi_publisher,pi_city,pi_year,pi_isbn) VALUES (%d,\047myprivatelib\047,%s,%s,%s,%s,%s,%s,\047fb2\047,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);\n", T, b, q(c[bid,3]),q(c[bid,4]),q(c[bid,5]),q(c[bid,6]),num(sz),q(arc),q(c[bid,10]),q(c[bid,11]),q(c[bid,12]),q(c[bid,13]),q(c[bid,14]),q(c[bid,15]),q(c[bid,16]),q(c[bid,17]),q(c[bid,18]),q(c[bid,19]),q(c[bid,20]),q(c[bid,21]),q(c[bid,22]),q(c[bid,23]),q(c[bid,24]),q(c[bid,25]),q(c[bid,26])
+        printf "SET @bid_%s = %d;\n", bid, b
     }
-    END { for (b in miss) print "warn: bookid " b " resolved but absent from catalog; skipped" > "/dev/stderr" }
+    END { for (m in miss) print "warn: bookid " m " resolved but absent from catalog; skipped" > "/dev/stderr" }
     ' "$tmp/book_cat.tsv" "$tmp/resolved.tsv" >> "$sql_f"
 
-    # 5.5 mlauthor: (fresh bookid, fresh authorid, role)
+    # 5.5 mlauthor: (assigned la_id, bookid, authorid, role) - la_id is
+    #     explicit (1..N) because the target PK is no longer AUTO_INCREMENT
     awk -F'\t' -v T="$T" "$AWK_HELPERS"'
-    { printf "INSERT INTO %s.mlauthor (bookid,authorid,role) VALUES (@bid_%s,@aid_%s,%s);\n", T, $2, $3, q($4) }' "$tmp/mlauthor_t.tsv" >> "$sql_f"
+    { a++
+      printf "INSERT INTO %s.mlauthor (la_id,bookid,authorid,role) VALUES (%d,@bid_%s,@aid_%s,%s);\n", T, a, $2, $3, q($4) }' "$tmp/mlauthor_t.tsv" >> "$sql_f"
 
-    # 5.6 mlgenre: (fresh bookid, fresh genreid)
+    # 5.6 mlgenre: (assigned gn_id, bookid, genreid) - gn_id explicit
     awk -F'\t' -v T="$T" '
-    { printf "INSERT INTO %s.mlgenre (bookid,genreid) VALUES (@bid_%s,@gid_%s);\n", T, $2, $3 }' "$tmp/mlgenre_t.tsv" >> "$sql_f"
+    { g++
+      printf "INSERT INTO %s.mlgenre (gn_id,bookid,genreid) VALUES (%d,@bid_%s,@gid_%s);\n", T, g, $2, $3 }' "$tmp/mlgenre_t.tsv" >> "$sql_f"
 
-    # 5.7 mlseq: (fresh bookid, fresh seqid, seqnum)
+    # 5.7 mlseq: (assigned sq_id, bookid, seqid, seqnum) - sq_id explicit
     awk -F'\t' -v T="$T" "$AWK_HELPERS"'
-    { printf "INSERT INTO %s.mlseq (bookid,seqid,seqnum) VALUES (@bid_%s,@sid_%s,%s);\n", T, $2, $3, num($4) }' "$tmp/mlseq_t.tsv" >> "$sql_f"
+    { s++
+      printf "INSERT INTO %s.mlseq (sq_id,bookid,seqid,seqnum) VALUES (%d,@bid_%s,@sid_%s,%s);\n", T, s, $2, $3, num($4) }' "$tmp/mlseq_t.tsv" >> "$sql_f"
 
     # 5.8 mlrating: per-book aggregate from flibusta.mlrating (the output of
     #     BookTracker-import/sql/Flibusta_Load_mlrating.sql); only books
-    #     that have a rating get a row
+    #     that have a rating get a row; rt_id explicit
     awk -F'\t' -v T="$T" "$AWK_HELPERS"'
-    { printf "INSERT INTO %s.mlrating (bookid,rating) VALUES (@bid_%s,%s);\n", T, $2, q($3) }' "$tmp/mlrating_t.tsv" >> "$sql_f"
+    { r++
+      printf "INSERT INTO %s.mlrating (rt_id,bookid,rating) VALUES (%d,@bid_%s,%s);\n", T, r, $2, q($3) }' "$tmp/mlrating_t.tsv" >> "$sql_f"
 
-    # 5.9 mlcustinfo: di_history / custominfo for our books
+    # 5.9 mlcustinfo: di_history / custominfo for our books; ci_id explicit
     awk -F'\t' -v T="$T" "$AWK_HELPERS"'
-    { printf "INSERT INTO %s.mlcustinfo (bookid,di_history,custominfo) VALUES (@bid_%s,%s,%s);\n", T, $2, q($3), q($4) }' "$tmp/mlcustinfo_t.tsv" >> "$sql_f"
+    { ci++
+      printf "INSERT INTO %s.mlcustinfo (ci_id,bookid,di_history,custominfo) VALUES (%d,@bid_%s,%s,%s);\n", T, ci, $2, q($3), q($4) }' "$tmp/mlcustinfo_t.tsv" >> "$sql_f"
 
     local lines
     lines="$(wc -l < "$sql_f" | tr -d ' ')"
@@ -572,7 +703,7 @@ function num(s) { if (s == "NULL") return "NULL"; if (s ~ /^-?[0-9]+$/) return s
 do_report() {
     local stamp report_name report_path
     stamp="$(date '+%Y%m%d-%H%M%S')"
-    report_name="populate_privetelib_$stamp.tsv"
+    report_name="populate_myprivatelib_$stamp.tsv"
     report_path="$POP_REPORT_DIR/$report_name"
     if (( DRY_RUN )); then
         log "dry-run: report would be written to $report_path"
@@ -590,17 +721,20 @@ do_report() {
 
 print_help() {
     cat >&2 <<'EOF'
-Usage: populate_privetelib.sh [options]
+Usage: populate_myprivatelib.sh [options]
 
-Rebuild the app-registered personal library database (privetelib) from
+Rebuild the app-registered personal library database (myprivatelib) from
 the on-disk Books collection, md5-matching every book file against the
 flibusta catalog (mlbook.md5) and representing ONLY the resolved books
-in privetelib.  privetelib's own AUTO_INCREMENT columns generate every
-key (captured via LAST_INSERT_ID() into session variables that child
-rows reference), mlbook.filename carries the catalog value (the
-app expects the transliterated name, not the on-disk path) while
-arcname/filesize come from the on-disk walk, and the reference tables
-(authors, genres, series) are populated for the personal library's
+in myprivatelib.  Keys are explicit and tool-assigned (authorid/genreid/
+seqid/bookid = 1..N in deterministic emission order, referenced through
+@<var>_<oldid> session variables by the child rows) - the server never
+generates keys, because the tool first strips AUTO_INCREMENT from all 16
+PK columns of the target schema (schema-driven, attribute-preserving;
+see PK_COLUMNS and docs/DO_IT.md).  mlbook.filename carries the catalog
+value (the app expects the transliterated name, not the on-disk path)
+while arcname/filesize come from the on-disk walk, and the reference
+tables (authors, genres, series) are populated for the personal library's
 books only - genre ancestor categories are pulled in so the genre tree
 renders.  flibusta/mllbr_main are never written; the tool manages only
 the catalog tables it populates.  See docs/REPRESENTATION_PLAN.md
@@ -614,7 +748,7 @@ Options:
 
 Exit codes: 0 success, 1 operational failure, 2 usage error.
 
-Environment / config (config/populate_privetelib.conf, all overridable):
+Environment / config (config/populate_myprivatelib.conf, all overridable):
   POP_LIBRARY_ROOT / POP_REPORT_DIR / POP_SOURCE_DB / POP_TARGET_DB /
   POP_CHUNK; MYSQL_CLIENT, MYSQL_HOST, MYSQL_PORT, MYSQL_USER,
   MYSQL_PASSWORD (MYSQL_PWD only), MYSQL_EXTRA_ARGS,
@@ -628,7 +762,7 @@ while (( $# > 0 )); do
         -n|--dry-run) DRY_RUN=1; shift ;;
         -d|--debug)   DEBUG=1; shift ;;
         -h|--help)    print_help; exit 0 ;;
-        -v|--version) echo "bin/populate_privetelib.sh v$SCRIPT_VERSION"; exit 0 ;;
+        -v|--version) echo "bin/populate_myprivatelib.sh v$SCRIPT_VERSION"; exit 0 ;;
         *) echo "Error: unknown option '$1'" >&2; echo "Try '$0 --help'." >&2; exit 2 ;;
     esac
 done
@@ -683,16 +817,21 @@ dupes="$(wc -l < "$tmp/dupes.txt" | tr -d ' ')"
 if (( ! DRY_RUN )); then
     generate_rebuild_sql
     if [[ -s "$tmp/rebuild.sql" ]]; then
-        log "info : rebuilding $POP_TARGET_DB (fresh keys, $(wc -l < "$tmp/rebuild.sql" | tr -d ' ') SQL lines)"
+        # v1.2.0 (docs/DO_IT.md): AUTO_INCREMENT must be gone from ALL 16 PK
+        # columns BEFORE any data lands; the strip is schema-only, verified,
+        # and runs before the first TRUNCATE/INSERT
+        strip_auto_increment
+        log "info : rebuilding $POP_TARGET_DB (explicit keys, $(wc -l < "$tmp/rebuild.sql" | tr -d ' ') SQL lines)"
         run_mysql "${mysql_args[@]}" "$POP_TARGET_DB" < "$tmp/rebuild.sql" \
             || die "rebuild of $POP_TARGET_DB failed"
+        auto_inc_left "$tmp/post_left.txt"   # post-run guard: still none
         rows="$(run_mysql "${mysql_args[@]}" -B --skip-column-names \
             -e "SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema='$POP_TARGET_DB' AND table_name IN ('mlbook','mlauthor','mlgenre','mlseq','mlrating','mlcustinfo','mlauthorname','mlgenrename','mlseqname') ORDER BY table_name" \
             2>/dev/null || true)"
         debug "target rows: $(echo "$rows" | tr '\n' ' ')"
     fi
 else
-    log "dry-run: would rebuild $POP_TARGET_DB from $bookids resolved bookid(s) (row-by-row INSERTs, fresh keys)"
+    log "dry-run: would rebuild $POP_TARGET_DB from $bookids resolved bookid(s) (row-by-row INSERTs, explicit keys, AUTO_INCREMENT stripped)"
 fi
 
 do_report

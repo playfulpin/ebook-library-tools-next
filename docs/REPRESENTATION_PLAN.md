@@ -3,13 +3,13 @@
 **Status:** Design approved; safety net + Phase 1 tool implemented (v1.1.0)
 **Updated:** 2026-09-04 (rev 6 — fresh-key population rewrite)
 
-> **Safety net (implemented):** `bin/backup_privetelib.sh` v1.0.0 — backup /
-> restore / verify / list of `privetelib` via mysqldump.  `restore` is safe
+> **Safety net (implemented):** `bin/backup_myprivatelib.sh` v1.0.0 — backup /
+> restore / verify / list of `myprivatelib` via mysqldump.  `restore` is safe
 > by design (backs up the current state first; refuses to overwrite a
 > non-empty library without `--force`).
 >
-> **Population tool (implemented):** `bin/populate_privetelib.sh` v1.1.1 —
-> rebuilds `privetelib` from the on-disk `Books` collection by md5-matching
+> **Population tool (implemented):** `bin/populate_myprivatelib.sh` v1.2.0 —
+> rebuilds `myprivatelib` from the on-disk `Books` collection by md5-matching
 > every book file against `flibusta.mlbook.md5` and inserting ONLY the
 > resolved books with FRESH keys (row-by-row, `LAST_INSERT_ID()` captured
 > into session variables child rows reference), genre ancestor categories
@@ -40,12 +40,12 @@ The app models **a library = a MySQL database holding the ml* catalog schema**
 and switches between them. The user proved this by creating a third library
 through the app itself:
 
-- **`privetelib`** — an empty library DB created in-app with the Flibusta
+- **`myprivatelib`** — an empty library DB created in-app with the Flibusta
   plugin, connectable from the app, sitting in the MariaDB datadir with the
   **same 17-table schema as `flibusta`** (`mlbook`, `mlauthorname`,
   `mlcoverpage`, `mldescription`, `mlrating`, `mlseq`/`mlseqname`,
   `mlgenre`/`mlgenrename`, `mlauthor`, `mlnews*`, `mluser*`, `mlactual`,
-  `mlcustinfo`, `mldownloaddata`), plus a `privetelib.lib` marker next to
+  `mlcustinfo`, `mldownloaddata`), plus a `myprivatelib.lib` marker next to
   `flibusta.lib`.
 - Nothing in `flibusta` or `mllbr_main` needs to be touched, ever: the
   personal library is a **self-contained sibling DB**. Deleting it = deleting
@@ -53,12 +53,12 @@ through the app itself:
 - `[MySQL]` in `MultiLib.ini`: `root` / no password / `localhost:3306` — the
   same connection our utilities already use.
 
-The plan: **populate `privetelib` with the personal collection** — full
+The plan: **populate `myprivatelib` with the personal collection** — full
 catalog rows copied from `flibusta` for exactly the books on disk, written in
 the shape the app itself writes — then switch the app to it like
 Flibusta ↔ Librusec. Enrichment (covers/descriptions/ratings/series) is
 inherited because the copied rows carry the same metadata, self-contained in
-`privetelib`.
+`myprivatelib`.
 
 ## Ecosystem today (grounded)
 
@@ -66,10 +66,10 @@ inherited because the copied rows carry the same metadata, self-contained in
 |---|---|---|
 | `MultiLib.exe` | closed-source Delphi library app (Russian UI, AlReader2 reader, plugin dir, query bank, OPDS support, Downloads grid) | `C:\MultiLib\` |
 | `flibusta` DB (17 tables) | the catalog the app browses (`CurrentLibName=flibusta`); `mlbook` carries per-file columns `filename`/`arcname`/`deleted`/`library` + `pi_*`/`di_*` info | MariaDB datadir |
-| `privetelib` DB (17 tables) | **the target library** — app-created, empty, same schema as `flibusta` | MariaDB datadir |
+| `myprivatelib` DB (17 tables) | **the target library** — app-created, empty, same schema as `flibusta` | MariaDB datadir |
 | `mllbr_main` DB (4 tables) | app registry: `mldownload` (per-library download ledger, `(bookid, library)` unique), `mlgroup`/`mlgroupname`, `mlgenrelist` — feeds the app's Downloads grids | MariaDB datadir |
 | `plugins/Private/` | the app's personal-library schema template (`init.sql` — `mlbook` w/ `filename`, `arcname`, `md5`) | `C:\MultiLib\plugins\Private\` |
-| `plugins/Flibusta/`, `plugins/Librus/` | the two online-catalog plugins; user created `privetelib` through the Flibusta one | `C:\MultiLib\plugins\` |
+| `plugins/Flibusta/`, `plugins/Librus/` | the two online-catalog plugins; user created `myprivatelib` through the Flibusta one | `C:\MultiLib\plugins\` |
 | `upload/` | downloaded official dumps `flibusta_YYYY-MM-DD/` (the load-a-catalog path) | `C:\MultiLib\upload\` |
 | `Books` folder | personal collection: 2,156 real books (2,145 zip-wrapped FB2 + 11 loose fb2; 457 `desktop.ini` noise), prefix tree `Letter/…/Author/Series/Book`; the user sets the app's library/download folder | `C:\Backup_Go7\Books` |
 | Derived artifacts | per-author reconcile TSV, to-collect list (5,663), download-size estimate | `C:\Backup_Go7\merge-reports` |
@@ -91,7 +91,7 @@ Key facts that shape the plan:
 - **`mlcoverpage` and `mldescription` are EMPTY in the loaded dump** —
   covers/descriptions are not part of the loaded dump (they would need the
   separate extended-data torrents loaded first).  The self-contained
-  enrichment `privetelib` copies today is ratings (361,761), series,
+  enrichment `myprivatelib` copies today is ratings (361,761), series,
   genres and `mlcustinfo` (163,161).
 - Author-level name matching is already proven by `reconcile_library.sh`
   (the spike: 2,075/2,156 disk files = 96.2% exact by author/series/title;
@@ -112,7 +112,7 @@ empty dirs, hidden files):
    b. author (prefix dirs) → series (parent dir) → normalized title — the
       fallback tier for the few unmatched files (still future work).
    c. report as unmatched otherwise.
-3. **Copy the catalog rows into `privetelib`** — `INSERT … SELECT` from
+3. **Copy the catalog rows into `myprivatelib`** — `INSERT … SELECT` from
    `flibusta` by resolved `bookid`, per-run column-parity checked:
    per-book `mlbook`, `mlauthor`, `mlgenre`, `mlseq`, `mlrating`,
    `mlcustinfo` (chunked `IN`-lists), plus the whole small reference tables
@@ -125,7 +125,7 @@ empty dirs, hidden files):
 5. Write the per-run TSV report (matched / unmatched / corrupt / skipped per
    file) for review.
 
-Rebuild semantics: `privetelib` is *our* database, so the tool reloads it
+Rebuild semantics: `myprivatelib` is *our* database, so the tool reloads it
 from scratch each run (managed tables are cleared and reloaded from
 `flibusta`) while the app is not connected to it — simplest correctness, no
 drift, idempotent by construction.  Only the 9 managed tables are touched:
@@ -137,14 +137,14 @@ upsert is a later option if rebuilds get slow.)
 
 ### Phase 0 — Probe (target is our own empty DB — safe by construction)
 
-1. **Schema parity check — DONE**: diffed `privetelib`'s table columns
+1. **Schema parity check — DONE**: diffed `myprivatelib`'s table columns
    against `flibusta`'s; all 9 managed tables are identical
    (`mlbook` 25 cols, `mlauthor`, `mlauthorname`, `mlgenre`, `mlgenrename`,
    `mlseq`, `mlseqname`, `mlrating`, `mlcustinfo`).  (One earlier wart
-   repaired: `privetelib.mlcustinfo.frm` was corrupt; recreated empty from
+   repaired: `myprivatelib.mlcustinfo.frm` was corrupt; recreated empty from
    the valid schema.)
 2. **Behavior probe (decisive) — BLOCKED**: with the app's current library =
-   `privetelib`, the user downloads one known book the way they normally
+   `myprivatelib`, the user downloads one known book the way they normally
    would, then opens it.  An empty catalog offers nothing to download, so
    this probe must come AFTER population (population first, then observe
    the app's own write shape on a follow-up download).  Still pinned in the
@@ -165,9 +165,9 @@ populated rows (pending).
 
 ### Phase 1 — Population tool
 
-**SHIPPED: `bin/populate_privetelib.sh` v1.1.1** (project conventions:
+**SHIPPED: `bin/populate_myprivatelib.sh` v1.2.0** (project conventions:
 versioned header, config, `--dry-run`/`--debug`, MariaDB lifecycle, tests,
-CI, docs): scan `Books` → hash → md5-resolve `bookid`s → rebuild `privetelib`
+CI, docs): scan `Books` → hash → md5-resolve `bookid`s → rebuild `myprivatelib`
 row-by-row with FRESH keys → per-run TSV report
 (matched/unmatched/corrupt/skipped).  Matched files are the whole
 collection: the ladder (a) md5 tier resolves them exactly; ladder (b)
@@ -176,7 +176,12 @@ collection: the ladder (a) md5 tier resolves them exactly; ladder (b)
 **Key strategy (v1.1.0, the fix for "app shows no books"):** the v1.0.0
 `INSERT … SELECT *` copied flibusta's ids wholesale — foreign ids broke
 the app's key bookkeeping, so MultiLib.exe listed catalog basics but no
-books.  v1.1.0 lets privetelib's `AUTO_INCREMENT` generate every key:
+books.  v1.1.0 lets myprivatelib's `AUTO_INCREMENT` generate every key
+(v1.2.0 revision, per `docs/DO_IT.md`: the app treats server-generated
+PK columns differently from the original schema's plain ones — the tool
+now strips `AUTO_INCREMENT` from all 16 PK columns of the target schema
+and assigns every key explicitly, 1..N, referencing them through
+session variables):
 one `INSERT` per row, `LAST_INSERT_ID()` captured into a session variable
 (`@bid_`/`@aid_`/`@gid_`/`@sid_`), child rows referencing only captured
 ids; one SQL script in one client session with `TRUNCATE` first.  Only
@@ -189,7 +194,7 @@ is absent); `mlrating` comes from `flibusta.mlrating` (the
 `Flibusta_Load_mlrating.sql` aggregate).  A parity mismatch on ANY
 managed table aborts before any `TRUNCATE`.
 
-**Acceptance (revised):** app switched to `privetelib` shows the full
+**Acceptance (revised):** app switched to `myprivatelib` shows the full
 personal collection with ratings/series/genres — v1.1.1 restored the
 genre tree and the catalog `filename` after the first app tests; the
 open-trial (with the on-disk `arcname`, this is the next probe) remains
@@ -200,7 +205,7 @@ will copy them automatically).
 
 ### Phase 2 — Collection status inside the app
 
-A `qry_*` bank turning `privetelib` into status views — canonical in the repo
+A `qry_*` bank turning `myprivatelib` into status views — canonical in the repo
 (`data/sql/`), mirrored to the app's query folder (`C:\MultiLib\queries\`):
 coverage per author/genre, series gaps per collected author, next to-collect
 priorities (against `flibusta`), reconcile summary lines. Keep the app's
@@ -210,17 +215,17 @@ parameterized-query idiom (`SET @…` + `SELECT`).
 
 - Fix any naming drift that blocks opening registered files.
 - Search the owned subset through the app's existing search or an added
-  `qry_*` on `privetelib`.
+  `qry_*` on `myprivatelib`.
 - Optional (only if wanted): mirror owned books into `mllbr_main.mldownload`
-  (`library='privetelib'`) so the app's Downloads grid shows the collection —
+  (`library='myprivatelib'`) so the app's Downloads grid shows the collection —
   decided after Phase 0 reveals how much the app writes there itself.
 
 ## Risks & rules
 
-- **Never alter the app's schema** — `privetelib` keeps exactly the columns
+- **Never alter the app's schema** — `myprivatelib` keeps exactly the columns
   the app created; we populate, we don't remodel (the per-run parity check
   enforces this by skipping, never altering).
-- **App not connected to `privetelib` during rebuilds** (switch to `flibusta`
+- **App not connected to `myprivatelib` during rebuilds** (switch to `flibusta`
   or close the app); back up the datadir before first real run (existing
   pattern).
 - **Folder & filename convention** still unproven (the open-trial is the
@@ -235,7 +240,7 @@ parameterized-query idiom (`SET @…` + `SELECT`).
 - **Multi-author books** deduped to one canonical row per `bookid`.
 - **`desktop.ini` and empty dirs** are scan noise, never registered.
 - The app may write rows itself (downloads, `mldownloaddata`) into
-  `privetelib` over time — the rebuild touches only the 9 managed tables,
+  `myprivatelib` over time — the rebuild touches only the 9 managed tables,
   so app-owned rows survive; if the app ever writes into `mlbook` itself,
   the rebuild policy must be revisited (switch to incremental upsert).
 

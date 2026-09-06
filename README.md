@@ -347,20 +347,20 @@ Options: `-i/--input-file`, `-o/--output`, `-r/--report-dir`,
 `-n/--dry-run`, `-d/--debug`, `-v/--version`, `-h/--help`.  Defaults live
 in `config/estimate_download_size.conf`.
 
-### `bin/backup_privetelib.sh`
+### `bin/backup_myprivatelib.sh`
 
 Backup / restore of the **app-registered personal library database
-(`privetelib`)** — the sibling library the MultiLib desktop app created
+(`myprivatelib`)** — the sibling library the MultiLib desktop app created
 (same 17-table ml* schema as `flibusta`, empty, connectable from the app).
 This is the safety net that must exist BEFORE anything is populated into
-`privetelib` (see `docs/REPRESENTATION_PLAN.md`):
+`myprivatelib` (see `docs/REPRESENTATION_PLAN.md`):
 
 ```bash
-./bin/backup_privetelib.sh                              # backup (default action)
-./bin/backup_privetelib.sh list                         # list backups newest first
-./bin/backup_privetelib.sh verify <file>.sql.gz         # integrity-check a backup
-./bin/backup_privetelib.sh restore <file>.sql.gz        # restore over the library
-./bin/backup_privetelib.sh --dry-run restore <file>.sql.gz   # report only
+./bin/backup_myprivatelib.sh                              # backup (default action)
+./bin/backup_myprivatelib.sh list                         # list backups newest first
+./bin/backup_myprivatelib.sh verify <file>.sql.gz         # integrity-check a backup
+./bin/backup_myprivatelib.sh restore <file>.sql.gz        # restore over the library
+./bin/backup_myprivatelib.sh --dry-run restore <file>.sql.gz   # report only
 ```
 
 `backup` dumps the library DB with `mysqldump` and gzips it into
@@ -373,12 +373,12 @@ shared via `lib/mariadb_lifecycle.sh`; the password travels via
 `MYSQL_PWD` only, never on a command line.
 
 Options: `-f/--force`, `-n/--dry-run`, `-d/--debug`, `-v/--version`,
-`-h/--help`.  Defaults live in `config/backup_privetelib.conf`
+`-h/--help`.  Defaults live in `config/backup_myprivatelib.conf`
 (`BACKUP_DIR`, `BACKUP_DB`, `BACKUP_KEEP`).
 
-### `bin/populate_privetelib.sh`
+### `bin/populate_myprivatelib.sh`
 
-Rebuild the **app-registered personal library database (`privetelib`)**
+Rebuild the **app-registered personal library database (`myprivatelib`)**
 from the on-disk `Books` collection (Phase 1 of
 `docs/REPRESENTATION_PLAN.md`).  Every book file is md5-hashed
 (zip-wrapped FB2 by its **decompressed content**, loose `*.fb2` directly)
@@ -388,31 +388,40 @@ unambiguous.  **Only books present in the `Books` folder are represented**
 — no exact-copy of the flibusta catalog:
 
 ```bash
-./bin/populate_privetelib.sh                     # rebuild privetelib from Books
-./bin/populate_privetelib.sh --dry-run           # walk + resolve + summarize, write nothing
-./bin/populate_privetelib.sh --debug             # verbose diagnostics
+./bin/populate_myprivatelib.sh                     # rebuild myprivatelib from Books
+./bin/populate_myprivatelib.sh --dry-run           # walk + resolve + summarize, write nothing
+./bin/populate_myprivatelib.sh --debug             # verbose diagnostics
 ```
 
-**Fresh-key, row-by-row rebuild (v1.1.1).**  privetelib's own
-`AUTO_INCREMENT` columns generate EVERY key: the tool emits one `INSERT`
-per row and captures each freshly generated id with `LAST_INSERT_ID()`
-into a session variable (`@bid_<old>`, `@aid_<old>`, `@gid_<old>`,
-`@sid_<old>`); the join tables (`mlauthor`, `mlgenre`, `mlseq`) and the
-attached data (`mlrating`, `mlcustinfo`) reference only those captured
-ids.  The whole rebuild runs as one SQL script in a single client session
-(`TRUNCATE` first, so every run is a clean rebuild).  Reference entities
+**Explicit keys, AUTO_INCREMENT-free schema (v1.2.0).**  MultiLib.exe
+treats server-generated (AUTO_INCREMENT) primary-key columns differently
+from the original schema's plain PK columns and misbehaves with a
+populated library (see `docs/DO_IT.md`).  The tool therefore first
+**strips `AUTO_INCREMENT` from all 16 PK columns** of the target schema
+(schema-driven, attribute-preserving `ALTER TABLE ... MODIFY COLUMN` —
+the column definition is read from `SHOW CREATE TABLE` and only the
+`AUTO_INCREMENT` keyword is dropped; list in `PK_COLUMNS`, verified
+afterwards via `information_schema.COLUMNS.EXTRA`), and then assigns
+EVERY key **explicitly**: one `INSERT` per row with a contiguous id
+(`authorid`/`genreid`/`seqid`/`bookid` = 1..N in deterministic emission
+order), captured into a session variable (`@bid_<old>`, `@aid_<old>`,
+`@gid_<old>`, `@sid_<old>`); the join tables (`mlauthor`, `mlgenre`,
+`mlseq`) and the attached data (`mlrating`, `mlcustinfo`) reference only
+those assigned ids — the server never generates a key.  The whole
+rebuild runs as one SQL script in a single client session (`TRUNCATE`
+first, so every run is a clean rebuild).  Reference entities
 are inserted for the personal library's books only — `mlauthorname`
 (distinct authors), `mlgenrename` (distinct genres **plus their ancestor
 categories, so the genre tree the app renders is preserved**;
-`parentgenreid` remapped to the fresh parent id, or `NULL` when an
+`parentgenreid` remapped to the assigned parent id, or `NULL` when an
 ancestor is absent), `mlseqname` (distinct series).  `mlbook.filename`
 carries the **catalog value** (`flibusta.mlbook.filename`, the
 transliterated name the app displays — not the on-disk path), `arcname`
-the on-disk zip member name (`library='privetelib'`, `filesize` =
+the on-disk zip member name (`library='myprivatelib'`, `filesize` =
 on-disk bytes, catalog metadata copied verbatim).
 `mlrating` rows come from `flibusta.mlrating` — the per-book aggregate
 rating produced by `BookTracker-import/sql/Flibusta_Load_mlrating.sql`.
-`flibusta` is read-only; app-owned tables in `privetelib` (`mlactual`,
+`flibusta` is read-only; app-owned tables in `myprivatelib` (`mlactual`,
 `mldownloaddata`, `mlnews*`, `mluser*`) are never touched.
 `mlcoverpage`/`mldescription` are not populated — the loaded dump leaves
 both empty (covers/descriptions need the separate extended-data torrents
@@ -423,7 +432,7 @@ to `POP_REPORT_DIR`; the MariaDB lifecycle and `MYSQL_*` client settings
 are shared via `lib/mariadb_lifecycle.sh`, password via `MYSQL_PWD` only.
 
 Options: `-n/--dry-run`, `-d/--debug`, `-v/--version`, `-h/--help`.
-Defaults live in `config/populate_privetelib.conf` (`POP_LIBRARY_ROOT`,
+Defaults live in `config/populate_myprivatelib.conf` (`POP_LIBRARY_ROOT`,
 `POP_REPORT_DIR`, `POP_SOURCE_DB`, `POP_TARGET_DB`, `POP_CHUNK`).
 
 ## Testing
@@ -442,8 +451,8 @@ wsl.exe bash tests/test_merge_skeleton_into_books.sh # BooksInput_* -> Books rsy
 bash tests/test_export_authors_from_db.sh            # exporter: argv, rows, lifecycle mocks (runs anywhere)
 bash tests/test_reconcile_library.sh                 # recon: classification + collection-progress summary (mock mysql)
 bash tests/test_estimate_download_size.sh            # estimator: sums, top-rated-first breakdown, lifecycle mocks (runs anywhere)
-bash tests/test_backup_privetelib.sh                 # backup/restore: argv, gz artifact, restore guards, lifecycle mocks (runs anywhere)
-bash tests/test_populate_privetelib.sh               # populate: md5 map, walk/hash, resolve, fresh-key row-by-row rebuild, parity abort, lifecycle mocks (runs anywhere)
+bash tests/test_backup_myprivatelib.sh                 # backup/restore: argv, gz artifact, restore guards, lifecycle mocks (runs anywhere)
+bash tests/test_populate_myprivatelib.sh               # populate: md5 map, walk/hash, resolve, AUTO_INCREMENT strip + explicit-key row-by-row rebuild, parity abort, lifecycle mocks (runs anywhere)
 bash tests/test_version_sync.sh                      # version locations agree (runs anywhere)
 ```
 
@@ -489,8 +498,8 @@ Releases are tagged with a tool-prefixed name:
 | `bin/export_authors_from_db.sh` | 1.0.2 | `export_authors_from_db-1.0.2` |
 | `bin/reconcile_library.sh` | 1.0.3 | `reconcile_library-1.0.3` |
 | `bin/estimate_download_size.sh` | 1.0.0 | `estimate_download_size-1.0.0` |
-| `bin/backup_privetelib.sh` | 1.0.0 | `backup_privetelib-1.0.0` |
-| `bin/populate_privetelib.sh` | 1.1.1 | `populate_privetelib-1.1.1` |
+| `bin/backup_myprivatelib.sh` | 1.0.0 | `backup_myprivatelib-1.0.0` |
+| `bin/populate_myprivatelib.sh` | 1.2.0 | `populate_myprivatelib-1.2.0` |
 | `lib/utf8_prefix_generator.awk` | 1.1 | `utf8_prefix_generator-1.1` |
 
 `v2.8.1` and `v6.6.8` predate the tool-prefixed convention.
@@ -522,8 +531,8 @@ bin/build_shell_nested_authors.sh   nested-directory builder
 bin/export_authors_from_db.sh       regenerate the author list from the DB
 bin/reconcile_library.sh            personal-catalog collection-progress report
 bin/estimate_download_size.sh       catalog download-size estimate for a to-collect round
-bin/backup_privetelib.sh            backup/restore of the app-registered privetelib library DB
-bin/populate_privetelib.sh          rebuild privetelib from the Books collection (md5-matched, fresh keys, genre tree, catalog filename)
+bin/backup_myprivatelib.sh            backup/restore of the app-registered myprivatelib library DB
+bin/populate_myprivatelib.sh          rebuild myprivatelib from the Books collection (md5-matched, explicit keys, AUTO_INCREMENT-free schema, genre tree, catalog filename)
 bin/bump-version.sh                 bump one tool's version across header + docs
 bin/merge_books_into_skeleton.sh    archive -> in-memory prefix merge tool (BooksInput_<ts> out)
 bin/merge_skeleton_into_books.sh    BooksInput_* -> Books rsync finalize tool
@@ -534,8 +543,8 @@ config/merge_books.conf             defaults for the merge tool (input file, pat
 config/merge_skeleton_into_books.conf   defaults for the finalize tool (paths + discovery root)
 config/reconcile_library.conf       defaults for the recon report (library root, scope, report dir)
 config/estimate_download_size.conf  defaults for the estimator (input list, report dir)
-config/backup_privetelib.conf   defaults for the backup tool (backup dir, db, retention)
-config/populate_privetelib.conf defaults for the population tool (library root, report dir, db pair, chunk)
+config/backup_myprivatelib.conf   defaults for the backup tool (backup dir, db, retention)
+config/populate_myprivatelib.conf defaults for the population tool (library root, report dir, db pair, chunk)
 
 tests/test_*.sh                 regression suites (one per tool + e2e + version sync)
 tests/                          fixtures and golden files

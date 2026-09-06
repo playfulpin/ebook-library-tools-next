@@ -5,7 +5,7 @@
 -- |
 -- |  Run against the default database, e.g.
 -- |      mysql ... flibusta < data/sql/qry_catalog_reference.sql
--- |  (or point MYSQL_DATABASE at privetelib to inspect the
+-- |  (or point MYSQL_DATABASE at myprivatelib to inspect the
 -- |  personal library instead - the queries are unqualified).
 -- |
 -- |  The whole file is one self-contained script: queries
@@ -74,7 +74,7 @@ SELECT bookid,
 
 -- ---------------------------------------------------------------------------
 -- D. Column parity of one managed table between the two libraries
---    (flibusta vs privetelib; the populate tool aborts on any
+--    (flibusta vs myprivatelib; the populate tool aborts on any
 --    mismatch before TRUNCATE).  Edit the SET to check another
 --    managed table (mlauthorname, mlgenrename, mlseqname, mlbook,
 --    mlauthor, mlgenre, mlseq, mlrating, mlcustinfo).
@@ -84,6 +84,6 @@ SET @tbl = 'mlbook';
 SELECT TABLE_SCHEMA AS db,
        GROUP_CONCAT(COLUMN_NAME ORDER BY ORDINAL_POSITION) AS columns
   FROM information_schema.COLUMNS
- WHERE TABLE_SCHEMA IN ('flibusta', 'privetelib')
+ WHERE TABLE_SCHEMA IN ('flibusta', 'myprivatelib')
    AND TABLE_NAME = @tbl
  GROUP BY TABLE_SCHEMA;
