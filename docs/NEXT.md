@@ -1,21 +1,40 @@
 # NEXT — where to resume
 
-> Updated: 2026-09-06 — populate tool bumped to v1.3.0 (key strategy
-> reversed: flibusta source keys copied verbatim, NO synthetic keys, per
-> `docs/DO_IT_20260906_141511.md`; the v1.2.0 AUTO_INCREMENT strip
-> stays).  Live DB purged and re-populated; see the v1.3.0 section below.
+> Updated: 2026-09-06 (later) — NEW: the wish-list feature shipped as
+> `bin/report_library.sh` v1.0.0 (reading plan in `data/wishlist.tsv`,
+> view + mutations + exports; suite 44/44).  Covers/annotations: the
+> app renders both from the FB2 payload itself — `docs/COVERS_PLAN.md`
+> is superseded; see `docs/DO_IT_20260906_172550.md` and the §3.5 note
+> in the DB reference.  populate tool at v1.3.0 (verbatim source keys,
+> no synthetic keys, per `docs/DO_IT_20260906_141511.md`).
 
 ## Resume checklist
 
 ```bash
 cd /home/mike/GIT_ROOT/MultiLib_Utilities
 git status             # expect: clean tree, on main, up to date with origin/main
-git log --oneline -3   # expect: the v1.2.0 rename/strip commit at the top
+git log --oneline -3   # expect: the refresh-orchestrator commit at the top
 git pull               # no-op if nothing else changed upstream
-bash tests/test_version_sync.sh          # 12/12 (fast, mock-only)
-bash tests/test_populate_myprivatelib.sh   # 33/33 (mock mysql, runs anywhere)
+bash tests/test_version_sync.sh          # 14/14 (fast, mock-only)
+bash tests/test_report_library.sh        # 44/44 (mock mysql, runs anywhere)
+bash tests/test_populate_myprivatelib.sh   # 35/35 (mock mysql, runs anywhere)
 ```
 
+### Wish list quickstart (new)
+
+```bash
+./bin/report_library.sh --search piranha            # find bookids
+./bin/report_library.sh --add 882939 --period 2026-09 --note "..."
+./bin/report_library.sh                             # the period -> author plan
+./bin/report_library.sh --set-status 882939 done
+./bin/report_library.sh --export md                 # printable export
+```
+
+State: `data/wishlist.tsv` (bookid, added, target_period, status,
+note) — survives populate reloads by design.  Natural next steps: the
+By-Series gap report (v1.1 of the reporting tool), read/unread probe
+of `mlcustinfo.di_history`, and folding the to-collect list in as a
+wish source.
 Everything is pushed: `21a60a4` (docs) -> `e2628bc` (populate v1.1.1) ->
 `cb6a934` (populate v1.1.0) on `origin/main`, each with a green CI run.
 Nothing local is ahead of the remote.

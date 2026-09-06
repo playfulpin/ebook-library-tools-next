@@ -44,6 +44,7 @@
 #       backup_myprivatelib             (1.0.x)
 #       populate_myprivatelib           (1.3.x)
 #       refresh_myprivatelib            (1.0.x)
+#       report_library                  (1.0.x)
 #
 #   <new_version> must be strictly greater than the current version and match
 #   the tool's version shape (X.Y.Z for shell tools, X.Y for the AWK tool).
@@ -166,6 +167,7 @@ usage() {
     echo "  backup_myprivatelib             (1.0.x)"
     echo "  populate_myprivatelib           (1.3.x)"
     echo "  refresh_myprivatelib            (1.0.x)"
+    echo "  report_library                  (1.0.x)"
     echo ""
     echo "Example: $0 build_shell_nested_authors 6.6.11"
     exit 1
@@ -242,6 +244,10 @@ main() {
         refresh_myprivatelib)
             primary="bin/refresh_myprivatelib.sh"
             marker="bin/refresh_myprivatelib.sh"
+            ;;
+        report_library)
+            primary="bin/report_library.sh"
+            marker="bin/report_library.sh"
             ;;
         *)
             echo "Error: unknown tool '$tool'." >&2

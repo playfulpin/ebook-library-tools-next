@@ -1,0 +1,20 @@
+# -----------------------------------------------------------------------------
+# data/wishlist.tsv - the personal reading plan (wish list)
+#
+# Format: TAB-separated, one entry per line:
+#   bookid <TAB> added <TAB> target_period <TAB> status <TAB> note
+#
+#   bookid        catalog bookid (myprivatelib.mlbook / flibusta.mlbook);
+#                 find candidates with:  ./bin/report_library.sh --search TITLE
+#   added         date the entry was made (YYYY-MM-DD)
+#   target_period free-form: a month (2026-09), a quarter (2026-Q4), a year
+#   status        wish | reading | done
+#   note          free-form reminder (no tabs/newlines)
+#
+# Manage with:
+#   ./bin/report_library.sh --add BOOKID --period 2026-09 --note "..."
+#   ./bin/report_library.sh --set-status BOOKID reading
+#   ./bin/report_library.sh --set-status BOOKID done
+#   ./bin/report_library.sh --remove BOOKID
+#   ./bin/report_library.sh            # render the wish-list view (DB join)
+#

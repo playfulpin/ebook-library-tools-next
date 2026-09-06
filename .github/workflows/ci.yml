@@ -40,6 +40,7 @@ jobs:
           bash tests/test_backup_myprivatelib.sh
           bash tests/test_populate_myprivatelib.sh
           bash tests/test_refresh_myprivatelib.sh
+          bash tests/test_report_library.sh
 
       - name: UTF-8 suites (WSL-style, multibyte bash)
         run: |

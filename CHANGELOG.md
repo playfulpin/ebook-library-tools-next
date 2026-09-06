@@ -9,6 +9,33 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **`bin/report_library.sh` v1.0.0 — new tool: the personal-library wish
+  list (reading plan) and reporting view.**  A wish entry is a book you
+  want to read within a given time period; state lives in a plain TSV
+  file (`data/wishlist.tsv`: `bookid`, `added`, `target_period`,
+  `status`, `note`; comments/blanks allowed, BOM/CR tolerated) and is
+  deliberately kept OUT of the database so the populate TRUNCATE-reload
+  cycle never wipes the plan.  Mutations (`--add BOOKID
+  [--period P] [--note N]`, `--set-status BOOKID wish|reading|done`,
+  `--remove BOOKID`) never touch the server; `--search SUBSTR` resolves
+  titles/authors to candidate bookids (LIKE-escaped, read-only) before
+  adding.  The default view joins the wish bookids against
+  `myprivatelib` read-only (title, aggregated authors, series +
+  `#position`, rating) and renders a target_period → author grouped
+  plan with `[ ]` wish / `[~]` reading / `[x]` done marks, a completion
+  tally, and a separate "not in library" section for bookids planned
+  before they are collected; batches of 500 ids per query;
+  multi-author books aggregate with ','; NULL-tolerant.  `--export
+  md|tsv` writes `report_wishlist_<ts>.{md,tsv}` into the output dir
+  (config `config/report_library.conf`: `REPORT_WISHLIST_FILE`,
+  `REPORT_OUTPUT_DIR`, `REPORT_TARGET_DB`, `REPORT_STATUSES`).
+  Malformed wish rows are warned and skipped instead of failing the
+  run; mutation rewrites preserve header comments; password goes via
+  `MYSQL_PWD` only.  Shares the MariaDB lifecycle via
+  `lib/mariadb_lifecycle.sh` (auto-start on view/search, never for
+  offline modes).  Mock suite `tests/test_report_library.sh` 44
+  assertions.
+
 - **`bin/refresh_myprivatelib.sh` v1.0.0 — new tool: the freshness
   orchestrator with a tree-fingerprint checkpoint.**  Closes the loop
   proposed in `docs/Flibusta_DB_findings.txt` (a `stat` checkpoint +

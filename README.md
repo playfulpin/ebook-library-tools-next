@@ -387,6 +387,34 @@ Orchestrates the freshness loop: detect change -> backup -> populate.
 ./bin/refresh_myprivatelib.sh --force     # refresh even when the checkpoint says up-to-date
 ```
 
+### `bin/report_library.sh`
+
+The personal-library wish list (reading plan) and reporting view.
+
+```bash
+./bin/report_library.sh --search piranha        # find bookids by title/author
+./bin/report_library.sh --add 882939 --period 2026-09 --note "Piranha cycle"
+./bin/report_library.sh                         # render the wish-list view (DB join)
+./bin/report_library.sh --set-status 882939 reading
+./bin/report_library.sh --set-status 882939 done
+./bin/report_library.sh --export md             # report_wishlist_<ts>.md
+./bin/report_library.sh --list --no-db          # raw entries, offline
+```
+
+**Wish-list store (v1.0.0).**  State lives in `data/wishlist.tsv` —
+plain TSV rows `bookid <TAB> added <TAB> target_period <TAB> status
+<TAB> note`, comments/blanks allowed — deliberately OUT of the
+database so the populate TRUNCATE-reload cycle never wipes the plan.
+The default view joins the wish bookids against `myprivatelib`
+(read-only: title, authors, series + position, rating), groups by
+target period then author, marks entries `[ ]` wish / `[~]` reading /
+`[x]` done, prints a per-run completion tally, and lists bookids not
+yet in the library separately so a book can be planned before it is
+collected.  Mutations never touch the server; the view auto-starts
+MariaDB via the shared lifecycle when it is down.  Defaults live in
+`config/report_library.conf` (`REPORT_WISHLIST_FILE`,
+`REPORT_OUTPUT_DIR`, `REPORT_TARGET_DB`, `REPORT_STATUSES`).
+
 **Tree-fingerprint checkpoint (v1.0.0).**  The checkpoint is a recursive
 fingerprint of the Books tree — one line per file: relative path, size,
 mtime (epoch) — C-sorted, stored in `REFRESH_REPORT_DIR`.  It is
@@ -486,6 +514,7 @@ bash tests/test_estimate_download_size.sh            # estimator: sums, top-rate
 bash tests/test_backup_myprivatelib.sh                 # backup/restore: argv, gz artifact, restore guards, lifecycle mocks (runs anywhere)
 bash tests/test_populate_myprivatelib.sh               # populate: md5 map, walk/hash, resolve, AUTO_INCREMENT strip + source-key-verbatim rebuild, parity abort, lifecycle mocks (runs anywhere)
 bash tests/test_refresh_myprivatelib.sh              # refresh: checkpoint decisions (unchanged/changed/forced), child invocation, failure isolation (runs anywhere)
+bash tests/test_report_library.sh                    # report: wish-file format, mutations, view grouping, exports, tolerance, password hygiene (runs anywhere)
 bash tests/test_version_sync.sh                      # version locations agree (runs anywhere)
 ```
 
@@ -534,6 +563,7 @@ Releases are tagged with a tool-prefixed name:
 | `bin/backup_myprivatelib.sh` | 1.0.0 | `backup_myprivatelib-1.0.0` |
 | `bin/populate_myprivatelib.sh` | 1.3.0 | `populate_myprivatelib-1.3.0` |
 | `bin/refresh_myprivatelib.sh` | 1.0.0 | `refresh_myprivatelib-1.0.0` |
+| `bin/report_library.sh` | 1.0.0 | `report_library-1.0.0` |
 | `lib/utf8_prefix_generator.awk` | 1.1 | `utf8_prefix_generator-1.1` |
 
 `v2.8.1` and `v6.6.8` predate the tool-prefixed convention.
