@@ -9,6 +9,31 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **`bin/refresh_myprivatelib.sh` v1.0.0 — new tool: the freshness
+  orchestrator with a tree-fingerprint checkpoint.**  Closes the loop
+  proposed in `docs/Flibusta_DB_findings.txt` (a `stat` checkpoint +
+  `PROCESS_FLAG`) as a full pipeline: fingerprint the Books tree
+  (recursive rel-path + size + mtime per file, C-sorted), compare against
+  the checkpoint from the previous run, and on change run
+  `backup_myprivatelib.sh` then `populate_myprivatelib.sh`, then write
+  the new checkpoint.  The fingerprint is deliberately recursive — a
+  single root-folder `stat` misses changes on the Windows/9P mount
+  (folder mtimes do not reliably propagate), while per-file lines catch
+  add/remove/resize/touch exactly.  `--force` (initial run / repair),
+  `--dry-run` (plan only, no children invoked, no checkpoint written),
+  `--status` (checkpoint state + counts); "up to date" exits 0 without
+  touching anything so cron/scheduled runs are safe; a child failure
+  aborts the run and leaves the previous checkpoint intact (backup
+  failure means populate is never invoked).  Child tools are invoked as
+  subprocesses with `MYSQL_*` passthrough and `REFRESH_MYSQL_ARGS`
+  forwarding — the orchestrator itself never talks to MariaDB.  Config:
+  `config/refresh_myprivatelib.conf` (`REFRESH_LIBRARY_ROOT` kept
+  explicitly in sync with `POP_LIBRARY_ROOT`).  Mock suite
+  `tests/test_refresh_myprivatelib.sh` — **20 assertions** (checkpoint
+  shape incl. multibyte paths, the four change kinds, dir-mtime
+  non-event, force/dry-run/status, failure isolation, missing root);
+  registered in bump-version.sh / test_version_sync.sh / CI.
+
 - **`bin/populate_myprivatelib.sh` v1.2.0 -> v1.3.0 — key strategy
   reversed: flibusta SOURCE keys copied verbatim, NO synthetic keys
   (docs/`DO_IT_20260906_141511.md`).**  The synthetic 1..N key

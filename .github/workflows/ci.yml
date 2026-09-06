@@ -39,6 +39,7 @@ jobs:
           bash tests/test_estimate_download_size.sh
           bash tests/test_backup_myprivatelib.sh
           bash tests/test_populate_myprivatelib.sh
+          bash tests/test_refresh_myprivatelib.sh
 
       - name: UTF-8 suites (WSL-style, multibyte bash)
         run: |

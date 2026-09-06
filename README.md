@@ -376,6 +376,35 @@ Options: `-f/--force`, `-n/--dry-run`, `-d/--debug`, `-v/--version`,
 `-h/--help`.  Defaults live in `config/backup_myprivatelib.conf`
 (`BACKUP_DIR`, `BACKUP_DB`, `BACKUP_KEEP`).
 
+### `bin/refresh_myprivatelib.sh`
+
+Orchestrates the freshness loop: detect change -> backup -> populate.
+
+```bash
+./bin/refresh_myprivatelib.sh             # refresh only when the Books tree changed
+./bin/refresh_myprivatelib.sh --status    # checkpoint state + file count, no side effects
+./bin/refresh_myprivatelib.sh --dry-run   # report the decision and the plan, change nothing
+./bin/refresh_myprivatelib.sh --force     # refresh even when the checkpoint says up-to-date
+```
+
+**Tree-fingerprint checkpoint (v1.0.0).**  The checkpoint is a recursive
+fingerprint of the Books tree — one line per file: relative path, size,
+mtime (epoch) — C-sorted, stored in `REFRESH_REPORT_DIR`.  It is
+deliberately not a single `stat` of the root folder: folder mtimes do
+not reliably propagate on the Windows/9P mount when files land in
+subfolders, so a root-only stat would miss real changes.  A changed
+fingerprint means at least one file was added / removed / resized /
+touched — exactly what changes what populate must represent.  On
+"changed" (or `--force`) the orchestrator runs the safety backup
+(`backup_myprivatelib.sh`), then the rebuild (`populate_myprivatelib.sh`),
+then writes the new checkpoint; every step delegates to the existing
+tools (`MYSQL_*` env vars pass through, `REFRESH_MYSQL_ARGS` forwards
+extra CLI args), and a child failure aborts the run leaving the previous
+checkpoint intact.  "Up to date" exits 0 without touching anything — a
+cron-friendly contract.  The directory-mtime case is covered by a
+dedicated suite assertion (touching only a folder does NOT flip the
+decision).
+
 ### `bin/populate_myprivatelib.sh`
 
 Rebuild the **app-registered personal library database (`myprivatelib`)**
@@ -455,7 +484,8 @@ bash tests/test_export_authors_from_db.sh            # exporter: argv, rows, lif
 bash tests/test_reconcile_library.sh                 # recon: classification + collection-progress summary (mock mysql)
 bash tests/test_estimate_download_size.sh            # estimator: sums, top-rated-first breakdown, lifecycle mocks (runs anywhere)
 bash tests/test_backup_myprivatelib.sh                 # backup/restore: argv, gz artifact, restore guards, lifecycle mocks (runs anywhere)
-bash tests/test_populate_myprivatelib.sh               # populate: md5 map, walk/hash, resolve, AUTO_INCREMENT strip + explicit-key row-by-row rebuild, parity abort, lifecycle mocks (runs anywhere)
+bash tests/test_populate_myprivatelib.sh               # populate: md5 map, walk/hash, resolve, AUTO_INCREMENT strip + source-key-verbatim rebuild, parity abort, lifecycle mocks (runs anywhere)
+bash tests/test_refresh_myprivatelib.sh              # refresh: checkpoint decisions (unchanged/changed/forced), child invocation, failure isolation (runs anywhere)
 bash tests/test_version_sync.sh                      # version locations agree (runs anywhere)
 ```
 
@@ -503,6 +533,7 @@ Releases are tagged with a tool-prefixed name:
 | `bin/estimate_download_size.sh` | 1.0.0 | `estimate_download_size-1.0.0` |
 | `bin/backup_myprivatelib.sh` | 1.0.0 | `backup_myprivatelib-1.0.0` |
 | `bin/populate_myprivatelib.sh` | 1.3.0 | `populate_myprivatelib-1.3.0` |
+| `bin/refresh_myprivatelib.sh` | 1.0.0 | `refresh_myprivatelib-1.0.0` |
 | `lib/utf8_prefix_generator.awk` | 1.1 | `utf8_prefix_generator-1.1` |
 
 `v2.8.1` and `v6.6.8` predate the tool-prefixed convention.

@@ -164,6 +164,9 @@ check_tool backup_myprivatelib \
 check_tool populate_myprivatelib \
     "bin/populate_myprivatelib.sh" "" "bin/populate_myprivatelib.sh"
 
+check_tool refresh_myprivatelib \
+    "bin/refresh_myprivatelib.sh" "" "bin/refresh_myprivatelib.sh"
+
 # --- summary --------------------------------------------------------------------
 echo
 echo "=============================="
