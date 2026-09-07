@@ -1,41 +1,58 @@
 # NEXT — where to resume
 
-> Updated: 2026-09-07 02:10 CDT — NEW: **native wishlist integration
-> discovered and verified** (`docs/DO_IT_20260906_201455.md` + live
-> read-only probe). MultiLib.exe stores reading lists in
-> `mllbr_main.mlgroup` / `mlgroupname`; the user already assigned
-> bookid 785309 to «К прочтению» (groupid=2) in-app. Releases
-> v1.3.0 + v1.4.0 + v1.5.0 (native wishlist views) are published on
-> GitHub; `report_library.sh` v1.2.0 (hybrid view: TSV plan x native
-> app state) and `refresh_myprivatelib.sh` v1.0.0 shipped.
+> Updated: 2026-09-07 02:40 CDT — **reporting layer complete for now**:
+> v1.6.0 published (hybrid wish-list view), all four DO_IT assignment
+> docs folded into `docs/DO_IT_ongoing.md` (timestamped parts with
+> resolutions). Resume with the By-Series gap report. Releases
+> v1.3.0 → v1.6.0 published on GitHub; `report_library.sh` v1.2.0
+> (TSV plan + native `mllbr_main` views + hybrid merge) and
+> `refresh_myprivatelib.sh` v1.0.0 shipped.
 
 ## Resume checklist
 
 ```bash
 cd /home/mike/GIT_ROOT/MultiLib_Utilities
 git status             # expect: clean tree, on main, up to date with origin/main
-git log --oneline -3   # expect: abadec3 (this plan) at the top, tag v1.4.0 on 708d963
+git log --oneline -3   # expect: d648a67 (hybrid view) at the top; tags v1.5.0 + v1.6.0 on 612b5e2 / d648a67
 bash tests/test_version_sync.sh          # 14/14 (fast, mock-only)
 bash tests/test_report_library.sh        # 71/71 (mock mysql, runs anywhere)
 bash tests/test_refresh_myprivatelib.sh  # 20/20
 bash tests/test_populate_myprivatelib.sh # 35/35
 ```
 
-## Current state (post v1.4.0)
+### Reporting quickstart
+
+```bash
+./bin/report_library.sh --search piranha            # find bookids
+./bin/report_library.sh --add 882939 --period 2026-09 --note "..."
+./bin/report_library.sh                             # TSV plan view
+./bin/report_library.sh --native                    # app wishlists (mllbr_main), by author
+./bin/report_library.sh --native series             # app wishlists, series order
+./bin/report_library.sh --hybrid                    # TSV plan x app state, one view
+./bin/report_library.sh --set-status 882939 done
+./bin/report_library.sh --export md                 # printable export
+```
+
+Wish state: `data/wishlist.tsv` (bookid, added, target_period, status,
+note) + native `mllbr_main.mlgroup` rows (marked in-app).
+
+## Current state (post v1.6.0)
 
 | Piece | State |
 |---|---|
 | `myprivatelib` | live in MultiLib.exe, full-scale operation confirmed by the user; populate v1.3.0 (verbatim source keys, 0 AUTO_INCREMENT, FK gate) |
 | `bin/refresh_myprivatelib.sh` v1.0.0 | shipped; tree-fingerprint checkpoint; first real run will write the checkpoint (`--status` shows `no-checkpoint`) |
 | `bin/report_library.sh` v1.2.0 | shipped; TSV wish list (`data/wishlist.tsv`), view + mutations + exports; `--native title\|author\|series\|all` views over the app-managed `mllbr_main` wishlists (read-only, library-scoped; companion SQL `data/sql/qry_wishlist_native.sql`); `--hybrid` merges both sources (native status wins, TSV keeps periods, ★ favorites, source tags); suite 71/71 |
-| Releases | v1.3.0 (`47f8ddc`, verbatim keys) + v1.4.0 (`708d963`, refresh + wish list) published on GitHub, v1.4.0 = Latest |
-| CI | green on `708d963` |
+| Releases | v1.3.0 (`47f8ddc`, verbatim keys) + v1.4.0 (`708d963`, refresh + wish list) + v1.5.0 (`612b5e2`, native wishlist views) + v1.6.0 (`d648a67`, hybrid view) published on GitHub, v1.6.0 = Latest |
+| CI | green on `d648a67` |
+| Assignment history | `docs/DO_IT_ongoing.md` (Parts 1-4, folded + resolved) |
 | MariaDB | stopped (shut down gracefully 2026-09-07) |
 
 ## The discovery: native wishlist lives in `mllbr_main` (verified live 2026-09-07)
 
-From `docs/DO_IT_20260906_201455.md` + a read-only probe against the live
-server. **MultiLib.exe manages user reading lists natively** — no TSV,
+From the assignment doc (folded into `docs/DO_IT_ongoing.md` Part 4)
+plus a read-only probe against the live server. **MultiLib.exe manages
+user reading lists natively** — no TSV,
 no `mluserkeyword`, no `di_history` probing needed:
 
 - `mllbr_main.mlgroupname` — group metadata, **3 built-in categories**:
@@ -86,39 +103,34 @@ joins both by bookid.
 
 ## Next steps (priority order)
 
-1. **DONE 2026-09-07: `report_library.sh` v1.1 — native wishlist
-   views** (`--native title|author|series|all`, library-scoped,
-   read-only, companion `data/sql/qry_wishlist_native.sql`; suite
-   58/58).
-2. **DONE 2026-09-07: hybrid model wired** — `report_library.sh`
-   v1.2.0 `--hybrid`: native status overrides the TSV («Прочитано» ->
-   done), «Избранное» renders ★, TSV keeps target periods/notes, rows
-   tagged [app]/[tsv]/[app+tsv], app-only rows under `(no period)`,
-   source-tagged not-in-library listing.
-3. **By-Series gap report** (independent of the source of wishes):
-   series entries owned vs missing volumes via `mlseq.SeqNumb`,
-   highlighting series with gaps and series on the wish list whose
-   missing volumes should be collected next.
-4. **App re-test leftovers** (`docs/MultiLib_Flibusta_DB.md` §7.9):
+1. **By-Series gap report** (next reporting feature): series entries
+   owned vs missing volumes via `mlseq.SeqNumb`, highlighting series
+   with gaps and series on the wish list whose missing volumes should
+   be collected next; feeds naturally from the hybrid view's data.
+2. **App re-test leftovers** (`docs/MultiLib_Flibusta_DB.md` section 7.9):
    numeric `filename` display for ~93% of rows, verbatim mojibake
    `arcname`, empty app-owned tables (`mlactual`, `mldownloaddata`,
    `mlnews*`, `mluser*`) — resolve when the user re-tests and reports
    what still bothers them.
-5. **Behavior probe, narrowed**: the app demonstrably writes
+3. **Behavior probe, narrowed**: the app demonstrably writes
    `mllbr_main.mlgroup` (wishlist). One datadir diff while assigning a
    group + opening a book will settle what else it writes
    (`mlcustinfo`, `mldownloaddata`?) — informs which app-owned tables
    belong in future reports.
-6. **Unmatched fallback (ladder b)**: author/series/title matching for
+4. **Unmatched fallback (ladder b)**: author/series/title matching for
    the 8 unmatched files (7 Бушков «Пиранья» + 1 Булычев) — extend the
    populate resolve step or a small companion tool.
-7. **Adopt the refresh loop**: after each BookTracker-import collecting
+5. **Adopt the refresh loop**: after each BookTracker-import collecting
    round, `./bin/refresh_myprivatelib.sh` (backup -> populate ->
    checkpoint); check `--status` first. Consider a wrapper that also
    regenerates the reconcile statistics for the round.
-8. **Covers/annotations**: CLOSED — the app renders both from the FB2
-   payload; `docs/COVERS_PLAN.md` is superseded (see §3.5 of the DB
-   reference). Only revisit if DB-level thumbnail views are ever wanted.
+6. **Docs pass**: add the `mllbr_main` wishlist findings (mlgroup /
+   mlgroupname schema, library scoping, 3 built-in categories) to
+   `docs/MultiLib_Flibusta_DB.md`; consider archiving
+   `docs/COVERS_PLAN.md` (superseded, see DO_IT_ongoing Part 3).
+7. **Covers/annotations**: CLOSED — the app renders both from the FB2
+   payload; `docs/COVERS_PLAN.md` is superseded. Only revisit if
+   DB-level thumbnail views are ever wanted.
 
 ## Environment quirks (carried forward — remember these)
 
@@ -141,8 +153,9 @@ joins both by bookid.
 - Raw dump sources stay at `data/archives/flibusta_gz/` (git-ignored,
   ~130 MB) for reference/re-loads.
 - Full DB reference: `docs/MultiLib_Flibusta_DB.md` (rev 2); quick
-  queries: `data/sql/qry_catalog_reference.sql`. Next docs pass: add
-  the `mllbr_main` wishlist findings (mlgroup/mlgroupname, library
-  scoping, 3 categories) to the reference.
+  queries: `data/sql/qry_catalog_reference.sql`. Native-wishlist query
+  bank: `data/sql/qry_wishlist_native.sql` (A-E, `@library` variable).
+  Assignment history lives in `docs/DO_IT_ongoing.md` — extend it with
+  new timestamped parts rather than spawning new DO_IT* files.
 - `data/wishlist.tsv` currently empty; TSV + native groups coexist per
-  the hybrid model above.
+  the hybrid model (`--hybrid`).
