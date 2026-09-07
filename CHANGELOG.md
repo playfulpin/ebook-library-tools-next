@@ -9,6 +9,41 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **`bin/report_library.sh` v1.0.0 -> v1.1.0 — native wishlist views
+  (`docs/DO_IT_20260906_201455.md`, verified live 2026-09-07).**
+  MultiLib.exe stores reading lists natively in `mllbr_main.mlgroup` /
+  `mlgroupname` (built-ins: 1 «Избранное», 2 «К прочтению»,
+  3 «Прочитано»; each `mlgroup` row carries bookid, `library`,
+  `date_gr`), so the read/unread signal and favorites come straight
+  from the app with no extra state.  Changes:
+
+  - new `--native [title|author|series|all]` command (default view:
+    author) renders the app-managed wishlists READ-ONLY, joined against
+    the same catalog tables as the TSV view (title, aggregated authors,
+    series + `#position`, rating) and headed by the group name with its
+    book count; `--added <date>` shown per row from `date_gr`;
+  - every native query filters `g.library = <REPORT_GROUP_LIBRARY>`
+    (config/env override; default: the target DB name) — the tables
+    serve all libraries, an unscoped query would mix rows;
+  - bookids assigned in-app but absent from the catalog are listed in a
+    separate "not in library (assigned in-app, absent from the catalog)"
+    section, so a book can be wished before it is collected;
+  - `--export` is now rejected in native mode (it was TSV-view-only);
+    the error message says so;
+  - mllbr_main is NEVER written to: marking happens in MultiLib.exe;
+  - new runnable companion `data/sql/qry_wishlist_native.sql` (A: group
+    census, B: by title — the corrected shape of the assignment doc's
+    query, C: by author, D: by series, E: assigned-but-missing bookids;
+    `@library` session variable, defaults documented in the header);
+  - mock suite grown 44 -> 58 assertions (group headers + counts,
+    author/series/title grouping incl. the `(no series)` bucket,
+    added-date rendering, not-in-library section, library-name filter
+    in the SQL argv, `REPORT_GROUP_LIBRARY` override, empty native
+    state fails cleanly with a hint, bad view name rejected) and
+    hardened against two new-script bugs it caught: an awk `sub`
+    built-in used as a variable (syntax error) and the group-metadata
+    variable passed where a filename was expected.
+
 - **`bin/report_library.sh` v1.0.0 — new tool: the personal-library wish
   list (reading plan) and reporting view.**  A wish entry is a book you
   want to read within a given time period; state lives in a plain TSV

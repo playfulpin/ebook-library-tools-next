@@ -563,7 +563,7 @@ Releases are tagged with a tool-prefixed name:
 | `bin/backup_myprivatelib.sh` | 1.0.0 | `backup_myprivatelib-1.0.0` |
 | `bin/populate_myprivatelib.sh` | 1.3.0 | `populate_myprivatelib-1.3.0` |
 | `bin/refresh_myprivatelib.sh` | 1.0.0 | `refresh_myprivatelib-1.0.0` |
-| `bin/report_library.sh` | 1.0.0 | `report_library-1.0.0` |
+| `bin/report_library.sh` | 1.1.0 | `report_library-1.1.0` |
 | `lib/utf8_prefix_generator.awk` | 1.1 | `utf8_prefix_generator-1.1` |
 
 `v2.8.1` and `v6.6.8` predate the tool-prefixed convention.

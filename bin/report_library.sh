@@ -3,8 +3,8 @@
 ###############################################################################
 # bin/report_library.sh
 #
-# Version:       1.0.0
-# Last updated:  2026-09-06 23:30
+# Version:       1.1.0
+# Last updated:  2026-09-07 02:40
 #
 # -----------------------------------------------------------------------------
 # PURPOSE
@@ -49,6 +49,20 @@
 #   when this process started it; skipped entirely for --no-db and the
 #   mutation subcommands).
 #
+#   Native wishlists (v1.1): MultiLib.exe stores reading lists itself in
+#   mllbr_main.mlgroup / mlgroupname (verified live 2026-09-07: three
+#   built-in categories - 1 «Избранное», 2 «К прочтению», 3 «Прочитано»;
+#   each mlgroup row carries bookid, the library name and the assignment
+#   date_gr).  --native [title|author|series|all] (default: author)
+#   renders those app-managed wishlists READ-ONLY, always scoped to
+#   g.library = <REPORT_GROUP_LIBRARY, default: the target DB name>, and
+#   joined against the same catalog tables as the TSV view (title,
+#   aggregated authors, series + #position, rating).  Bookids assigned
+#   in-app but missing from the library are listed separately, so a book
+#   can be wished before it is collected.  The matching runnable SQL
+#   ships as data/sql/qry_wishlist_native.sql.  mllbr_main is NEVER
+#   written to - marking happens in MultiLib.exe.
+#
 # -----------------------------------------------------------------------------
 # USAGE
 # -----------------------------------------------------------------------------
@@ -59,13 +73,16 @@
 #   ./bin/report_library.sh --set-status 882939 done
 #   ./bin/report_library.sh --export md              # report_wishlist_<ts>.md
 #   ./bin/report_library.sh --list                   # raw entries, offline
+#   ./bin/report_library.sh --native                 # app wishlists, by author
+#   ./bin/report_library.sh --native title           # app wishlists, by title
+#   ./bin/report_library.sh --native series          # app wishlists, series order
 #
 # Exit codes: 0 success, 1 operational failure, 2 usage error.
 ###############################################################################
 
 set -uo pipefail
 
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.1.0"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # --- shared MariaDB lifecycle (auto-start when down; graceful stop on exit) ----
@@ -81,15 +98,20 @@ WISHLIST_FILE="${REPORT_WISHLIST_FILE:-$PROJECT_ROOT/data/wishlist.tsv}"
 OUTPUT_DIR="${REPORT_OUTPUT_DIR:-/mnt/c/Backup_Go7/merge-reports}"
 TARGET_DB="${REPORT_TARGET_DB:-myprivatelib}"
 STATUSES="${REPORT_STATUSES:-wish reading done}"
+# library name for the mllbr_main.mlgroup.library filter (native wishlists,
+# v1.1); defaults to the target DB name, which is how MultiLib registers
+# its libraries
+GROUP_LIBRARY="${REPORT_GROUP_LIBRARY:-$TARGET_DB}"
 
 DEBUG=0
 DRY_RUN=0            # the lifecycle lib reads this; reporting has no dry-run
-MODE="view"          # view | add | set-status | remove | list | search
+MODE="view"          # view | add | set-status | remove | list | search | native
 ARG_ID=""
 ARG_STATUS=""
 ARG_PERIOD=""
 ARG_NOTE=""
 ARG_SEARCH=""
+ARG_NATIVE="author"  # native view: title | author | series | all
 ARG_EXPORT=""
 NO_DB=0
 
@@ -128,6 +150,11 @@ Commands:
   --list                     print the raw entries, no DB
   --search SUBSTR            search the catalog by title/author substring
                              and print bookid candidates
+  --native [t|a|s|all]       render the NATIVE wishlists managed by
+                             MultiLib.exe in mllbr_main.mlgroup/mlgroupname
+                             (view: title|author|series|all, default author);
+                             read-only, scoped to the library name
+                             (REPORT_GROUP_LIBRARY, default: target DB name)
 
 Options:
       --period PERIOD        target period for --add (free-form, e.g. 2026-09)
@@ -144,6 +171,8 @@ Options:
 
 Environment: MYSQL_HOST/PORT/USER/PASSWORD/DATABASE via
 lib/mariadb_lifecycle.sh (same contract as BookTracker-import).
+REPORT_GROUP_LIBRARY overrides the mllbr_main.mlgroup.library filter
+used by --native (default: the target database name).
 
 Exit codes: 0 success, 1 operational failure, 2 usage error.
 EOF
@@ -165,6 +194,9 @@ while (( $# > 0 )); do
         --search)
             [[ $# -ge 2 ]] || { echo "Error: $1 needs a SUBSTR argument" >&2; usage2; exit 2; }
             MODE="search"; ARG_SEARCH="$2"; shift 2 ;;
+        --native)
+            MODE="native"
+            if [[ $# -ge 2 && "$2" != -* ]]; then ARG_NATIVE="$2"; shift 2; else shift; fi ;;
         --period)
             [[ $# -ge 2 ]] || { echo "Error: $1 needs a PERIOD argument" >&2; usage2; exit 2; }
             ARG_PERIOD="$2"; shift 2 ;;
@@ -197,8 +229,15 @@ if [[ -n "$ARG_EXPORT" && "$ARG_EXPORT" != "md" && "$ARG_EXPORT" != "tsv" ]]; th
     die "--export understands md|tsv (got '$ARG_EXPORT')"
 fi
 if [[ -n "$ARG_EXPORT" && "$MODE" != "view" ]]; then
-    die "--export works with the view mode only"
+    die "--export works with the (TSV) view mode only"
 fi
+case "$MODE" in
+    native)
+        case "$ARG_NATIVE" in
+            title|author|series|all) ;;
+            *) die "--native understands title|author|series|all (got '$ARG_NATIVE')" ;;
+        esac ;;
+esac
 # note/period must not carry tabs or CR (they would break the TSV shape)
 for v in "$ARG_PERIOD" "$ARG_NOTE"; do
     if [[ "$v" == *$'\t'* || "$v" == *$'\r'* || "$v" == *$'\n'* ]]; then
@@ -374,6 +413,48 @@ ORDER BY b.bookid"
 }
 
 # -----------------------------------------------------------------------------
+# native wishlists (mllbr_main.mlgroup / mlgroupname) -- READ-ONLY (v1.1)
+# MultiLib.exe owns these tables: it creates the groups and assigns books
+# in-app.  We only ever SELECT, always filtered by the library name.
+# -----------------------------------------------------------------------------
+
+# native_groups -> stdout  (groupid TAB groupname TAB bookcount)
+#   All groups that have at least one book assigned for our library.
+native_groups() {
+    local esc_lib
+    esc_lib="$(printf '%s' "$GROUP_LIBRARY" | sed -e 's/[\\]/\\\\/g' -e "s/'/\\\\'/g")"
+    local sql="SELECT gn.groupid, gn.groupname, COUNT(g.bookid)
+FROM mllbr_main.mlgroupname gn
+LEFT JOIN mllbr_main.mlgroup g ON g.groupid = gn.groupid AND g.library = '$esc_lib'
+GROUP BY gn.groupid, gn.groupname
+HAVING COUNT(g.bookid) > 0
+ORDER BY gn.groupid"
+    db_query "$sql"
+}
+
+# native_join bookids_file -> stdout
+#   Same row shape as join_catalog (bookid title authors series seqnum rating)
+#   for the bookids assigned to native wishlist groups.  Runs against the
+#   target DB (the catalog), so it reuses the batching + emit_join machinery.
+native_join() { # bookids_file
+    join_catalog "$1"
+}
+
+# native_missing bookids_file -> stdout  (bookid TAB groupid TAB date_gr)
+#   Assigned bookids that the catalog does not know (join produced no row).
+#   Needs the group/date info alongside, so it queries mllbr_main directly
+#   for the (bookid, groupid, date) triples of our library.
+native_assignments() { # -> stdout: bookid TAB groupid TAB date_gr
+    local esc_lib
+    esc_lib="$(printf '%s' "$GROUP_LIBRARY" | sed -e 's/[\\]/\\\\/g' -e "s/'/\\\\'/g")"
+    local sql="SELECT g.bookid, g.groupid, g.date_gr
+FROM mllbr_main.mlgroup g
+WHERE g.library = '$esc_lib'
+ORDER BY g.bookid"
+    db_query "$sql"
+}
+
+# -----------------------------------------------------------------------------
 # rendering
 # -----------------------------------------------------------------------------
 # render_view clean inlib_sorted notinlib
@@ -512,6 +593,104 @@ export_view() { # fmt clean inlib notin
 }
 
 # -----------------------------------------------------------------------------
+# native rendering
+# -----------------------------------------------------------------------------
+# render_native view inlib notin groups_file
+#   inlib rows: bookid TAB groupid TAB date TAB title TAB author TAB
+#               series TAB seqnum TAB rating
+#   notin rows: bookid TAB groupid TAB date
+#   groups_file: groupid TAB groupname TAB bookcount per line
+render_native() { # view inlib notin groups_file
+    local view="$1" inlib="$2" notin="$3" groups="$4"
+    local nnin plural sorted sect
+    nnin="$(wc -l < "$inlib" | tr -d ' ')"
+    plural="ies"; [[ "$nnin" == 1 ]] && plural="y"
+    echo "native wishlists (library '$GROUP_LIBRARY'): $nnin entr$plural"
+    echo
+    case "$view" in
+        title)  sect="title" ;;
+        author) sect="author" ;;
+        series) sect="series" ;;
+        all)    sect="author title series" ;;
+    esac
+    for sect in $sect; do
+        case "$sect" in
+            title)  sorted="$tmp_dir/native.bytitle";  LC_ALL=C sort -t$'\t' -k2,2n -k4,4 "$inlib" > "$sorted" ;;
+            author) sorted="$tmp_dir/native.byauthor"; LC_ALL=C sort -t$'\t' -k2,2n -k5,5 -k4,4 "$inlib" > "$sorted" ;;
+            series) sorted="$tmp_dir/native.byseries"; LC_ALL=C sort -t$'\t' -k2,2n -k6,6 -k7,7n -k4,4 "$inlib" > "$sorted" ;;
+        esac
+        if [[ "$view" == "all" ]]; then
+            echo "===== by $sect ====="
+            echo
+        fi
+        awk -F'\t' -v GROUPS="$groups" -v SECT="$sect" '
+        function gname(g)  { return (g in names ? names[g] : "group " g) }
+        function gcount(g) { return (g in cnt ? cnt[g] : "?") }
+        function trim(s)   { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+        function extras(title_i, ser_i, num_i, rat_i,   e) {
+            e = ""
+            if (ser_i != "") e = ser_i ((num_i != "" && num_i + 0 > 0) ? " #" num_i : "")
+            if (rat_i != "") e = e (e == "" ? "" : ", ") "rating " rat_i
+            return e
+        }
+        BEGIN {
+            while ((getline line < GROUPS) > 0) {
+                split(line, f, "\t"); names[f[1]] = f[2]; cnt[f[1]] = f[3]
+            }
+            close(GROUPS)
+            first = 1
+        }
+        {
+            id = $1; grp = $2; dt = trim($3)
+            title = $4; auth = trim($5); ser = trim($6); num = $7; rat = $8
+            if (first || grp != cur) {
+                cur = grp
+                printf "== %s (%s) ==\n", gname(grp), gcount(grp)
+                first = 0; cur_sub = ""
+            }
+            if (SECT == "author") {
+                sublabel = (auth == "" ? "(unknown author)" : auth)
+                if (sublabel != cur_sub) { printf "  %s\n", sublabel; cur_sub = sublabel }
+                line = "    " id "  " title
+                e = extras(0, ser, num, rat)
+                if (e != "") line = line "  (" e ")"
+                if (dt != "") line = line "  -- added " dt
+                print line
+            } else if (SECT == "series") {
+                sublabel = (ser == "" ? "(no series)" : ser)
+                if (sublabel != cur_sub) { printf "  %s\n", sublabel; cur_sub = sublabel }
+                line = "    " ((num != "" && num + 0 > 0) ? "#" num "  " : "") title "  [" id "]"
+                e = extras(0, "", "", rat)
+                if (e != "") line = line "  (" e ")"
+                if (dt != "") line = line "  -- added " dt
+                print line
+            } else {
+                line = "    " title "  [" id "]"
+                e = extras(0, ser, num, rat)
+                if (e != "") line = line "  (" e ")"
+                if (dt != "") line = line "  -- added " dt
+                print line
+            }
+        }' "$sorted"
+        [[ "$view" == "all" ]] && echo
+    done
+    if [[ -s "$notin" ]]; then
+        echo "not in library (assigned in-app, absent from the catalog):"
+        awk -F'\t' -v GROUPS="$groups" '
+        function gname(g) { return (g in names ? names[g] : "group " g) }
+        BEGIN {
+            while ((getline line < GROUPS) > 0) { split(line, f, "\t"); names[f[1]] = f[2] }
+            close(GROUPS)
+        }
+        {
+            line = "  [?] " $1 " (" gname($2) ")"
+            if ($3 != "" && $3 != "NULL") line = line "  -- added " $3
+            print line
+        }' "$notin"
+    fi
+}
+
+# -----------------------------------------------------------------------------
 # modes
 # -----------------------------------------------------------------------------
 clean="$tmp_dir/clean.tsv"
@@ -581,6 +760,43 @@ case "$MODE" in
         fi
         echo -e "bookid\ttitle\tauthor"
         printf '%s\n' "$rows"
+        ;;
+
+    native)
+        db_start
+        groups="$(native_groups)" || die "native wishlist query failed; is MariaDB reachable?"
+        if [[ -z "$groups" ]]; then
+            log "no native wishlist entries for library '$GROUP_LIBRARY' (mark books in MultiLib.exe first)"
+            exit 1
+        fi
+        # all assigned bookids + the (bookid, groupid, date) triples
+        native_assignments > "$tmp_dir/native_assign.tsv" \
+            || die "native assignment query failed"
+        cut -f1 "$tmp_dir/native_assign.tsv" | sort -u -n > "$tmp_dir/native_ids.txt"
+        native_join "$tmp_dir/native_ids.txt" > "$tmp_dir/native_catalog.tsv" \
+            || die "native catalog join failed"
+        : > "$tmp_dir/native_inlib.tsv"; : > "$tmp_dir/native_notin.tsv"
+        printf '%s\n' "$groups" > "$tmp_dir/native_groups.tsv"
+        # join assignments x catalog: in-library rows get the full row shape
+        # (bookid groupid title author series seqnum rating), not-in rows
+        # keep bookid + groupid for the separate listing
+        awk -F'\t' -v OFS='\t' \
+            -v CAT="$tmp_dir/native_catalog.tsv" \
+            -v INLIB="$tmp_dir/native_inlib.tsv" \
+            -v NOTIN="$tmp_dir/native_notin.tsv" '
+        BEGIN { while ((getline line < CAT) > 0) { split(line, f, "\t"); cat[f[1]] = line } close(CAT) }
+        {
+            id = $1; grp = $2; dt = ($3 == "NULL" ? "" : $3)
+            if (id in cat) {
+                split(cat[id], c, "\t")
+                print id, grp, dt, (c[2]=="" ? "(title unknown)" : c[2]), c[3], c[4], c[5], c[6] > INLIB
+            } else {
+                print id, grp, dt > NOTIN
+            }
+        }' "$tmp_dir/native_assign.tsv"
+        render_native "$ARG_NATIVE" \
+            "$tmp_dir/native_inlib.tsv" "$tmp_dir/native_notin.tsv" \
+            "$tmp_dir/native_groups.tsv"
         ;;
 
     view)

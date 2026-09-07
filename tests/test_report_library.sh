@@ -15,7 +15,11 @@
 #   statuses rejected), the DB view (period/author grouping, series #num,
 #   rating, completion tally, "not in library" section), --no-db offline
 #   view, --list, --search, TSV/MD exports, malformed-line tolerance
-#   (good rows still work), and password never on the mysql command line.
+#   (good rows still work), password never on the mysql command line, and
+#   the v1.1 NATIVE wishlist views (--native title|author|series|all over
+#   mllbr_main.mlgroup/mlgroupname: group headers, author/series/title
+#   grouping, added-date, not-in-library listing, library-name filter in
+#   the SQL, empty-groups failure, view-name validation).
 #
 # Usage:  bash tests/test_report_library.sh
 # Runs anywhere (pure text processing).
@@ -51,6 +55,8 @@ MOCK_BIN="$TMPDIR_WS/mockbin"
 MOCK_LOG="$TMPDIR_WS/mysql-argv.log"
 MOCK_JOIN="$TMPDIR_WS/join-rows.tsv"
 MOCK_SEARCH="$TMPDIR_WS/search-rows.tsv"
+MOCK_GROUPS="$TMPDIR_WS/native-groups.tsv"
+MOCK_ASSIGN="$TMPDIR_WS/native-assign.tsv"
 mkdir -p "$MOCK_BIN"
 cat > "$MOCK_BIN/mysql" <<'MOCK_EOF'
 #!/usr/bin/env bash
@@ -64,6 +70,11 @@ for a in "$@"; do
                 cat "${MOCK_JOIN:-/dev/null}"
             fi
             ;;
+        # native wishlists: group metadata query vs assignment rows query
+        # (the group query reads FROM mllbr_main.mlgroupname; the
+        # assignments query reads FROM mllbr_main.mlgroup with a WHERE)
+        *"FROM mllbr_main.mlgroupname gn"*) cat "${MOCK_GROUPS:-/dev/null}" ;;
+        *"FROM mllbr_main.mlgroup g"*)      cat "${MOCK_ASSIGN:-/dev/null}" ;;
     esac
 done
 exit 0
@@ -76,6 +87,13 @@ printf '102\tВторая книга\tАзимов Айзек\tОсновани�
 printf '103\tСторонняя\tДругой Автор\t\t\t3\n'               >> "$MOCK_JOIN"
 # search fixture: bookid TAB title TAB author
 printf '201\tПиранья\tБушков Александр\n' > "$MOCK_SEARCH"
+# native wishlist fixtures: groups (groupid TAB groupname TAB count) and
+# assignments (bookid TAB groupid TAB date_gr; 555 is NOT in the catalog)
+printf '2\tК прочтению\t3\n' > "$MOCK_GROUPS"
+{ printf '101\t2\t2026-09-06 18:20:01\n'
+  printf '103\t2\t2026-09-06 19:00:00\n'
+  printf '555\t2\t2026-09-06 19:30:00\n'
+} > "$MOCK_ASSIGN"
 
 OUT="$TMPDIR_WS/stdout.txt"
 ERR="$TMPDIR_WS/stderr.txt"
@@ -87,6 +105,7 @@ REPORTS="$TMPDIR_WS/reports"
 run_tool() { # [args...]
     env PATH="$MOCK_BIN:$PATH" \
         MOCK_LOG="$MOCK_LOG" MOCK_JOIN="$MOCK_JOIN" MOCK_SEARCH="$MOCK_SEARCH" \
+        MOCK_GROUPS="$MOCK_GROUPS" MOCK_ASSIGN="$MOCK_ASSIGN" \
         MYSQL_PASSWORD="${MOCK_PASSWORD:-}" \
         REPORT_CONF_FILE="$CONF" \
         MARIA_TASKLIST="$TMPDIR_WS/no-tasklist" \
@@ -182,6 +201,57 @@ grep -q "^201	Пиранья	Бушков Александр$" "$OUT" \
     && report "search_lists_candidates" ok || report "search_lists_candidates" fail "$(cat "$OUT")"
 grep -q "MYSQL .*\-\-default-character-set=utf8" "$MOCK_LOG" \
     && report "search_uses_mysql_contract" ok || report "search_uses_mysql_contract" fail "$(cat "$MOCK_LOG")"
+
+# --- 6b. native wishlists (mllbr_main views, v1.1) ------------------------------
+reset_wish
+: > "$MOCK_LOG"
+run_tool --native author
+if (( RC == 0 )); then report "native_run_ok" ok; else report "native_run_ok" fail "rc=$RC err=$(cat "$ERR")"; fi
+grep -q "native wishlists (library 'myprivatelib'): 2 entries" "$OUT" \
+    && report "native_header_tally" ok || report "native_header_tally" fail "$(head -1 "$OUT")"
+grep -q "^== К прочтению (3) ==$" "$OUT" \
+    && report "native_group_header" ok || report "native_group_header" fail "$(grep '==' "$OUT" | head -2)"
+grep -q "Азимов Айзек" "$OUT" && grep -q "Другой Автор" "$OUT" \
+    && report "native_author_grouping" ok || report "native_author_grouping" fail "authors missing"
+grep -q "101  Первая книга  (Основание #1, rating 5)  -- added 2026-09-06 18:20:01" "$OUT" \
+    && report "native_row_shape" ok || report "native_row_shape" fail "$(grep -A1 'Азимов' "$OUT")"
+grep -q "^not in library (assigned in-app, absent from the catalog):$" "$OUT" \
+    && grep -q "\[?\] 555 (К прочтению)  -- added 2026-09-06 19:30:00" "$OUT" \
+    && report "native_not_in_library" ok || report "native_not_in_library" fail "$(grep -A2 'not in library' "$OUT")"
+
+grep -q "g.library = 'myprivatelib'" "$MOCK_LOG" \
+    && report "native_library_scoped_sql" ok || report "native_library_scoped_sql" fail "no library filter in SQL"
+
+run_tool --native title
+grep -q "Первая книга  \[101\]" "$OUT" \
+    && report "native_title_view" ok || report "native_title_view" fail "$(cat "$OUT")"
+run_tool --native series
+grep -q "^  Основание$" "$OUT" && grep -q "#1  Первая книга  \[101\]" "$OUT" \
+    && grep -q "^  (no series)$" "$OUT" \
+    && report "native_series_view" ok || report "native_series_view" fail "$(cat "$OUT")"
+run_tool --native all
+grep -q "===== by author =====" "$OUT" && grep -q "===== by title =====" "$OUT" \
+    && grep -q "===== by series =====" "$OUT" \
+    && report "native_all_views" ok || report "native_all_views" fail "section headers missing"
+run_tool --native bogus
+(( RC != 0 )) && report "native_rejects_bad_view" ok || report "native_rejects_bad_view" fail "rc=$RC"
+
+REPORT_GROUP_LIBRARY=otherlib run_tool --native author
+grep -q "g.library = 'otherlib'" "$MOCK_LOG" \
+    && report "native_library_override" ok || report "native_library_override" fail "override ignored"
+grep -q "native wishlists (library 'otherlib')" "$OUT" \
+    && report "native_library_override_header" ok || report "native_library_override_header" fail "$(head -1 "$OUT")"
+
+# empty native state -> clean failure with a hint, not a crash
+: > "$MOCK_GROUPS"; : > "$MOCK_ASSIGN"
+run_tool --native author
+if (( RC == 1 )) && grep -q "no native wishlist entries" "$ERR"; then
+    report "native_empty_state_fails_cleanly" ok
+else
+    report "native_empty_state_fails_cleanly" fail "rc=$RC err=$(cat "$ERR")"
+fi
+printf '2\tК прочтению\t3\n' > "$MOCK_GROUPS"
+{ printf '101\t2\t2026-09-06 18:20:01\n'; printf '103\t2\t2026-09-06 19:00:00\n'; printf '555\t2\t2026-09-06 19:30:00\n'; } > "$MOCK_ASSIGN"
 
 # --- 7. exports ----------------------------------------------------------------------
 rm -rf "$REPORTS"
