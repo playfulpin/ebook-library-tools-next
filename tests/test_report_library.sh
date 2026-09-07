@@ -253,6 +253,64 @@ fi
 printf '2\tК прочтению\t3\n' > "$MOCK_GROUPS"
 { printf '101\t2\t2026-09-06 18:20:01\n'; printf '103\t2\t2026-09-06 19:00:00\n'; printf '555\t2\t2026-09-06 19:30:00\n'; } > "$MOCK_ASSIGN"
 
+# --- 6c. hybrid view (TSV plan x native app state, v1.2) -------------------------
+# fixtures: native assignments = 101 (wish group, i.e. "app" state), 103
+# (read group -> "done"), 555 (wish group, NOT in catalog); the TSV has
+# 101 wish / 102 reading / 103 done, and 999 not-collected.
+printf '1\tИзбранное\t0\n' >> "$MOCK_GROUPS"
+printf '3\tПрочитано\t1\n' >> "$MOCK_GROUPS"
+{ printf '101\t2\t2026-09-06 18:20:01\n'
+  printf '103\t3\t2026-09-05 10:00:00\n'
+  printf '555\t2\t2026-09-06 19:30:00\n'
+  printf '104\t1\t2026-09-06 20:00:00\n'
+  printf '105\t2\t2026-09-06 20:30:00\n'
+} > "$MOCK_ASSIGN"
+printf '101\tПервая книга\tАзимов Айзек\tОснование\t1\t5\n'  >> "$MOCK_JOIN"
+printf '104\tЛюбимая книга\tАзимов Айзек\t\t\t4\n'            >> "$MOCK_JOIN"
+printf '105\tТолько в приложении\tАзимов Айзек\t\t\t4\n'      >> "$MOCK_JOIN"
+
+reset_wish
+printf '104\t2026-09-06\t\twish\tfavorite via app\n' >> "$WISH"
+printf '999\t2026-09-06\t2026-09\twish\tnot collected yet\n' >> "$WISH"
+run_tool --hybrid
+if (( RC == 0 )); then report "hybrid_run_ok" ok; else report "hybrid_run_ok" fail "rc=$RC err=$(cat "$ERR")"; fi
+# tallies: TSV = 101 wish, 102 reading, 103 done, 104 wish, 999 wish; native
+# flips 103 to done (Прочитано) -> wish 3 (101, 104, 999), reading 1, done 1;
+# app-known = 101, 103, 104, 105; favorite = 104 (Избранное)
+grep -q "hybrid plan: 5 entries  (wish 3, reading 1, done 1; app 4, favorites 1)" "$OUT" \
+    && report "hybrid_header_tally" ok || report "hybrid_header_tally" fail "$(head -1 "$OUT")"
+grep -q '^== 2026-09 ==$' "$OUT" && grep -q '^== (no period) ==$' "$OUT" \
+    && report "hybrid_period_sections" ok || report "hybrid_period_sections" fail "$(grep '^==' "$OUT")"
+grep -q '\[app+tsv\] 101' "$OUT" \
+    && report "hybrid_both_source_tag" ok || report "hybrid_both_source_tag" fail "no [app+tsv] tag"
+grep -q '\[tsv\] 102' "$OUT" \
+    && report "hybrid_tsv_source_tag" ok || report "hybrid_tsv_source_tag" fail "no [tsv] tag"
+grep -q '\[app\] 105' "$OUT" && grep -q 'Только в приложении' "$OUT" \
+    && report "hybrid_app_source_tag" ok || report "hybrid_app_source_tag" fail "no [app] tag"
+# 103 is in the app READ group -> status must flip to done [x] even though
+# the TSV said done already; 101 stays [ ] (app "К прочтению" = wish, TSV wish)
+grep -q '\[x\] \[app+tsv\] 103' "$OUT" \
+    && report "hybrid_native_read_overrides" ok || report "hybrid_native_read_overrides" fail "$(grep 103 "$OUT")"
+grep -q '\[app+tsv\] ★ 104' "$OUT" \
+    && report "hybrid_favorite_marker" ok || report "hybrid_favorite_marker" fail "no favorite star"
+grep -q 'Любимая книга' "$OUT" \
+    && report "hybrid_app_row_has_catalog" ok || report "hybrid_app_row_has_catalog" fail "app-only row lost catalog join"
+grep -q 'marked in app: К прочтению' "$OUT" \
+    && report "hybrid_app_note_lists_groups" ok || report "hybrid_app_note_lists_groups" fail "no app-group note"
+grep -q '\[?\] 999 \[tsv\]' "$OUT" \
+    && report "hybrid_notin_tsv_tag" ok || report "hybrid_notin_tsv_tag" fail "$(grep -A3 'not in library' "$OUT")"
+grep -q '\[?\] 555 \[app\] (read in app)\|\[?\] 555 \[app\]' "$OUT" \
+    && report "hybrid_notin_app_tag" ok || report "hybrid_notin_app_tag" fail "no [app] notin row"
+
+: > "$MOCK_LOG"
+run_tool --hybrid
+grep -q "g.library = 'myprivatelib'" "$MOCK_LOG" \
+    && report "hybrid_library_scoped_sql" ok || report "hybrid_library_scoped_sql" fail "no library filter"
+
+# restore the v1.1-era native fixtures for the section above (idempotent for re-runs)
+printf '2\tК прочтению\t3\n' > "$MOCK_GROUPS"
+{ printf '101\t2\t2026-09-06 18:20:01\n'; printf '103\t2\t2026-09-06 19:00:00\n'; printf '555\t2\t2026-09-06 19:30:00\n'; } > "$MOCK_ASSIGN"
+
 # --- 7. exports ----------------------------------------------------------------------
 rm -rf "$REPORTS"
 reset_wish

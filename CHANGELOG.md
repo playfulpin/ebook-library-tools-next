@@ -9,6 +9,34 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **`bin/report_library.sh` v1.1.0 -> v1.2.0 — the hybrid wish-list
+  view.**  `--hybrid` merges BOTH planning sources into one render:
+  the native app state (`mllbr_main.mlgroup`/`mlgroupname`, v1.1) for
+  STATUS and the TSV plan (`data/wishlist.tsv`) for PLANNING — the app
+  has no target-period concept, the file has no app authority:
+
+  - **native status wins**: a book in «Прочитано» renders `[x] done`
+    regardless of the TSV status; a book in «К прочтению» (or any other
+    non-favorite group) renders as `wish` when the TSV has no say;
+  - **«Избранное» renders as a ★ favorite marker** — favorites never
+    change the status line;
+  - **source tags** per row: `[app+tsv]` (in both), `[tsv]` (file
+    only), `[app]` (marked in-app only); app-only bookids render under
+    the `(no period)` section with a `marked in app: <groups>` note,
+    joined against the catalog like every other row;
+  - the **"not in library"** listing is source-tagged too (`[?] id
+    [app|tsv]`), with a `(read in app)` hint when the missing book is
+    already read;
+  - group ids are resolved by NAME from the group census, so custom
+    group layouts keep working while the built-in names are intact;
+  - header tally now spans both sources: entries / wish / reading /
+    done / app-known / favorites.
+
+  Mock suite grown 58 -> **71 assertions** (override rule, favorite
+  star, all three source tags, app-only catalog join, app-group note,
+  source-tagged not-in-library rows, library filter still in the SQL);
+  version-sync and all suites green under WSL.
+
 - **`bin/report_library.sh` v1.0.0 -> v1.1.0 — native wishlist views
   (`docs/DO_IT_20260906_201455.md`, verified live 2026-09-07).**
   MultiLib.exe stores reading lists natively in `mllbr_main.mlgroup` /

@@ -3,8 +3,8 @@
 ###############################################################################
 # bin/report_library.sh
 #
-# Version:       1.1.0
-# Last updated:  2026-09-07 02:40
+# Version:       1.2.0
+# Last updated:  2026-09-07 03:20
 #
 # -----------------------------------------------------------------------------
 # PURPOSE
@@ -63,6 +63,17 @@
 #   ships as data/sql/qry_wishlist_native.sql.  mllbr_main is NEVER
 #   written to - marking happens in MultiLib.exe.
 #
+#   Hybrid view (v1.2): --hybrid merges BOTH sources into one plan.
+#   Native state is authoritative for STATUS: «Прочитано» (read) beats
+#   the TSV status; «Избранное» shows as a ★ favorite marker.  The TSV
+#   stays authoritative for PLANNING (target_period, notes) - the app
+#   has no period concept.  Rows are tagged with their sources:
+#   [app] native only, [tsv] file only, [app+tsv] in both.  App-assigned
+#   bookids missing from the TSV render under the "(no period)" section
+#   tagged [app]; wish bookids absent from the catalog keep the "not in
+#   library" listing (now source-tagged).  One bookid can sit in several
+#   native groups; favorites never change the status line.
+#
 # -----------------------------------------------------------------------------
 # USAGE
 # -----------------------------------------------------------------------------
@@ -76,13 +87,14 @@
 #   ./bin/report_library.sh --native                 # app wishlists, by author
 #   ./bin/report_library.sh --native title           # app wishlists, by title
 #   ./bin/report_library.sh --native series          # app wishlists, series order
+#   ./bin/report_library.sh --hybrid                 # TSV plan x app state, one view
 #
 # Exit codes: 0 success, 1 operational failure, 2 usage error.
 ###############################################################################
 
 set -uo pipefail
 
-SCRIPT_VERSION="1.1.0"
+SCRIPT_VERSION="1.2.0"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # --- shared MariaDB lifecycle (auto-start when down; graceful stop on exit) ----
@@ -105,7 +117,7 @@ GROUP_LIBRARY="${REPORT_GROUP_LIBRARY:-$TARGET_DB}"
 
 DEBUG=0
 DRY_RUN=0            # the lifecycle lib reads this; reporting has no dry-run
-MODE="view"          # view | add | set-status | remove | list | search | native
+MODE="view"          # view | add | set-status | remove | list | search | native | hybrid
 ARG_ID=""
 ARG_STATUS=""
 ARG_PERIOD=""
@@ -155,6 +167,10 @@ Commands:
                              (view: title|author|series|all, default author);
                              read-only, scoped to the library name
                              (REPORT_GROUP_LIBRARY, default: target DB name)
+  --hybrid                   merge the TSV plan with the native app state into
+                             one view: native status wins («Прочитано» = done,
+                             «Избранное» = ★ favorite), the TSV keeps periods
+                             and notes; rows tagged [app] / [tsv] / [app+tsv]
 
 Options:
       --period PERIOD        target period for --add (free-form, e.g. 2026-09)
@@ -197,6 +213,7 @@ while (( $# > 0 )); do
         --native)
             MODE="native"
             if [[ $# -ge 2 && "$2" != -* ]]; then ARG_NATIVE="$2"; shift 2; else shift; fi ;;
+        --hybrid) MODE="hybrid"; shift ;;
         --period)
             [[ $# -ge 2 ]] || { echo "Error: $1 needs a PERIOD argument" >&2; usage2; exit 2; }
             ARG_PERIOD="$2"; shift 2 ;;
@@ -454,6 +471,56 @@ ORDER BY g.bookid"
     db_query "$sql"
 }
 
+# native_state OUT_MAP
+#   Reduce the raw assignments to one row per bookid for the hybrid merge:
+#     OUT_MAP   bookid TAB state TAB firstadded TAB fav TAB groups
+#   where state = done (assigned to the read group) or "app" (assigned to
+#   any other wishlist group), fav = 1 when also assigned to the favorites
+#   group, and groups is the comma-joined list of group names.  Group ids
+#   are resolved by NAME from the group census (native_groups), so custom
+#   group layouts keep working as long as the built-in names are intact.
+native_state() { # out_map
+    local out_map="$1"
+    local groups assign
+    groups="$(native_groups)" || return 1
+    assign="$(native_assignments)" || return 1
+    printf '%s\n' "$groups" > "$tmp_dir/hybrid_groups.tsv"
+    printf '%s\n' "$assign" > "$tmp_dir/hybrid_assign.tsv"
+    awk -F'\t' -v OFS='\t' \
+        -v GROUPS="$tmp_dir/hybrid_groups.tsv" \
+        -v ASSIGN="$tmp_dir/hybrid_assign.tsv" \
+        -v MAP="$out_map" '
+    function gname(g) { return (g in gn ? gn[g] : "") }
+    BEGIN {
+        while ((getline line < GROUPS) > 0) {
+            split(line, f, "\t"); gn[f[1]] = f[2]
+            if (f[2] == "Прочитано") READ = f[1]
+            else if (f[2] == "Избранное") FAV = f[1]
+        }
+        close(GROUPS)
+        while ((getline line < ASSIGN) > 0) {
+            split(line, f, "\t")
+            id = f[1]; grp = f[2]; dt = f[3]
+            if (!(id in first) || dt < first[id]) first[id] = dt
+            if (grp == READ) state[id] = "done"
+            else if (!(id in state)) state[id] = "app"
+            if (grp == FAV) fav[id] = 1
+            g[id] = ((id in g && g[id] != "") ? g[id] ", " gname(grp) : gname(grp))
+        }
+        close(ASSIGN)
+        n = 0
+        for (id in first) ids[++n] = id
+        for (i = 1; i <= n; i++)            # numeric bookid order: deterministic
+            for (j = i + 1; j <= n; j++)
+                if ((ids[j] + 0) < (ids[i] + 0)) { t = ids[i]; ids[i] = ids[j]; ids[j] = t }
+        for (i = 1; i <= n; i++) {
+            id = ids[i]
+            print id, (id in state ? state[id] : ""), first[id], \
+                  (id in fav ? 1 : 0), (id in g ? g[id] : "") > MAP
+        }
+    }'
+}
+
 # -----------------------------------------------------------------------------
 # rendering
 # -----------------------------------------------------------------------------
@@ -691,6 +758,79 @@ render_native() { # view inlib notin groups_file
 }
 
 # -----------------------------------------------------------------------------
+# hybrid rendering (v1.2)
+# -----------------------------------------------------------------------------
+# render_hybrid inlib notin
+#   inlib rows (12 cols):
+#     bookid TAB src TAB status TAB period TAB added TAB note TAB title TAB
+#     author TAB series TAB seqnum TAB rating TAB fav
+#     src: app | tsv | app+tsv;  fav: 1 when «Избранное»
+#   notin rows (6 cols): bookid TAB src TAB period TAB added TAB note TAB state
+#     state: done | wish | "" (the native status if known)
+render_hybrid() { # inlib notin
+    local inlib="$1" notin="$2"
+    local nnin sw sr sd appn favn plural
+    nnin="$(wc -l < "$inlib" | tr -d ' ')"
+    sw="$(awk -F'\t' '$3=="wish"{c++} END{print c+0}' "$inlib")"
+    sr="$(awk -F'\t' '$3=="reading"{c++} END{print c+0}' "$inlib")"
+    sd="$(awk -F'\t' '$3=="done"{c++} END{print c+0}' "$inlib")"
+    appn="$(awk -F'\t' '$2 ~ /app/{c++} END{print c+0}' "$inlib")"
+    favn="$(awk -F'\t' '$12==1{c++} END{print c+0}' "$inlib")"
+    plural="ies"; [[ "$nnin" == 1 ]] && plural="y"
+    echo "hybrid plan: $nnin entr$plural  (wish $sw, reading $sr, done $sd; app $appn, favorites $favn)"
+    echo
+    awk -F'\t' -v NOTIN="$notin" '
+    function statusmark(s) {
+        if (s == "done")    return "[x]"
+        if (s == "reading") return "[~]"
+        return "[ ]"
+    }
+    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    BEGIN {
+        while ((getline line < NOTIN) > 0) { notin[++nn] = line }
+        close(NOTIN)
+        first_period = 1
+    }
+    {
+        period = $4
+        if (first_period || period != cur_period) {
+            cur_period = period
+            printf "== %s ==\n", (period == "" ? "(no period)" : period)
+            first_period = 0
+            cur_author = ""
+        }
+        author = trim($8)
+        if (author == "") author = "(unknown author)"
+        if (author != cur_author) {
+            printf "  %s\n", author
+            cur_author = author
+        }
+        line = "    " statusmark($3) " [" $2 "]" (($12 == 1) ? " ★" : "") " " $1 "  " $7
+        extra = ""
+        if ($9 != "") extra = $9 (($10 != "" && $10 + 0 > 0) ? " #" $10 : "")
+        if ($11 != "") extra = extra (extra == "" ? "" : ", ") "rating " $11
+        if (extra != "") line = line "  (" extra ")"
+        if ($6 != "") line = line "  -- " $6
+        print line
+    }
+    END {
+        if (nn > 0) {
+            print ""
+            print "not in library (plan now, collect later):"
+            for (i = 1; i <= nn; i++) {
+                # notin rows: bookid src period added note state
+                split(notin[i], f, "\t")
+                line = "  [?] " f[1] " [" f[2] "]"
+                if (f[3] != "") line = line " (" f[3] ")"
+                if (f[6] == "done") line = line " (read in app)"
+                if (f[5] != "") line = line "  -- " f[5]
+                print line
+            }
+        }
+    }' "$inlib"
+}
+
+# -----------------------------------------------------------------------------
 # modes
 # -----------------------------------------------------------------------------
 clean="$tmp_dir/clean.tsv"
@@ -797,6 +937,74 @@ case "$MODE" in
         render_native "$ARG_NATIVE" \
             "$tmp_dir/native_inlib.tsv" "$tmp_dir/native_notin.tsv" \
             "$tmp_dir/native_groups.tsv"
+        ;;
+
+    hybrid)
+        db_start
+        # 1. native state map (one row per app-assigned bookid)
+        native_state "$tmp_dir/hybrid_state.tsv" \
+            || die "native wishlist query failed; is MariaDB reachable?"
+        # 2. union of bookids from both sources -> one catalog join
+        { cut -f1 "$clean"; cut -f1 "$tmp_dir/hybrid_state.tsv"; } \
+            | grep -v '^$' | sort -u -n > "$tmp_dir/hybrid_ids.txt"
+        join_catalog "$tmp_dir/hybrid_ids.txt" > "$tmp_dir/hybrid_catalog.tsv" \
+            || die "catalog join failed; is MariaDB reachable?"
+        : > "$tmp_dir/hybrid_inlib.tsv"; : > "$tmp_dir/hybrid_notin.tsv"
+        # 3. merge: TSV rows first, then app-only bookids; native status wins
+        awk -F'\t' -v OFS='\t' \
+            -v CAT="$tmp_dir/hybrid_catalog.tsv" \
+            -v STATE="$tmp_dir/hybrid_state.tsv" \
+            -v INLIB="$tmp_dir/hybrid_inlib.tsv" \
+            -v NOTIN="$tmp_dir/hybrid_notin.tsv" '
+        BEGIN {
+            while ((getline line < CAT) > 0) { split(line, c0, "\t"); cat[c0[1]] = line }
+            close(CAT)
+            while ((getline line < STATE) > 0) {
+                split(line, f, "\t")
+                n_state[f[1]] = f[2]; n_added[f[1]] = f[3]
+                n_fav[f[1]] = f[4];   n_groups[f[1]] = f[5]
+                n_ids[++nn] = f[1]
+            }
+            close(STATE)
+        }
+        function catfield(id, i,   c) {
+            if (!(id in cat)) return ""
+            split(cat[id], c, "\t")
+            return (c[i] == "NULL" ? "" : c[i])
+        }
+        # pass 1: TSV wish rows
+        {
+            id = $1
+            tsv[id] = 1
+            src = (id in n_state ? "app+tsv" : "tsv")
+            st  = (id in n_state && n_state[id] == "done" ? "done" : $4)
+            if (id in cat) {
+                print id, src, st, $3, $2, $5, catfield(id, 2), catfield(id, 3), \
+                      catfield(id, 4), catfield(id, 5), catfield(id, 6), \
+                      (id in n_fav ? n_fav[id] : 0) > INLIB
+            } else {
+                print id, src, $3, $2, $5, st > NOTIN
+            }
+        }
+        # pass 2: app-only bookids (assigned in-app, not in the TSV plan)
+        END {
+            for (i = 1; i <= nn; i++) {
+                id = n_ids[i]
+                if (id in tsv) continue
+                st = (n_state[id] == "done" ? "done" : "wish")
+                note = (n_groups[id] != "" ? "marked in app: " n_groups[id] : "")
+                if (id in cat) {
+                    print id, "app", st, "", n_added[id], note, catfield(id, 2), \
+                          catfield(id, 3), catfield(id, 4), catfield(id, 5), \
+                          catfield(id, 6), n_fav[id] > INLIB
+                } else {
+                    print id, "app", "", n_added[id], note, st > NOTIN
+                }
+            }
+        }' "$clean"
+        LC_ALL=C sort -t$'\t' -k4,4 -k8,8 -k9,9 -k10,10n -k7,7 "$tmp_dir/hybrid_inlib.tsv" -o "$tmp_dir/hybrid_inlib.sorted"
+        LC_ALL=C sort -t$'\t' -k4,4 -k1,1n "$tmp_dir/hybrid_notin.tsv" -o "$tmp_dir/hybrid_notin.sorted"
+        render_hybrid "$tmp_dir/hybrid_inlib.sorted" "$tmp_dir/hybrid_notin.sorted"
         ;;
 
     view)

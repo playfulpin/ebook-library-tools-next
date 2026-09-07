@@ -5,10 +5,9 @@
 > read-only probe). MultiLib.exe stores reading lists in
 > `mllbr_main.mlgroup` / `mlgroupname`; the user already assigned
 > bookid 785309 to «К прочтению» (groupid=2) in-app. Releases
-> v1.3.0 + v1.4.0 are published on GitHub; `report_library.sh` v1.1.0
-> (native mllbr_main wishlist views shipped 2026-09-07; TSV reading
-> plan in `data/wishlist.tsv`) and `refresh_myprivatelib.sh` v1.0.0
-> shipped.
+> v1.3.0 + v1.4.0 + v1.5.0 (native wishlist views) are published on
+> GitHub; `report_library.sh` v1.2.0 (hybrid view: TSV plan x native
+> app state) and `refresh_myprivatelib.sh` v1.0.0 shipped.
 
 ## Resume checklist
 
@@ -17,7 +16,7 @@ cd /home/mike/GIT_ROOT/MultiLib_Utilities
 git status             # expect: clean tree, on main, up to date with origin/main
 git log --oneline -3   # expect: abadec3 (this plan) at the top, tag v1.4.0 on 708d963
 bash tests/test_version_sync.sh          # 14/14 (fast, mock-only)
-bash tests/test_report_library.sh        # 58/58 (mock mysql, runs anywhere)
+bash tests/test_report_library.sh        # 71/71 (mock mysql, runs anywhere)
 bash tests/test_refresh_myprivatelib.sh  # 20/20
 bash tests/test_populate_myprivatelib.sh # 35/35
 ```
@@ -28,7 +27,7 @@ bash tests/test_populate_myprivatelib.sh # 35/35
 |---|---|
 | `myprivatelib` | live in MultiLib.exe, full-scale operation confirmed by the user; populate v1.3.0 (verbatim source keys, 0 AUTO_INCREMENT, FK gate) |
 | `bin/refresh_myprivatelib.sh` v1.0.0 | shipped; tree-fingerprint checkpoint; first real run will write the checkpoint (`--status` shows `no-checkpoint`) |
-| `bin/report_library.sh` v1.1.0 | shipped; TSV wish list (`data/wishlist.tsv`), view + mutations + exports, suite 58/58; PLUS `--native title\|author\|series\|all` views over the app-managed `mllbr_main` wishlists (read-only, library-scoped; companion SQL `data/sql/qry_wishlist_native.sql`) |
+| `bin/report_library.sh` v1.2.0 | shipped; TSV wish list (`data/wishlist.tsv`), view + mutations + exports; `--native title\|author\|series\|all` views over the app-managed `mllbr_main` wishlists (read-only, library-scoped; companion SQL `data/sql/qry_wishlist_native.sql`); `--hybrid` merges both sources (native status wins, TSV keeps periods, ★ favorites, source tags); suite 71/71 |
 | Releases | v1.3.0 (`47f8ddc`, verbatim keys) + v1.4.0 (`708d963`, refresh + wish list) published on GitHub, v1.4.0 = Latest |
 | CI | green on `708d963` |
 | MariaDB | stopped (shut down gracefully 2026-09-07) |
@@ -91,10 +90,11 @@ joins both by bookid.
    views** (`--native title|author|series|all`, library-scoped,
    read-only, companion `data/sql/qry_wishlist_native.sql`; suite
    58/58).
-2. **Hybrid model wiring**: render TSV periods and native statuses in
-   ONE view — bookid join, `date_gr` as the added date for native
-   entries, TSV `target_period` for planning; completion tally per
-   period and per native category.
+2. **DONE 2026-09-07: hybrid model wired** — `report_library.sh`
+   v1.2.0 `--hybrid`: native status overrides the TSV («Прочитано» ->
+   done), «Избранное» renders ★, TSV keeps target periods/notes, rows
+   tagged [app]/[tsv]/[app+tsv], app-only rows under `(no period)`,
+   source-tagged not-in-library listing.
 3. **By-Series gap report** (independent of the source of wishes):
    series entries owned vs missing volumes via `mlseq.SeqNumb`,
    highlighting series with gaps and series on the wish list whose
