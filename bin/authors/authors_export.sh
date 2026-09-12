@@ -4,7 +4,7 @@
 # bin/authors/authors_export.sh
 #
 # Version:       1.0.2
-# Last updated:  2026-09-03
+# Last updated:  2026-09-12
 #
 # -----------------------------------------------------------------------------
 # PURPOSE

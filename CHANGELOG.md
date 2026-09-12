@@ -7,7 +7,7 @@ All notable changes to the author-toolchain scripts in this repository:
 `bin/merge_books_into_skeleton.sh`, and
 `bin/merge_skeleton_into_books.sh`.
 
-## [Unreleased]
+## [v1.7.1] - 2026-09-12
 
 - **Phase 5 complete — function headers & coding standards.**
   Header audit: all 21 production shell files standardized; function
@@ -41,6 +41,11 @@ All notable changes to the author-toolchain scripts in this repository:
   its PASS record with dates, commits, measurable evidence (suite
   counts), documented exceptions, and follow-ups (Phase 4: 14/14
   commands, quantitative gate met).
+
+## [v1.7.0] - 2026-09-12 — the rename era: ratified architecture, fully executed
+
+Tagged at `eec78b4` (already published on GitHub).  The entries below
+were part of the same development cycle and shipped under v1.7.0:
 
 - **Post-Phase-4 cleanup** (separate commit `e0b4d6b`): scratch files
   pruned, `commit_msg/` relocated under `data/commit_msg/`, ten

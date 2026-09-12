@@ -5,7 +5,7 @@
 # Common logging for the ebook-library-tools toolchain (Phase 3, plan §7.3).
 #
 # Version:       1.0.0
-# Last updated:  2026-09-07
+# Last updated:  2026-09-12
 #
 # Provides the exact house triplet found byte-identical in 8 tools by the
 # Phase 1 inventory, plus an explicit level API on top of it:

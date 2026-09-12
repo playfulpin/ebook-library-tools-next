@@ -4,7 +4,7 @@
 # bin/authors/authors_prefix_check.sh
 #
 # Version:       1.2.1
-# Last updated:  2026-08-11 17:55
+# Last updated:  2026-09-12
 #
 # -----------------------------------------------------------------------------
 # PURPOSE

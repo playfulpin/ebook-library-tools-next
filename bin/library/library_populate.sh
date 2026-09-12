@@ -4,7 +4,7 @@
 # bin/library/library_populate.sh
 #
 # Version:       1.3.0
-# Last updated:  2026-09-06 14:30
+# Last updated:  2026-09-12
 #
 # -----------------------------------------------------------------------------
 # PURPOSE

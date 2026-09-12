@@ -1,5 +1,20 @@
 # Author Toolchain — current milestone
 
+**Latest release: v1.7.1 (2026-09-12)** — Phase 5, function headers &
+coding standards: all 21 production shell files standardized, every
+non-trivial function documented (args / returns / side effects), and
+ShellCheck `--severity=warning` **clean across every production file**
+(two real defects fixed — a misplaced `shellcheck source=` directive
+that silently broke parsing in `library_report`, and dead `local`
+declarations in three tools; every intentional pattern annotated with
+a reason).  No behavioral changes; all suites re-run green.
+
+The previous release, **v1.7.0 (2026-09-12)**, was the rename era:
+refactoring Phases 1–4 executed and signed off, the ratified
+`bin/{authors,books,library}/` layout fully landed, `ARCHITECTURE.md`
+published as the permanent as-built reference, and the docs archive
+established.
+
 A Bash + AWK toolchain that turns a flat author list into UTF-8-safe,
 byte-ordered prefix structures: a prefix table, its integrity check, a rendered
 prefix tree, and a nested directory hierarchy — all validated against a real

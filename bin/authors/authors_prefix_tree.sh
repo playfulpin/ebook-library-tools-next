@@ -4,7 +4,7 @@
 # bin/authors/authors_prefix_tree.sh
 #
 # Version:       2.8.1
-# Last updated:  2026-08-11 20:44
+# Last updated:  2026-09-12
 #
 # PURPOSE:
 #   FAST UTF‑8‑safe prefix tree visualizer using AWK.

@@ -5,7 +5,7 @@
 # Common initialization and helpers for the ebook-library-tools toolchain.
 #
 # Version:       1.0.0
-# Last updated:  2026-09-07
+# Last updated:  2026-09-12
 #
 # Provides (Phase 3 of the refactoring plan, Updated Plan §7.1–7.2):
 #   common_init        - standard initialization: set -Eeuo pipefail, project

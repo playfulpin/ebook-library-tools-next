@@ -3,7 +3,7 @@
 # lib/mariadb_lifecycle.sh
 #
 # Version:       1.0.1
-# Last updated:  2026-09-03
+# Last updated:  2026-09-12
 #
 # -----------------------------------------------------------------------------
 # PURPOSE

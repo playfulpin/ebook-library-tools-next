@@ -6,7 +6,7 @@
 # (Phase 3, plan §7 + Blueprint §22).
 #
 # Version:       1.0.0
-# Last updated:  2026-09-07
+# Last updated:  2026-09-12
 #
 # Provides (seeded verbatim from the argv block repeated in
 # books_reconcile.sh / library_report.sh / authors_export.sh):

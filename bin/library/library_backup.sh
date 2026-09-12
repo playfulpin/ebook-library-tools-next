@@ -4,7 +4,7 @@
 # bin/library/library_backup.sh
 #
 # Version:       1.0.0
-# Last updated:  2026-09-04
+# Last updated:  2026-09-12
 #
 # -----------------------------------------------------------------------------
 # PURPOSE

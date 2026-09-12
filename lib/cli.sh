@@ -6,7 +6,7 @@
 # (Phase 3, plan §7.4).
 #
 # Version:       1.0.0
-# Last updated:  2026-09-07
+# Last updated:  2026-09-12
 #
 # Provides:
 #   cli_print_version  - canonical '-v, --version' output line

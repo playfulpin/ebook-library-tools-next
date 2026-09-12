@@ -6,7 +6,7 @@
 # (Phase 3, plan §7 + Blueprint §18).
 #
 # Version:       1.0.0
-# Last updated:  2026-09-07
+# Last updated:  2026-09-12
 #
 # Provides (each seeded from one real implementation — noted per function):
 #   fs_require_dir      - die unless a directory exists

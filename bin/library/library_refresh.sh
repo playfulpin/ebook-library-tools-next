@@ -4,7 +4,7 @@
 # bin/library/library_refresh.sh
 #
 # Version:       1.0.0
-# Last updated:  2026-09-06 22:00
+# Last updated:  2026-09-12
 #
 # -----------------------------------------------------------------------------
 # PURPOSE

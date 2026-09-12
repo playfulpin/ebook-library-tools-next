@@ -4,7 +4,7 @@
 # bin/authors/authors_prefix_build.sh
 #
 # Version:       1.0.4
-# Last updated:  2026-08-11 20:39
+# Last updated:  2026-09-12
 #
 # -----------------------------------------------------------------------------
 # PURPOSE

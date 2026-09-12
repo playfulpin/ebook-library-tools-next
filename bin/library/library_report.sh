@@ -4,7 +4,7 @@
 # bin/library/library_report.sh
 #
 # Version:       1.2.0
-# Last updated:  2026-09-07 03:20
+# Last updated:  2026-09-12
 #
 # -----------------------------------------------------------------------------
 # PURPOSE

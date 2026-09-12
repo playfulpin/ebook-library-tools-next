@@ -12,13 +12,14 @@
 ## Resume checklist
 
 ```bash
-cd /home/mike/GIT_ROOT/MultiLib_Utilities
+cd /c/git_root/ebook-library-tools-next
 git status             # expect: clean tree, on main, up to date with origin/main
-git log --oneline -3   # expect: d648a67 (hybrid view) at the top; tags v1.5.0 + v1.6.0 on 612b5e2 / d648a67
+git log --oneline -3   # expect: the Phase 5 standards commit at the top; tags v1.7.0 + v1.7.1 on main
 bash tests/test_version_sync.sh          # 14/14 (fast, mock-only)
 bash tests/test_library_report.sh        # 71/71 (mock mysql, runs anywhere)
 bash tests/test_library_refresh.sh       # 20/20
 bash tests/test_library_populate.sh      # 35/35
+shellcheck --severity=warning bin/*.sh bin/*/*.sh lib/*.sh && echo clean   # Phase 5 gate
 ```
 
 ### Reporting quickstart
@@ -52,7 +53,7 @@ note) + native `mllbr_main.mlgroup` rows (marked in-app).
 | `myprivatelib` | live in MultiLib.exe, full-scale operation confirmed by the user; populate v1.3.0 (verbatim source keys, 0 AUTO_INCREMENT, FK gate) |
 | `bin/refresh_myprivatelib.sh` v1.0.0 | shipped; tree-fingerprint checkpoint; first real run will write the checkpoint (`--status` shows `no-checkpoint`) |
 | `bin/library/library_report.sh` v1.2.0 | shipped; TSV wish list (`data/wishlist.tsv`), view + mutations + exports; `--native title\|author\|series\|all` views over the app-managed `mllbr_main` wishlists (read-only, library-scoped; companion SQL `data/sql/qry_wishlist_native.sql`); `--hybrid` merges both sources (native status wins, TSV keeps periods, ★ favorites, source tags); suite 71/71 |
-| Releases | v1.3.0 (`47f8ddc`, verbatim keys) + v1.4.0 (`708d963`, refresh + wish list) + v1.5.0 (`612b5e2`, native wishlist views) + v1.6.0 (`d648a67`, hybrid view) published on GitHub, v1.6.0 = Latest |
+| Releases | **v1.7.1** (Phase 5 standards sweep) + **v1.7.0** (`eec78b4`, the rename era — Phases 1–4, ARCHITECTURE.md) + v1.3.0–v1.6.0 (library pipeline releases) published on GitHub, v1.7.1 = Latest |
 | CI | green on `d648a67` |
 | Assignment history | `docs/archive/DO_IT_ongoing.md` (Parts 1-4, folded + resolved) |
 | MariaDB | stopped (shut down gracefully 2026-09-07) |
@@ -112,8 +113,8 @@ joins both by bookid.
 
 ## Next steps (priority order)
 
-0. **Cut the rename-era release tag** — everything is green and
-   signed off (see the checklist at the bottom).
+0. ~~Cut the rename-era release tag~~ — DONE: v1.7.0 (rename era) and
+   v1.7.1 (Phase 5 standards) published.
 1. **By-Series gap report** (next reporting feature): series entries
    owned vs missing volumes via `mlseq.SeqNumb`, highlighting series
    with gaps and series on the wish list whose missing volumes should

@@ -4,7 +4,7 @@
 # bin/authors/authors_tree_build.sh
 #
 # Version:       6.6.10
-# Last updated:  2026-09-01 14:06
+# Last updated:  2026-09-12
 #
 # -----------------------------------------------------------------------------
 # PURPOSE
