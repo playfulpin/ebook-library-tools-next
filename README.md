@@ -588,16 +588,27 @@ tool tags as the repository-wide release marker.  **`v1.1.0`, cut 2026-09-03
 on top of the library-catalog refactor**, moved the merge pipeline to run
 without an on-disk skeleton (in-memory `BooksInput_<ts>` staging, rsync
 finalize with a live `pv -l` progress bar) and added CI on every push and
-pull request.  **`v1.2.0`, cut 2026-09-03, is the current production
-release**: the author list is DB-driven — `bin/authors/authors_export.sh`
-regenerates `data/fixtures/authors_list_from_db.txt` from a query against
-the MariaDB catalog and manages the server lifecycle itself (auto-start
-when down, graceful stop on exit), and the working fixture is a
-genre-scoped 5,707-author Фантастика list, regenerable at any time.
+pull request.  **`v1.2.0`, cut 2026-09-03**: the author list is DB-driven —
+`bin/authors/authors_export.sh` regenerates `data/fixtures/authors_list_from_db.txt`
+from a query against the MariaDB catalog and manages the server lifecycle
+itself (auto-start when down, graceful stop on exit), and the working fixture
+is a genre-scoped 5,707-author Фантастика list, regenerable at any time.
 
 To cut a release: bump the header version, run the WSL test suites (see
 [Testing](#testing)), commit, then tag with the tool-prefixed name. See
 `CHANGELOG.md` for the full history and step-by-step workflow.
+
+## Documentation map
+
+| Need | Read |
+|---|---|
+| Architecture: layout, groups, ownership, dependencies, safety contract | **`ARCHITECTURE.md`** (authoritative, distilled from the ratified Phase 2 doc) |
+| Why it is this way (decision register) | `docs/PHASE_02_TARGET_ARCHITECTURE.md` |
+| How the refactor was executed | `docs/PHASE_01_INVENTORY.md`, `docs/PHASE_03_COMMON_INFRASTRUCTURE.md`, `docs/PHASE_04_TOOL_CONVERSION.md` |
+| Databases behind the tools | `docs/MultiLib_Flibusta_DB.md` |
+| Phase completion gates & records | `docs/Measurable Phase Completion Criteria.md` |
+| What to do next | `docs/NEXT.md` |
+| Historical plans & consumed docs | `docs/archive/` (+ its README) |
 
 ## Repository layout
 

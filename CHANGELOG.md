@@ -9,6 +9,32 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **`ARCHITECTURE.md` v1.0.0 — the permanent architecture reference
+  (D-02.12 delivered).**  Distilled from the ratified
+  `docs/PHASE_02_TARGET_ARCHITECTURE.md` and updated to the as-built
+  state: toolchain purpose, hard constraints C1–C9, repository layout,
+  the 14-command surface in 4 groups, shared libraries, config/data/
+  database ownership, dependency-direction rules, the safety contract,
+  testing structure, the component responsibility table, **documented
+  deviations** (group subdirs, pure-filter commands off `common_init`,
+  `--no-errexit` exception, deliberately smaller lib set, flat tests),
+  and the release/versioning workflow.  Reality changes now edit this
+  file in the same commit.
+
+- **Phase 1–4 completion records signed off** in
+  `docs/Measurable Phase Completion Criteria.md` — each phase carries
+  its PASS record with dates, commits, measurable evidence (suite
+  counts), documented exceptions, and follow-ups (Phase 4: 14/14
+  commands, quantitative gate met).
+
+- **Post-Phase-4 cleanup** (separate commit `e0b4d6b`): scratch files
+  pruned, `commit_msg/` relocated under `data/commit_msg/`, ten
+  consumed/superseded documents archived under `docs/archive/` with a
+  README mapping each to where its content lives now; every reference
+  in living docs, tools, and SQL re-pointed.  README gained the
+  documentation map; the docs disposition completes the ratified
+  D-02.12.
+
 - **Phase 4, rename group 4 (final) — `library_report` and
   `version_bump` land the ratified layout.**
   `report_library.sh` → `bin/library/library_report.sh` (infra

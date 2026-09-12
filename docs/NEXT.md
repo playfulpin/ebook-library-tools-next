@@ -1,14 +1,13 @@
 # NEXT — where to resume
 
-> Updated: 2026-09-12 — **refactoring Phase 4 COMPLETE (all four
-> groups)**: AUTHORS chain in `bin/authors/`, merge pair +
-> estimate/reconcile in `bin/books/`, backup/populate/refresh + report
-> in `bin/library/`, `bin/version_bump.sh` flat in `bin/`; all
-> infra consumers converted onto `common_init`; progress log in
-> `docs/PHASE_04_TOOL_CONVERSION.md` v1.2.0. Remaining: **final docs
-> pass** — distill `ARCHITECTURE.md` from the ratified Phase 2 doc,
-> sign off `docs/Measurable Phase Completion Criteria.md` for Phase 4,
-> then cut a release tag. Phases 1–3 complete.
+> Updated: 2026-09-12 — **refactoring Phases 1–4 COMPLETE and signed
+> off.**  `ARCHITECTURE.md` is the permanent, as-built architecture
+> reference (D-02.12 delivered); Phase 1–4 completion records are
+> signed in `docs/Measurable Phase Completion Criteria.md`; consumed
+> docs live in `docs/archive/`.  Remaining from the original plan:
+> Phase 5 (function/function-header coding standards sweep) and the
+> pending D-02.11 tests split — see "Open items" below.  Next release
+> tag: the rename-era release (see the checklist at the bottom).
 
 ## Resume checklist
 
@@ -38,7 +37,14 @@ bash tests/test_library_populate.sh      # 35/35
 Wish state: `data/wishlist.tsv` (bookid, added, target_period, status,
 note) + native `mllbr_main.mlgroup` rows (marked in-app).
 
-## Current state (post v1.6.0)
+## Current state (post-Phase-4 refactor)
+
+| Piece | State |
+|---|---|
+| Layout | ratified + as-built: `bin/{authors,books,library}/` + flat `bin/version_bump.sh`; `lib/` 7 components + AWK reference; docs archived under `docs/archive/` |
+| Architecture doc | `ARCHITECTURE.md` v1.0.0 (as-built, authoritative; D-02.12 delivered) |
+| Phase records | Phases 1–4 **PASS**, signed in `docs/Measurable Phase Completion Criteria.md` |
+| Validation | version sync 14/14; report 71/71; lib suite 42/42; populate 35/35; backup 23/23; CI green on every group commit |
 
 | Piece | State |
 |---|---|
@@ -105,6 +111,8 @@ joins both by bookid.
 
 ## Next steps (priority order)
 
+0. **Cut the rename-era release tag** — everything is green and
+   signed off (see the checklist at the bottom).
 1. **By-Series gap report** (next reporting feature): series entries
    owned vs missing volumes via `mlseq.SeqNumb`, highlighting series
    with gaps and series on the wish list whose missing volumes should
@@ -122,15 +130,19 @@ joins both by bookid.
 4. **Unmatched fallback (ladder b)**: author/series/title matching for
    the 8 unmatched files (7 Бушков «Пиранья» + 1 Булычев) — extend the
    populate resolve step or a small companion tool.
-5. **Adopt the refresh loop**: after each BookTracker-import collecting
-   round, `./bin/refresh_myprivatelib.sh` (backup -> populate ->
+5. **Adopt the refresh loop**: after each collecting round,
+   `./bin/library/library_refresh.sh` (backup -> populate ->
    checkpoint); check `--status` first. Consider a wrapper that also
    regenerates the reconcile statistics for the round.
-6. **Docs pass**: add the `mllbr_main` wishlist findings (mlgroup /
-   mlgroupname schema, library scoping, 3 built-in categories) to
-   `docs/MultiLib_Flibusta_DB.md`; consider archiving
-   `docs/archive/COVERS_PLAN.md` (superseded, see DO_IT_ongoing Part 3).
-7. **Covers/annotations**: CLOSED — the app renders both from the FB2
+6. **Phase 5 (coding-standards sweep)** — function/file headers per
+   `docs/Measurable Phase Completion Criteria.md`; much of it is
+   already satisfied by the Phase 3/4 conversions, so expect a light
+   audit + gap fill rather than a rewrite.
+7. **D-02.11 tests split** — move `tests/` to
+   unit/ + integration/ + fixtures/ + golden/ as ONE change set (CI
+   paths touched once).  Open since Phase 2; do it when nothing else
+   is mid-flight.
+8. **Covers/annotations**: CLOSED — the app renders both from the FB2
    payload; `docs/archive/COVERS_PLAN.md` is superseded. Only revisit if
    DB-level thumbnail views are ever wanted.
 

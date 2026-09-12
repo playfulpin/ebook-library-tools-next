@@ -501,3 +501,143 @@ Follow-up Items:
 A phase should **not** be marked complete merely because the code "looks good."
 
 The completion status must be supported by measurable evidence.
+
+---
+
+# Completion records (as signed off)
+
+## Phase 1 Completion Record — Repository Inventory & Dependency Map
+
+Status: **PASS**
+
+Date: 2026-09-07
+Commit: `6f73793` (re-run inventory after the query-file rename)
+
+Mandatory Criteria:
+- Passed: 100% of tracked sources, executables, and configs inventoried;
+  dependency maps (shell-source, pipeline, cross-repo, meta/version-sync)
+  complete; file disposition and hotspots documented
+- Failed: none
+
+Automated Tests:
+- Passed: suite baseline unchanged (14 tracked suites green)
+- Failed: none
+
+Deliverable: `docs/PHASE_01_INVENTORY.md` v1.0.0
+
+Exceptions:
+- None
+
+Follow-up Items:
+- None (doc moved to `docs/archive/` context only if superseded — it remains a live record)
+
+## Phase 2 Completion Record — Target Architecture
+
+Status: **PASS**
+
+Date: 2026-09-07 (ratified) / 2026-09-12 (ARCHITECTURE.md distilled)
+Commit: `5f3a66c` (ratification), `b46ec6e` (LICENSE + doc update), ARCHITECTURE.md commit
+
+Mandatory Criteria:
+- Passed: target disposition for every directory; location for all 14 public
+  commands; intended library set; config/data/runtime ownership; dependency
+  directions; decision register D-02.1…D-02.16 all RATIFIED; approval block
+  signed by Mike
+- Failed: none
+
+Automated Tests:
+- Passed: n/a (design phase; suite baseline green)
+- Failed: none
+
+Deliverables: `docs/PHASE_02_TARGET_ARCHITECTURE.md` v1.0.0 (RATIFIED),
+`ARCHITECTURE.md` v1.0.0 (distilled, D-02.12), `LICENSE` (MIT, D-02.16)
+
+Exceptions:
+- `bin/` group subdirectories supersede the Blueprint's flat-bin rule (D-02.3 revised) — documented in ARCHITECTURE.md §13
+
+Follow-up Items:
+- None
+
+## Phase 3 Completion Record — Common Shell Infrastructure
+
+Status: **PASS**
+
+Date: 2026-09-12
+Commit: `b59f32b`
+
+Mandatory Criteria:
+- Passed: `set -Eeuo pipefail` standard init (`common_init`, opt-out
+  documented); depth-agnostic script-location resolution (bin/ and
+  bin/<group>/ verified); shared logging (byte-preserved house triplet);
+  CLI helper with subshell-safe arg counting; filesystem helpers seeded
+  verbatim from real implementations; opt-in DB helpers; libraries
+  extracted only where real duplication existed
+- Failed: none
+
+Automated Tests:
+- Passed: `tests/test_lib_infrastructure.sh` 42/42; syntax over
+  `bin/*.sh lib/*.sh`; version sync 14/14; existing suites re-run green
+- Failed: none
+
+Deliverables: `lib/common.sh`, `lib/logging.sh`, `lib/cli.sh`,
+`lib/filesystem.sh`, `lib/database.sh` (all v1.0.0),
+`docs/PHASE_03_COMMON_INFRASTRUCTURE.md`, CI extended (lib syntax + suite)
+
+Exceptions:
+- `report_library` (now `library_report`) runs `common_init --no-errexit` —
+  the documented `set -uo pipefail` exception (plan §7.1)
+- `lib/progress.sh` deliberately NOT created (one consumer only)
+
+Follow-up Items:
+- None
+
+## Phase 4 Completion Record — Individual Command Refactoring (all 14 commands)
+
+Status: **PASS**
+
+Date: 2026-09-12
+Commits: `b3f9811`, `acebddd` (group 1), `68d2bcf`, `cb17b2d` (group 2),
+`b1a540a` (group 3), `c9bd049` (group 4)
+
+Mandatory Criteria (per-command checklist from this document):
+- Passed: for all 14 commands — CLI parsing in a defined location;
+  config loading separated (where applicable); validation before
+  destructive work; reusable business logic in functions; **logging via
+  the common implementation** (the duplicated `log/debug/die` triplet
+  now exists only in `lib/logging.sh`); errors return 0/1/2; temp
+  resources cleaned up; `--help` works (suite-asserted); invalid input
+  fails controlled (suite-asserted); dry-run where applicable;
+  **tests exist for critical behavior** (one suite per command + e2e +
+  version sync + lib suite)
+- Failed: none
+
+Quantitative gate:
+- Completed commands / planned commands = **14 / 14 = 100%**
+- Required command test pass rate = 100% (see Automated Tests)
+
+Automated Tests (WSL + CI, all green on the final push):
+- `test_version_sync.sh` **14/14**
+- `test_library_report.sh` **71/71** · `test_lib_infrastructure.sh` **42/42**
+- `test_library_populate.sh` **35/35** · `test_library_backup.sh` **23/23**
+- `test_books_merge.sh`, `test_books_finalize.sh`, `test_authors_export.sh`,
+  `test_books_reconcile.sh`, `test_books_estimate.sh`,
+  `test_library_refresh.sh` — green (CI + WSL)
+- UTF-8/WSL class: `test_authors_tree_build.sh`,
+  `test_authors_prefix_build.sh`, `test_authors_prefix_tree.sh`,
+  `test_utf8_prefix_generator.sh`, `test_e2e_pipeline.sh` — green
+- CI: **success** on every group commit and on `c9bd049`
+
+Exceptions (documented, per ARCHITECTURE.md §13):
+- Pure-filter commands (`authors_prefix_*`, `authors_tree_build`,
+  `version_bump`) are not on `common_init` — no root/logging needs;
+  documented deviation, no behavioral change
+- `library_report` runs without `-e` via `common_init --no-errexit`
+
+Follow-up Items:
+- tests/ unit/integration/fixtures/golden split (D-02.11 option (b)) —
+  pending separate change set
+
+Real-behavior fix shipped during Phase 4 (version-bumped accordingly):
+`version_bump` 1.0.1 → 1.0.2 — case registry still answered five old
+keys while usage advertised new ones; bumps by the new names would have
+failed.
