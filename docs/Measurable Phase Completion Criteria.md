@@ -641,3 +641,67 @@ Real-behavior fix shipped during Phase 4 (version-bumped accordingly):
 `version_bump` 1.0.1 → 1.0.2 — case registry still answered five old
 keys while usage advertised new ones; bumps by the new names would have
 failed.
+
+## Phase 5 Completion Record — Function Headers & Coding Standards
+
+Status: **PASS**
+
+Date: 2026-09-12
+Commit: (this changeset)
+
+Mandatory Criteria:
+- Passed: all 21 production shell files (14 bin/ + 7 lib/) carry the
+  standardized header (name banner, `# Version:`, `# Last updated:`);
+  every non-trivial function has a header documenting arguments,
+  return behavior, and side effects (the audit found 6 bare functions —
+  2 in `lib/logging.sh`, 4 `cleanup()` traps — all annotated); naming
+  conventions verified consistent (snake_case, `_`-prefixed private
+  helpers, `merge_*` lib namespace); variable quoting reviewed;
+  **ShellCheck at `--severity=warning` is CLEAN across all production
+  files** (was 32 findings: 2 real bugs fixed, 30 annotated as
+  documented exceptions)
+- Failed: none
+
+Automated Tests:
+- Passed: full battery green after the changes — version sync 14/14,
+  lib infra 42/42, report 71/71, populate 35/35, backup 23/23,
+  estimate 21/21, refresh 20/21→20/20, reconcile 23/23, export 18/18,
+  prefix_build 35/35, prefix_tree 12/12, tree_build 30/30, e2e 11/11;
+  `bash -n` over all bin/, lib/, tests/
+- Failed: none
+
+Quantitative gate:
+- Production functions meeting header standard = **100%** (audit:
+  0 bare of 106 top-level functions after fixes)
+- Undocumented coding-standard exceptions = **0** (each `shellcheck
+  disable=` carries a reason comment; the info-level-only findings are
+  enumerated below)
+
+Real bugs fixed by the ShellCheck sweep:
+1. `bin/library/library_report.sh` — a `shellcheck source=` directive
+   placed after `&&` broke parsing (SC1073/SC1072/SC1126) and hid the
+   whole block from analysis; directive moved to its own line and the
+   config path corrected to the depth-2 relative form
+2. `bin/authors/authors_tree_build.sh`, `bin/books/books_finalize.sh`,
+   `bin/library/library_report.sh` — dead `local` declarations
+   (`row`, `report_dir`, `tfile`, `chunk`) and two read-but-unused
+   destructured fields (`nst`, `nad` → `_nst`, `_nad`)
+
+Documented exception classes (all intentional, annotated in place):
+- SC2034 — library/API constants consumed cross-file after `source`
+  (`CLI_EXIT_*`, `CLI_REMAINING_COUNT`, `DEBUG`, `DRY_RUN`)
+- SC2155 — `readonly SCRIPT_VERSION="$(sed … | head -n 1)"`: the
+  pipeline cannot fail; masking not a concern
+- SC1090/SC1091 — non-constant `source` of user-overrideable config
+  paths (each site names its real file via `source=` directive)
+- info-level only (non-gate): SC2016 (SQL emitted in single quotes —
+  expansion intentionally suppressed), SC2012 (`ls -1t` on a fixed
+  backup-glob naming scheme), SC2015/SC2086/SC2129 (reviewed, deliberate)
+
+Exceptions:
+- `lib/utf8_prefix_generator.awk` is AWK, not shell — carries
+  `# shellcheck shell=awk` and is validated by its gawk-based suite
+
+Follow-up Items:
+- None blocking; CI remains at syntax + suites (ShellCheck gate may be
+  added to CI in a later change set if desired)

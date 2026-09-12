@@ -111,8 +111,8 @@ source "$PROJECT_ROOT/lib/mariadb_lifecycle.sh"
 
 # --- defaults (config file may override; env wins over config) -----------------
 CONF_FILE="${REPORT_CONF_FILE:-$PROJECT_ROOT/config/library_report.conf}"
-[[ -f "$CONF_FILE" ]] && # shellcheck source=../config/library_report.conf
-    source "$CONF_FILE"
+# shellcheck source=../../config/library_report.conf
+[[ -f "$CONF_FILE" ]] && source "$CONF_FILE"
 
 WISHLIST_FILE="${REPORT_WISHLIST_FILE:-$PROJECT_ROOT/data/wishlist.tsv}"
 OUTPUT_DIR="${REPORT_OUTPUT_DIR:-/mnt/c/Backup_Go7/merge-reports}"
@@ -123,7 +123,9 @@ STATUSES="${REPORT_STATUSES:-wish reading done}"
 # its libraries
 GROUP_LIBRARY="${REPORT_GROUP_LIBRARY:-$TARGET_DB}"
 
+# shellcheck disable=SC2034  # read by lib/mariadb_lifecycle.sh + lib/logging.sh at runtime
 DEBUG=0
+# shellcheck disable=SC2034  # read by lib/mariadb_lifecycle.sh at runtime
 DRY_RUN=0            # the lifecycle lib reads this; reporting has no dry-run
 MODE="view"          # view | add | set-status | remove | list | search | native | hybrid
 ARG_ID=""
@@ -140,6 +142,8 @@ usage2(){ echo "Try '$0 --help'." >&2; }
 
 _STARTED_MARIADB=0
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/library_report.XXXXXX")"
+# cleanup: EXIT trap — remove the work dir and, only when this run is the
+# one that started MariaDB, stop it again (servers started by the user stay up).
 cleanup() {
     rm -rf "$tmp_dir"
     if (( _STARTED_MARIADB )); then mariadb_stop_if_started; fi
@@ -237,7 +241,9 @@ while (( $# > 0 )); do
             OUTPUT_DIR="$2"; shift 2 ;;
         --output-dir=*) OUTPUT_DIR="${1#*=}"; shift ;;
         --no-db) NO_DB=1; shift ;;
-        -d|--debug)   DEBUG=1; shift ;;
+        -d|--debug)
+            # shellcheck disable=SC2034  # read by lib/logging.sh at runtime
+            DEBUG=1; shift ;;
         -h|--help)    print_help; exit 0 ;;
         -v|--version) echo "bin/library/library_report.sh v$SCRIPT_VERSION"; exit 0 ;;
         *) echo "Error: unknown option '$1'" >&2; usage2; exit 2 ;;
@@ -365,7 +371,7 @@ db_start() {
 #   Multi-author books are aggregated (authors joined with ', ').
 join_catalog() { # bookids_file
     local ids_file="$1"
-    local total chunk chunk_sql
+    local total chunk_sql
     total="$(wishlist_count "$ids_file")"
     (( total == 0 )) && return 0
     local batch=()
@@ -640,7 +646,7 @@ export_view() { # fmt clean inlib notin
                 echo "## not in library (plan now, collect later)"
                 echo
                 while IFS= read -r line; do
-                    IFS=$'\t' read -r nid nst nper nad nnote <<< "$line"
+                    IFS=$'\t' read -r nid _nst nper _nad nnote <<< "$line"
                     item="- [?] **$nid**"
                     [[ -n "$nper" ]] && item="$item ($nper)"
                     [[ -n "$nnote" ]] && item="$item -- $nnote"

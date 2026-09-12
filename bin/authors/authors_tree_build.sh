@@ -104,6 +104,8 @@ set -euo pipefail
 ###############################################################################
 
 # Script version, kept in sync with the "# Version:" line in the header.
+# SCRIPT_VERSION is parsed from this file's own header (version-sync contract).
+# shellcheck disable=SC2155  # sed+head pipeline cannot fail; masking not a concern
 readonly SCRIPT_VERSION="$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
 
 # Root directory under which the author hierarchy is created.  Every generated
@@ -715,7 +717,7 @@ emit_sql_commands() {
     local root_prefix
     local child_start child_end
     local -a sorted_rows=()
-    local row word lft rgt clean_word
+    local word lft rgt clean_word
     local total_rows
 
     # --- Table header --------------------------------------------------------

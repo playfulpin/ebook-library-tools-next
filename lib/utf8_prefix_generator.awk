@@ -1,4 +1,5 @@
 #!/usr/bin/gawk
+# shellcheck shell=awk  # (not a shell script — gawk program; syntax-checked by CI gawk run)
 ###############################################################################
 # utf8_prefix_generator.awk
 #

@@ -1,13 +1,13 @@
 # NEXT — where to resume
 
-> Updated: 2026-09-12 — **refactoring Phases 1–4 COMPLETE and signed
+> Updated: 2026-09-12 — **refactoring Phases 1–5 COMPLETE and signed
 > off.**  `ARCHITECTURE.md` is the permanent, as-built architecture
-> reference (D-02.12 delivered); Phase 1–4 completion records are
+> reference (D-02.12 delivered); Phase 1–5 completion records are
 > signed in `docs/Measurable Phase Completion Criteria.md`; consumed
-> docs live in `docs/archive/`.  Remaining from the original plan:
-> Phase 5 (function/function-header coding standards sweep) and the
-> pending D-02.11 tests split — see "Open items" below.  Next release
-> tag: the rename-era release (see the checklist at the bottom).
+> docs live in `docs/archive/`.  ShellCheck is warning-clean across all
+> production files.  Remaining from the original plan: the
+> D-02.11 tests split and optional later phases (6–13) — see "Open
+> items" below.
 
 ## Resume checklist
 
@@ -43,7 +43,8 @@ note) + native `mllbr_main.mlgroup` rows (marked in-app).
 |---|---|
 | Layout | ratified + as-built: `bin/{authors,books,library}/` + flat `bin/version_bump.sh`; `lib/` 7 components + AWK reference; docs archived under `docs/archive/` |
 | Architecture doc | `ARCHITECTURE.md` v1.0.0 (as-built, authoritative; D-02.12 delivered) |
-| Phase records | Phases 1–4 **PASS**, signed in `docs/Measurable Phase Completion Criteria.md` |
+| Phase records | Phases 1–5 **PASS**, signed in `docs/Measurable Phase Completion Criteria.md` |
+| ShellCheck | warning-clean across all 21 production files (info-level findings documented in the Phase 5 record) |
 | Validation | version sync 14/14; report 71/71; lib suite 42/42; populate 35/35; backup 23/23; CI green on every group commit |
 
 | Piece | State |
@@ -134,15 +135,19 @@ joins both by bookid.
    `./bin/library/library_refresh.sh` (backup -> populate ->
    checkpoint); check `--status` first. Consider a wrapper that also
    regenerates the reconcile statistics for the round.
-6. **Phase 5 (coding-standards sweep)** — function/file headers per
-   `docs/Measurable Phase Completion Criteria.md`; much of it is
-   already satisfied by the Phase 3/4 conversions, so expect a light
-   audit + gap fill rather than a rewrite.
+6. **Phase 5 (coding-standards sweep)** — DONE 2026-09-12: headers
+   standardized, 6 bare functions documented, ShellCheck
+   warning-clean; record signed in the criteria doc.
 7. **D-02.11 tests split** — move `tests/` to
    unit/ + integration/ + fixtures/ + golden/ as ONE change set (CI
    paths touched once).  Open since Phase 2; do it when nothing else
    is mid-flight.
-8. **Covers/annotations**: CLOSED — the app renders both from the FB2
+8. **Optional later phases** — the original plan lists Phases 6–13
+   (config cleanup, fs/data safety, DB utilities, testing strategy,
+   docs, CI gates, naming, release hardening).  Most are already
+   satisfied by the architecture work; audit the criteria doc and
+   close them formally or prune the list.
+9. **Covers/annotations**: CLOSED — the app renders both from the FB2
    payload; `docs/archive/COVERS_PLAN.md` is superseded. Only revisit if
    DB-level thumbnail views are ever wanted.
 

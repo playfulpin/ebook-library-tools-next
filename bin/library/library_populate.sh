@@ -155,6 +155,8 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../lib" && pwd)/common.sh"
 common_init
 
+# SCRIPT_VERSION is parsed from this file's own header (version-sync contract).
+# shellcheck disable=SC2155  # sed+head pipeline cannot fail; masking not a concern
 readonly SCRIPT_VERSION="$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
 
 # --- defaults (same contract as the rest of the toolchain) --------------------
@@ -168,6 +170,7 @@ MYSQL_CONNECT_TIMEOUT="${MYSQL_CONNECT_TIMEOUT:-10}"
 
 # --- config file ---------------------------------------------------------------
 CONF_FILE="${CONF_FILE:-$PROJECT_ROOT/config/library_populate.conf}"
+# shellcheck source=../../config/library_populate.conf
 [[ -f "$CONF_FILE" ]] && source "$CONF_FILE"
 
 POP_LIBRARY_ROOT="${POP_LIBRARY_ROOT:-/mnt/c/Backup_Go7/Books}"
@@ -176,8 +179,10 @@ POP_SOURCE_DB="${POP_SOURCE_DB:-flibusta}"
 POP_TARGET_DB="${POP_TARGET_DB:-myprivatelib}"
 POP_CHUNK="${POP_CHUNK:-500}"
 
-DRY_RUN=0
+# shellcheck disable=SC2034  # read by lib/mariadb_lifecycle.sh + lib/logging.sh at runtime
 DEBUG=0
+# shellcheck disable=SC2034  # read by lib/mariadb_lifecycle.sh at runtime
+DRY_RUN=0
 
 # --- shared MariaDB lifecycle (lib/mariadb_lifecycle.sh) -----------------------
 # shellcheck source=../lib/mariadb_lifecycle.sh
@@ -768,7 +773,9 @@ EOF
 while (( $# > 0 )); do
     case "$1" in
         -n|--dry-run) DRY_RUN=1; shift ;;
-        -d|--debug)   DEBUG=1; shift ;;
+        -d|--debug)
+            # shellcheck disable=SC2034  # read by lib/logging.sh at runtime
+            DEBUG=1; shift ;;
         -h|--help)    print_help; exit 0 ;;
         -v|--version) echo "bin/library/library_populate.sh v$SCRIPT_VERSION"; exit 0 ;;
         *) echo "Error: unknown option '$1'" >&2; echo "Try '$0 --help'." >&2; exit 2 ;;

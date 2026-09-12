@@ -96,6 +96,8 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../lib" && pwd)/common.sh"
 common_init
 
+# SCRIPT_VERSION is parsed from this file's own header (version-sync contract).
+# shellcheck disable=SC2155  # sed+head pipeline cannot fail; masking not a concern
 readonly SCRIPT_VERSION="$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
 
 # --- config file (flag > env > config > built-in default) --------------------
@@ -110,8 +112,10 @@ RECON_SCOPE_FILE="${RECON_SCOPE_FILE:-$PROJECT_ROOT/data/fixtures/authors_list_f
 RECON_REPORT_DIR="${RECON_REPORT_DIR:-/mnt/c/Backup_Go7/merge-reports}"
 RECON_DB="${RECON_DB:-1}"
 
-DRY_RUN=0
+# shellcheck disable=SC2034  # read by lib/mariadb_lifecycle.sh + lib/logging.sh at runtime
 DEBUG=0
+# shellcheck disable=SC2034  # read by lib/mariadb_lifecycle.sh at runtime
+DRY_RUN=0
 
 # --- shared MariaDB lifecycle (lib/mariadb_lifecycle.sh) -----------------------
 # shellcheck source=../lib/mariadb_lifecycle.sh
@@ -179,7 +183,9 @@ while (( $# > 0 )); do
         --report-dir=*) RECON_REPORT_DIR="${1#*=}"; shift ;;
         --no-db) RECON_DB=0; shift ;;
         -n|--dry-run) DRY_RUN=1; shift ;;
-        -d|--debug)   DEBUG=1; shift ;;
+        -d|--debug)
+            # shellcheck disable=SC2034  # read by lib/logging.sh at runtime
+            DEBUG=1; shift ;;
         -h|--help)    print_help; exit 0 ;;
         -v|--version) echo "bin/books/books_reconcile.sh v$SCRIPT_VERSION"; exit 0 ;;
         *) echo "Error: unknown option '$1'" >&2; echo "Try '$0 --help'." >&2; exit 2 ;;

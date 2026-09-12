@@ -38,10 +38,16 @@ log() { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >&2; }
 # debug() { if [[ "${DEBUG:-0}" == 1 ]]; then log "debug: $*"; fi; }
 
 debug()     { if [[ "${DEBUG:-0}" == 1 ]]; then log "debug: $*"; fi; }
+# log_debug/log_warn/log_error: explicit-level aliases over the same
+# primitives — converted tools may choose tagged levels without breaking
+# the house format.  log_debug delegates to debug() so DEBUG gating stays
+# in exactly one place.
 log_debug() { debug "$@"; }
 
 # Explicit-level helpers — new convenience wrappers over the same primitive,
 # so converted tools can choose tagged levels without breaking the format.
 log_info()  { log "info : $*"; }
 log_warn()  { log "warn : $*"; }
+# log_error: same output as die()'s message line, but returns normally —
+# for callers that log the failure and then decide their own exit path.
 log_error() { log "error: $*"; }

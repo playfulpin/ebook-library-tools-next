@@ -121,6 +121,8 @@ set -euo pipefail
 ###############################################################################
 
 # Script version, kept in sync with the "# Version:" line in the header.
+# SCRIPT_VERSION is parsed from this file's own header (version-sync contract).
+# shellcheck disable=SC2155  # sed+head pipeline cannot fail; masking not a concern
 readonly SCRIPT_VERSION="$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
 
 # Default severity filter and prefix-length limit.  Both are overridable from

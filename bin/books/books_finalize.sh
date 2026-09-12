@@ -346,7 +346,7 @@ main() {
     # ------------------------------------------------------------------
     # 6. Report header
     # ------------------------------------------------------------------
-    local report_stamp report_dir
+    local report_stamp
     report_stamp="$(date '+%Y%m%d-%H%M%S')"
     mkdir -p "$REPORT_DIR"
     REPORT_FILE="$REPORT_DIR/books_finalize_$report_stamp.tsv"
@@ -425,7 +425,7 @@ main() {
     # ------------------------------------------------------------------
     # 8. Report rows: one per staging file
     # ------------------------------------------------------------------
-    local copied=0 kept=0 f rel target tfile
+    local copied=0 kept=0 f rel target
     while IFS= read -r -d '' f; do
         rel="${f#"$SOURCE_DIR"/}"
         target="$TARGET_DIR/$rel"

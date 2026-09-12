@@ -85,6 +85,8 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../lib" && pwd)/common.sh"
 common_init
 
+# SCRIPT_VERSION is parsed from this file's own header (version-sync contract).
+# shellcheck disable=SC2155  # sed+head pipeline cannot fail; masking not a concern
 readonly SCRIPT_VERSION="$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
 
 # --- defaults (same contract as BookTracker-import config/config.sh) ---------

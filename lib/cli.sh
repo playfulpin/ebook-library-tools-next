@@ -31,9 +31,15 @@
 _ETL_CLI_SH=1
 
 # Exit-code contract (house style, already used by the DB and merge tools).
+# ShellCheck flags these as "unused" because consumers read them in their own
+# file after sourcing this one — that cross-file read is the point of the API.
+# shellcheck disable=SC2034  # cross-file API: consumed by the sourcing tool
 CLI_EXIT_OK=0
+# shellcheck disable=SC2034  # cross-file API: consumed by the sourcing tool
 CLI_EXIT_FAIL=1
+# shellcheck disable=SC2034  # cross-file API: consumed by the sourcing tool
 CLI_EXIT_USAGE=2
+# shellcheck disable=SC2034  # set here, consumed by the sourcing tool
 CLI_REMAINING_COUNT=0    # set by cli_try_global
 
 # cli_print_version NAME VERSION
@@ -69,6 +75,7 @@ cli_try_global() {
                 exit "$CLI_EXIT_OK"
                 ;;
             --debug)
+                # shellcheck disable=SC2034  # read by lib/logging.sh at runtime
                 DEBUG=1
                 ;;
             *)
@@ -76,6 +83,10 @@ cli_try_global() {
         esac
         i=$(( i + 1 ))
     done
+    # CLI_REMAINING_COUNT is the subshell-safe way for callers to learn how
+    # many args cli_try_global left in "$@" (command substitutions lose globals,
+    # so printing a count to stdout was not viable).
+    # shellcheck disable=SC2034  # consumed by the sourcing tool
     CLI_REMAINING_COUNT=$(( ${#args[@]} - i ))
     return 0
 }

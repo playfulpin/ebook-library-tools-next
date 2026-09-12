@@ -91,10 +91,13 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../lib" && pwd)/common.sh"
 common_init
 
+# SCRIPT_VERSION is parsed from this file's own header (version-sync contract).
+# shellcheck disable=SC2155  # sed+head pipeline cannot fail; masking not a concern
 readonly SCRIPT_VERSION="$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
 
 # --- config file ---------------------------------------------------------------
 CONF_FILE="${CONF_FILE:-$PROJECT_ROOT/config/library_refresh.conf}"
+# shellcheck source=../../config/library_refresh.conf
 [[ -f "$CONF_FILE" ]] && source "$CONF_FILE"
 
 REFRESH_LIBRARY_ROOT="${REFRESH_LIBRARY_ROOT:-/mnt/c/Backup_Go7/Books}"

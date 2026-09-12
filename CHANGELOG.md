@@ -9,6 +9,21 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **Phase 5 complete — function headers & coding standards.**
+  Header audit: all 21 production shell files standardized; function
+  audit found 6 bare functions (logging aliases + 4 cleanup traps) —
+  all now documented with args / returns / side effects.  ShellCheck
+  `--severity=warning` taken from 32 findings to **clean across every
+  production file**: fixed 2 real defects (a misplaced
+  `shellcheck source=` directive after `&&` in `library_report` that
+  silently broke parsing — directive relocated, config path corrected
+  to the depth-2 form; several dead `local` declarations in
+  `authors_tree_build` / `books_finalize` / `library_report`), and
+  documented every intentional pattern in place (cross-file API
+  constants, `SCRIPT_VERSION` header parse, user-overrideable config
+  sources).  Full battery re-run green.  Phase 5 completion record
+  signed in `docs/Measurable Phase Completion Criteria.md`.
+
 - **`ARCHITECTURE.md` v1.0.0 — the permanent architecture reference
   (D-02.12 delivered).**  Distilled from the ratified
   `docs/PHASE_02_TARGET_ARCHITECTURE.md` and updated to the as-built
