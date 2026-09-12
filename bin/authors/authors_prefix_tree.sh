@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# bin/prefix_tree_visualizer.sh
+# bin/authors/authors_prefix_tree.sh
 #
 # Version:       2.8.1
 # Last updated:  2026-08-11 20:44
@@ -16,7 +16,7 @@
 #   Filtering (--filter CATEGORY).
 #
 #   Consumes the toolchain's prefix table (prefix<TAB>count<TAB>start<TAB>end,
-#   e.g. tmp_SORTED_AUTHORS as produced by bin/build_prefix_table.sh) and renders
+#   e.g. tmp_SORTED_AUTHORS as produced by bin/authors/authors_prefix_build.sh) and renders
 #   the hierarchical prefix tree it encodes.
 ###############################################################################
 
@@ -45,7 +45,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$file" || ! -f "$file" ]]; then
-    echo "bin/prefix_tree_visualizer.sh v$SCRIPT_VERSION"
+    echo "bin/authors/authors_prefix_tree.sh v$SCRIPT_VERSION"
     echo ""
     echo "Usage: $0 tmp_SORTED_AUTHORS [--depth N] [--filter CATEGORY]"
     echo "Categories: ASCII, Cyrillic, Symbols, Digits, Other"

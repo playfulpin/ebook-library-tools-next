@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# tests/test_build_shell_nested_authors.sh
+# tests/test_authors_tree_build.sh
 #
 # Regression tests for the directory-tree builder:
-#   bin/build_shell_nested_authors.sh (the version lives in the header
+#   bin/authors/authors_tree_build.sh (the version lives in the header
 #                                  comment, not the file name)
 #
 # Every case runs the script with the same arguments and compares its
@@ -44,15 +44,15 @@
 #     rejected.
 #
 # Usage:
-#   bash tests/test_build_shell_nested_authors.sh          # check against goldens
-#   bash tests/test_build_shell_nested_authors.sh --regen  # rewrite the golden
+#   bash tests/test_authors_tree_build.sh          # check against goldens
+#   bash tests/test_authors_tree_build.sh --regen  # rewrite the golden
 #                                                    # files from current
 #                                                    # script output
 #
 # IMPORTANT: the scripts slice UTF-8 prefixes character by character, so the
 # shell must have multi-byte support.  Cygwin/MSYS bash does not; run from
 # WSL instead:
-#   wsl.exe bash tests/test_build_shell_nested_authors.sh
+#   wsl.exe bash tests/test_authors_tree_build.sh
 # -----------------------------------------------------------------------------
 set -uo pipefail
 
@@ -79,7 +79,7 @@ if [[ "${probe:0:1}" != 'а' ]]; then
 fi
 
 declare -a SCRIPTS=(
-    "bin/build_shell_nested_authors.sh"
+    "bin/authors/authors_tree_build.sh"
 )
 for s in "${SCRIPTS[@]}"; do
     [[ -f "$SCRIPT_DIR/../$s" ]] || { echo "ERROR: $SCRIPT_DIR/../$s not found" >&2; exit 2; }
@@ -211,9 +211,9 @@ for s in "${SCRIPTS[@]}"; do
 done
 
 # --- main script: CLI forms, defaults, SQL, debug ------------------------------
-main_copy="${COPY[bin/build_shell_nested_authors.sh]}"
-main_sb="${SB[bin/build_shell_nested_authors.sh]}"
-echo "== bin/build_shell_nested_authors.sh: CLI forms =="
+main_copy="${COPY[bin/authors/authors_tree_build.sh]}"
+main_sb="${SB[bin/authors/authors_tree_build.sh]}"
+echo "== bin/authors/authors_tree_build.sh: CLI forms =="
 
 # named options must produce the same output as positional arguments
 output_named="$(bash "$main_copy" -i "$TESTS_DIR/case_spaces.txt" -m 6 -x 5 2>&1)"
@@ -261,7 +261,7 @@ else
     report "help_flag" ok
 fi
 
-echo "== bin/build_shell_nested_authors.sh: SQL format (-f sql) =="
+echo "== bin/authors/authors_tree_build.sh: SQL format (-f sql) =="
 
 # label | input | min | max | golden
 SQL_CASES=(
@@ -301,7 +301,7 @@ else
     report "invalid_debug_fails" ok
 fi
 
-echo "== bin/build_shell_nested_authors.sh: debug mode (-d ON) =="
+echo "== bin/authors/authors_tree_build.sh: debug mode (-d ON) =="
 
 # diagnostics must go to stderr only; stdout must be identical to a normal run
 dbg_out="$tmp_root/dbg_out.txt"

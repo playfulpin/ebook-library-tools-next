@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# bin/build_shell_nested_authors.sh
+# bin/authors/authors_tree_build.sh
 #
 # Version:       6.6.10
 # Last updated:  2026-09-01 14:06
@@ -25,21 +25,21 @@
 # -----------------------------------------------------------------------------
 #   Positional style (all three arguments required, in order):
 #
-#       ./bin/build_shell_nested_authors.sh <input_file> <minimum_authors> <maximum_prefix_length>
+#       ./bin/authors/authors_tree_build.sh <input_file> <minimum_authors> <maximum_prefix_length>
 #
 #   Named-option style (only the input file is required; -m and -x default
 #   to 10 and 5):
 #
-#       ./bin/build_shell_nested_authors.sh -i INPUT_FILE \
+#       ./bin/authors/authors_tree_build.sh -i INPUT_FILE \
 #           [-m MINIMUM_AUTHORS] [-x MAX_PREFIX_LENGTH] [-d ON|OFF] [-f SHELL|SQL]
 #
 #   Both styles may be mixed; named options win over positional values.
 #
 # EXAMPLES
-#   ./bin/build_shell_nested_authors.sh data/fixtures/authors_list_from_db.txt 6 5
-#   ./bin/build_shell_nested_authors.sh -i data/fixtures/authors_list_from_db.txt -m 6 -x 5
-#   ./bin/build_shell_nested_authors.sh --input-file=data/fixtures/authors_list_from_db.txt --min-authors=6 --max-prefix=5
-#   ./bin/build_shell_nested_authors.sh -i data/fixtures/authors_list_from_db.txt -f sql -d on
+#   ./bin/authors/authors_tree_build.sh data/fixtures/authors_list_from_db.txt 6 5
+#   ./bin/authors/authors_tree_build.sh -i data/fixtures/authors_list_from_db.txt -m 6 -x 5
+#   ./bin/authors/authors_tree_build.sh --input-file=data/fixtures/authors_list_from_db.txt --min-authors=6 --max-prefix=5
+#   ./bin/authors/authors_tree_build.sh -i data/fixtures/authors_list_from_db.txt -f sql -d on
 #
 # -----------------------------------------------------------------------------
 # OUTPUT
@@ -160,7 +160,7 @@ declare -a SQL_ROWS=()
 # Print the command-line contract to standard error and exit with status 1.
 # -----------------------------------------------------------------------------
 usage() {
-    echo "bin/build_shell_nested_authors.sh v$SCRIPT_VERSION"
+    echo "bin/authors/authors_tree_build.sh v$SCRIPT_VERSION"
     echo ""
     echo "Usage: $0 --input-file=FILE [OPTIONS]"
     echo ""

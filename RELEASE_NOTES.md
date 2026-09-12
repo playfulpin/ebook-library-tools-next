@@ -9,10 +9,10 @@ Books library.
 
 ## Shipped tools
 
-- `bin/build_shell_nested_authors.sh` **6.6.10** — nested directory-tree builder (`mkdir -p` / SQL; apostrophes become `^` in SHELL output)
-- `bin/build_prefix_table.sh` **1.0.4** — pre-order trie prefix-table generator
-- `bin/prefix_table_integrity.sh` **1.2.1** — ultra-strict table validator
-- `bin/prefix_tree_visualizer.sh` **2.8.1** — Unicode tree renderer
+- `bin/authors/authors_tree_build.sh` **6.6.10** — nested directory-tree builder (`mkdir -p` / SQL; apostrophes become `^` in SHELL output)
+- `bin/authors/authors_prefix_build.sh` **1.0.4** — pre-order trie prefix-table generator
+- `bin/authors/authors_prefix_check.sh` **1.2.1** — ultra-strict table validator
+- `bin/authors/authors_prefix_tree.sh` **2.8.1** — Unicode tree renderer
 - `lib/utf8_prefix_generator.awk` **1.1** — original AWK generator (parity reference)
 - `bin/merge_books_into_skeleton.sh` **0.2.0** — merge a legacy archive into an in-memory author-prefix hierarchy (pruned, timestamped `BooksInput_<ts>` staging; no on-disk skeleton)
 - `bin/merge_skeleton_into_books.sh` **0.2.3** — finalize a `BooksInput_*` staging tree into the Books library with rsync (destination wins, live `pv -l` item-count progress bar with `--info=progress2` fallback, empty-dir prune after merge)
@@ -40,7 +40,7 @@ Books library.
 
 - **`merge_books_into_skeleton.sh` (0.2.0)**  
   Builds the author prefix tree **in memory** from a flat author list (the
-  same range-walk algorithm as `bin/build_shell_nested_authors.sh` —
+  same range-walk algorithm as `bin/authors/authors_tree_build.sh` —
   `MERGE_MIN_AUTHORS` pruning, `MERGE_MAX_PREFIX` cap), then copies every
   top-level author folder from the legacy archive into the deepest valid
   prefix.  Output lands directly in a timestamped, **pruned** staging tree

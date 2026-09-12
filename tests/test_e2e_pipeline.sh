@@ -7,7 +7,7 @@
 # the REAL author list (data/fixtures/authors_list_from_db.txt, regenerated
 # from the MariaDB catalog by bin/authors/authors_export.sh):
 #
-#     bin/build_prefix_table.sh  ->  bin/prefix_table_integrity.sh  ->  bin/prefix_tree_visualizer.sh
+#     bin/authors/authors_prefix_build.sh  ->  bin/authors/authors_prefix_check.sh  ->  bin/authors/authors_prefix_tree.sh
 #     (generate)                  (validate)                    (render)
 #
 # The per-tool suites test each script in isolation against hand-written
@@ -18,13 +18,13 @@
 # suite can see -- is exactly what this test locks out.
 #
 # Coverage:
-#   * STAGE 1 (generate) -- bin/build_prefix_table.sh on the real list exits 0,
+#   * STAGE 1 (generate) -- bin/authors/authors_prefix_build.sh on the real list exits 0,
 #     emits a non-empty table, and the table is in strict byte order (the
 #     exact property the historical AWK table violated with 6,483 warnings).
-#   * STAGE 2 (validate) -- bin/prefix_table_integrity.sh accepts the generated
+#   * STAGE 2 (validate) -- bin/authors/authors_prefix_check.sh accepts the generated
 #     table with exit 0, reports "0 critical", and checked the same row count
 #     the generator emitted.
-#   * STAGE 3 (render)  -- bin/prefix_tree_visualizer.sh accepts the generated
+#   * STAGE 3 (render)  -- bin/authors/authors_prefix_tree.sh accepts the generated
 #     table with exit 0, prints the tree header and category sections, and
 #     descends at least three levels (the utf8_chop regression: a broken
 #     parent-prefix helper leaves every child under a nonexistent parent and
@@ -49,9 +49,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-GENERATOR="$SCRIPT_DIR/../bin/build_prefix_table.sh"
-VALIDATOR="$SCRIPT_DIR/../bin/prefix_table_integrity.sh"
-VISUALIZER="$SCRIPT_DIR/../bin/prefix_tree_visualizer.sh"
+GENERATOR="$SCRIPT_DIR/../bin/authors/authors_prefix_build.sh"
+VALIDATOR="$SCRIPT_DIR/../bin/authors/authors_prefix_check.sh"
+VISUALIZER="$SCRIPT_DIR/../bin/authors/authors_prefix_tree.sh"
 REAL_LIST="$SCRIPT_DIR/../data/fixtures/authors_list_from_db.txt"
 
 # --- environment sanity -------------------------------------------------------
@@ -75,7 +75,7 @@ if [[ ! -f "$REAL_LIST" ]]; then
     exit 0
 fi
 if [[ ! -f "$VALIDATOR" ]]; then
-    echo "SKIP  (bin/prefix_table_integrity.sh not found)"
+    echo "SKIP  (bin/authors/authors_prefix_check.sh not found)"
     exit 0
 fi
 if ! command -v gawk >/dev/null 2>&1; then
@@ -106,7 +106,7 @@ report() { # label  ok|fail  [detail]
 ###############################################################################
 # STAGE 1: generate
 ###############################################################################
-echo "== stage 1: generate (bin/build_prefix_table.sh) =="
+echo "== stage 1: generate (bin/authors/authors_prefix_build.sh) =="
 TABLE="$TMPDIR/table.txt"
 
 set +e
@@ -140,7 +140,7 @@ fi
 ###############################################################################
 # STAGE 2: validate
 ###############################################################################
-echo "== stage 2: validate (bin/prefix_table_integrity.sh) =="
+echo "== stage 2: validate (bin/authors/authors_prefix_check.sh) =="
 
 set +e
 bash "$VALIDATOR" -t "$TABLE" -x 5 > "$TMPDIR/validate.txt" 2>&1
@@ -172,7 +172,7 @@ fi
 ###############################################################################
 # STAGE 3: render
 ###############################################################################
-echo "== stage 3: render (bin/prefix_tree_visualizer.sh) =="
+echo "== stage 3: render (bin/authors/authors_prefix_tree.sh) =="
 
 set +e
 bash "$VISUALIZER" "$TABLE" > "$TMPDIR/render.txt" 2>&1

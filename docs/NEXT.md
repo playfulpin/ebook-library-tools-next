@@ -1,15 +1,13 @@
 # NEXT — where to resume
 
-> Updated: 2026-09-12 — **refactoring Phase 3 shipped**:
-> common shell infrastructure under `lib/` (common/logging/cli/
-> filesystem/database, v1.0.0 each; 42-assertion suite; CI wired).
-> Phase 1 (inventory, `PHASE_01_INVENTORY.md`), Phase 2 (ratified
-> target architecture, `PHASE_02_TARGET_ARCHITECTURE.md` — bin/ group
-> subdirs, rename map frozen, MIT license landed) and Phase 3
-> (`PHASE_03_COMMON_INFRASTRUCTURE.md`) are complete. Next: **Phase 4
-> — convert tools one at a time** onto the shared infrastructure
-> while executing the rename groups; first group is the AUTHORS
-> chain (see D-02.5).
+> Updated: 2026-09-12 — **refactoring Phase 4 underway**:
+> rename group 1 (AUTHORS chain) is DONE — all five tools live in
+> `bin/authors/` (`authors_export` also converted onto the shared
+> infrastructure); CI green. Remaining groups per D-02.5:
+> 2nd = books_merge + books_finalize (critical), 3rd = estimate/
+> reconcile + library trio, 4th = library_report, last = version_bump
+> (flat, no move). Phases 1–3 complete (inventory, architecture,
+> common infrastructure).
 
 ## Resume checklist
 

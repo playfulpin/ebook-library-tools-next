@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# tests/test_build_prefix_table.sh
+# tests/test_authors_prefix_build.sh
 #
-# Regression suite for bin/build_prefix_table.sh, the toolchain's prefix-table
-# generator (input to bin/prefix_table_integrity.sh / bin/prefix_tree_visualizer.sh).
+# Regression suite for bin/authors/authors_prefix_build.sh, the toolchain's prefix-table
+# generator (input to bin/authors/authors_prefix_check.sh / bin/authors/authors_prefix_tree.sh).
 #
 # Coverage:
 #   * GOLDEN FILES -- the generated table must be byte-identical to a stored
@@ -31,15 +31,15 @@
 #     artifact and must carry the shared 1.0.x version header.
 #
 # Usage:
-#   bash tests/test_build_prefix_table.sh          # check against goldens
-#   bash tests/test_build_prefix_table.sh --regen  # rewrite golden files
-#   bash tests/test_build_prefix_table.sh --list   # list the check groups
-#   bash tests/test_build_prefix_table.sh golden   # run one group only
+#   bash tests/test_authors_prefix_build.sh          # check against goldens
+#   bash tests/test_authors_prefix_build.sh --regen  # rewrite golden files
+#   bash tests/test_authors_prefix_build.sh --list   # list the check groups
+#   bash tests/test_authors_prefix_build.sh golden   # run one group only
 #
 # IMPORTANT: the generator slices UTF-8 prefixes character by character, so
 # the shell must have multi-byte support.  Cygwin/MSYS bash does not; run
 # from WSL instead:
-#   wsl.exe bash tests/test_build_prefix_table.sh
+#   wsl.exe bash tests/test_authors_prefix_build.sh
 #
 # Exit status: 0 if every check passed, 1 otherwise.
 ###############################################################################
@@ -53,7 +53,7 @@ if [[ "${1:-}" == "--regen" ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT="$SCRIPT_DIR/../bin/build_prefix_table.sh"
+SCRIPT="$SCRIPT_DIR/../bin/authors/authors_prefix_build.sh"
 # The suite lives in tests/ together with its fixtures and goldens.
 TESTS_DIR="$SCRIPT_DIR"
 GOLDEN_DIR="$TESTS_DIR/golden"
@@ -116,7 +116,7 @@ gen() {
 }
 
 # --- byte-order violations in an emitted table (strictly increasing prefix) --
-# LC_ALL=C forces byte comparison, matching bin/prefix_table_integrity.sh's check.
+# LC_ALL=C forces byte comparison, matching bin/authors/authors_prefix_check.sh's check.
 # gawk types numeric-looking fields as numbers (e.g. prefixes "100" and
 # "100 " from an author named "100 ..."), which would compare 100 == 100 and
 # both false-positive and mask real violations ("2" vs "10"); concatenating
@@ -397,7 +397,7 @@ run_cli_tests() {
 
     # --- -h prints the version and exits non-zero (usage() exits 1) ----------
     gen "$out" -h
-    if (( LAST_RC != 0 )) && grep -qE 'build_prefix_table\.sh v[0-9]+\.[0-9]+\.[0-9]+' "$out"; then
+    if (( LAST_RC != 0 )) && grep -qE 'authors_prefix_build\.sh v[0-9]+\.[0-9]+\.[0-9]+' "$out"; then
         report "cli_help_version" ok
     else
         report "cli_help_version" fail "-h must print the version and exit 1"
@@ -409,8 +409,8 @@ run_cli_tests() {
     # an older version or no banner at all.
     gen "$out" --stderr "$err" "$input" 5
     if (( LAST_RC == 0 )) \
-       && grep -qE 'build_prefix_table\.sh v[0-9]+\.[0-9]+\.[0-9]+ \(pre-order trie walker\)' "$err" \
-       && ! grep -q 'bin/build_prefix_table.sh v' "$out"; then
+       && grep -qE 'authors_prefix_build\.sh v[0-9]+\.[0-9]+\.[0-9]+ \(pre-order trie walker\)' "$err" \
+       && ! grep -q 'bin/authors/authors_prefix_build.sh v' "$out"; then
         report "cli_banner_stderr_only" ok
     else
         report "cli_banner_stderr_only" fail "banner must show version + walker on stderr only"
@@ -425,9 +425,9 @@ run_integration_tests() {
     # The real DB list and the integrity checker live next to this suite at
     # the repository root.  When absent, this group skips instead of failing.
     local real_list="$SCRIPT_DIR/../data/fixtures/authors_list_from_db.txt"
-    local integrity_checker="$SCRIPT_DIR/../bin/prefix_table_integrity.sh"
+    local integrity_checker="$SCRIPT_DIR/../bin/authors/authors_prefix_check.sh"
     if [[ ! -f "$real_list" || ! -f "$integrity_checker" ]]; then
-        echo "  SKIP  (data/fixtures/authors_list_from_db.txt or bin/prefix_table_integrity.sh not found)"
+        echo "  SKIP  (data/fixtures/authors_list_from_db.txt or bin/authors/authors_prefix_check.sh not found)"
         return
     fi
 
@@ -469,7 +469,7 @@ run_release_tests() {
     # is visible there (and therefore in -h output).  The value is read from
     # the header itself -- the same single source of truth the script uses to
     # print "v<version>" in its usage text.
-    for s in "bin/build_prefix_table.sh"; do
+    for s in "bin/authors/authors_prefix_build.sh"; do
         version="$(sed -n 's/^# Version:[[:space:]]*//p' "$SCRIPT_DIR/../$s" | head -n 1)"
         if [[ "$version" =~ ^1\.0\.[0-9]+$ ]]; then
             report "version_${s%.sh}" ok

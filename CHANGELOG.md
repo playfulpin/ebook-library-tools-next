@@ -9,6 +9,24 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **Phase 4, rename group 1 — the AUTHORS chain moved into
+  `bin/authors/`.**  `export_authors_from_db.sh` →
+  `bin/authors/authors_export.sh` (also flipped onto the Phase 3
+  shared infrastructure: `common_init` supplies `set -Eeuo pipefail`,
+  depth-2 root detection and the `log/debug/die` triplet),
+  `build_prefix_table.sh` → `bin/authors/authors_prefix_build.sh`,
+  `prefix_table_integrity.sh` → `bin/authors/authors_prefix_check.sh`,
+  `prefix_tree_visualizer.sh` → `bin/authors/authors_prefix_tree.sh`,
+  and `build_shell_nested_authors.sh` →
+  `bin/authors/authors_tree_build.sh`.  Suites renamed with their tools
+  (`tests/test_authors_*.sh`); version registry, version-sync test, CI
+  (syntax glob `bin/*/*.sh`, suite names), README and RELEASE_NOTES
+  updated in the same commits; no behavior change, versions unchanged
+  (pure renames).  The four prefix-chain tools are pure stdin/argv
+  filters and intentionally keep their own CLI contracts — the shared
+  infrastructure does not apply to them (documented in
+  `docs/PHASE_03_COMMON_INFRASTRUCTURE.md` §2).
+
 - **Phase 3 of the refactoring plan: common shell infrastructure
   (`lib/`) — new v1.0.0 libraries.**  `lib/common.sh` (standard
   `set -Eeuo pipefail` init, symlink-safe `SCRIPT_DIR`/`PROJECT_ROOT`

@@ -45,8 +45,8 @@ jobs:
 
       - name: UTF-8 suites (WSL-style, multibyte bash)
         run: |
-          bash tests/test_build_shell_nested_authors.sh
-          bash tests/test_build_prefix_table.sh
-          bash tests/test_prefix_tree_visualizer.sh
+          bash tests/test_authors_tree_build.sh
+          bash tests/test_authors_prefix_build.sh
+          bash tests/test_authors_prefix_tree.sh
           bash tests/test_utf8_prefix_generator.sh
           bash tests/test_e2e_pipeline.sh

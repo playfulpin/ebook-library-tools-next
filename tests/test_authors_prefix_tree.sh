@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# tests/test_prefix_tree_visualizer.sh
+# tests/test_authors_prefix_tree.sh
 #
-# Regression suite for bin/prefix_tree_visualizer.sh, the toolchain's prefix-tree
+# Regression suite for bin/authors/authors_prefix_tree.sh, the toolchain's prefix-tree
 # renderer.  It consumes a prefix table (prefix<TAB>count<TAB>start<TAB>end,
-# as produced by bin/build_prefix_table.sh) and draws the hierarchical tree.
+# as produced by bin/authors/authors_prefix_build.sh) and draws the hierarchical tree.
 #
 # Coverage:
 #   * GOLDEN FILES -- the rendered tree must be byte-identical to a stored
@@ -25,10 +25,10 @@
 #     artifact, and its header must carry the 2.8.x ladder.
 #
 # Usage:
-#   bash test_bin/prefix_tree_visualizer.sh          # check against goldens
-#   bash test_bin/prefix_tree_visualizer.sh --regen  # rewrite golden files
-#   bash test_bin/prefix_tree_visualizer.sh --list   # list the check groups
-#   bash test_bin/prefix_tree_visualizer.sh golden   # run one group only
+#   bash test_bin/authors/authors_prefix_tree.sh          # check against goldens
+#   bash test_bin/authors/authors_prefix_tree.sh --regen  # rewrite golden files
+#   bash test_bin/authors/authors_prefix_tree.sh --list   # list the check groups
+#   bash test_bin/authors/authors_prefix_tree.sh golden   # run one group only
 #
 # IMPORTANT: the renderer needs gawk for its Unicode tree logic.  Run from
 # WSL (the suite's fixtures contain UTF-8 and multi-byte prefixes).
@@ -45,7 +45,7 @@ if [[ "${1:-}" == "--regen" ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT="$SCRIPT_DIR/../bin/prefix_tree_visualizer.sh"
+SCRIPT="$SCRIPT_DIR/../bin/authors/authors_prefix_tree.sh"
 # The suite lives in tests/ together with its fixtures and goldens.
 TESTS_DIR="$SCRIPT_DIR"
 GOLDEN_DIR="$TESTS_DIR/golden"
@@ -210,7 +210,7 @@ run_cli_tests() {
     local out="$TMPDIR/viz_cli.txt"
 
     viz "$out"
-    if (( LAST_RC != 0 )) && grep -qE 'prefix_tree_visualizer\.sh v[0-9]+\.[0-9]+\.[0-9]+' "$out"; then
+    if (( LAST_RC != 0 )) && grep -qE 'authors_prefix_tree\.sh v[0-9]+\.[0-9]+\.[0-9]+' "$out"; then
         report "cli_no_table_usage" ok
     else
         report "cli_no_table_usage" fail "missing table must print usage with version and exit 1"
@@ -234,9 +234,9 @@ run_release_tests() {
     # must carry the shared 2.8.x semver ladder.
     version="$(sed -n 's/^# Version:[[:space:]]*//p' "$SCRIPT" | head -n 1)"
     if [[ "$version" =~ ^2\.8\.[0-9]+$ ]]; then
-        report "version_prefix_tree_visualizer" ok
+        report "version_authors_prefix_tree" ok
     else
-        report "version_prefix_tree_visualizer" fail "got '$version', expected ^2\\.8\\.[0-9]+$"
+        report "version_authors_prefix_tree" fail "got '$version', expected ^2\\.8\\.[0-9]+$"
     fi
 }
 

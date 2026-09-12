@@ -128,16 +128,16 @@ check_tool() { # tool  primary  [twin]  marker
 echo "== version sync =="
 
 check_tool build_shell_nested_authors \
-    "bin/build_shell_nested_authors.sh" "" "bin/build_shell_nested_authors.sh"
+    "bin/authors/authors_tree_build.sh" "" "bin/authors/authors_tree_build.sh"
 
 check_tool build_prefix_table \
-    "bin/build_prefix_table.sh" "" "bin/build_prefix_table.sh"
+    "bin/authors/authors_prefix_build.sh" "" "bin/authors/authors_prefix_build.sh"
 
 check_tool prefix_table_integrity \
-    "bin/prefix_table_integrity.sh" "" "bin/prefix_table_integrity.sh"
+    "bin/authors/authors_prefix_check.sh" "" "bin/authors/authors_prefix_check.sh"
 
 check_tool prefix_tree_visualizer \
-    "bin/prefix_tree_visualizer.sh" "" "bin/prefix_tree_visualizer.sh"
+    "bin/authors/authors_prefix_tree.sh" "" "bin/authors/authors_prefix_tree.sh"
 
 check_tool merge_books_into_skeleton \
     "bin/merge_books_into_skeleton.sh" "lib/merge_books_functions.sh" \

@@ -13,10 +13,10 @@ scripts) and depends on one hard contract: **the author list is sorted in
 Two families of tools live here:
 
 ```
-bin/build_prefix_table.sh ──> bin/prefix_table_integrity.sh ──> bin/prefix_tree_visualizer.sh
+bin/authors/authors_prefix_build.sh ──> bin/authors/authors_prefix_check.sh ──> bin/authors/authors_prefix_tree.sh
    (generate table)          (validate table)              (render tree)
 
-bin/build_shell_nested_authors.sh
+bin/authors/authors_tree_build.sh
    (build a nested directory tree from names: mkdir -p commands or SQL)
 
 bin/merge_books_into_skeleton.sh
@@ -44,7 +44,7 @@ in the byte-sorted list (`end` is inclusive, so `count == end - start + 1`).
 - **A multibyte-capable Bash.** The scripts slice UTF-8 prefixes character by
   character; Cygwin/MSYS Bash slices bytes and is rejected by the suites. Use
   **WSL** (`wsl.exe bash …`).
-- **`gawk`** — required by `bin/prefix_tree_visualizer.sh` and by the AWK parity
+- **`gawk`** — required by `bin/authors/authors_prefix_tree.sh` and by the AWK parity
   checks.
 - **`rsync`** — required by the finalize step
   (`bin/merge_skeleton_into_books.sh`). WSL and Ubuntu CI runners ship it.
@@ -78,50 +78,50 @@ exporter only reads from it.
 
 ## Tools
 
-### `bin/build_prefix_table.sh`
+### `bin/authors/authors_prefix_build.sh`
 
 Generates the prefix table from a flat author list via a pre-order prefix-trie
 walk over the byte-sorted names, so the rows are byte-ordered by construction.
 
 ```bash
-./bin/build_prefix_table.sh <input_file> [<max_prefix_length>]        # positional
-./bin/build_prefix_table.sh -i INPUT_FILE [-x NUM] [-o FILE] [-d ON|OFF]
+./bin/authors/authors_prefix_build.sh <input_file> [<max_prefix_length>]        # positional
+./bin/authors/authors_prefix_build.sh -i INPUT_FILE [-x NUM] [-o FILE] [-d ON|OFF]
 ```
 
 Options: `-x/--max-prefix` (default 5), `-o/--output` (write to a file instead
 of stdout), `-d/--debugger` (stderr diagnostics).
 
 ```bash
-./bin/build_prefix_table.sh data/fixtures/authors_list_from_db.txt 5 > tmp_SORTED_AUTHORS
+./bin/authors/authors_prefix_build.sh data/fixtures/authors_list_from_db.txt 5 > tmp_SORTED_AUTHORS
 ```
 
-### `bin/prefix_table_integrity.sh`
+### `bin/authors/authors_prefix_check.sh`
 
 Ultra-strict validator for the prefix table. Reports problems by severity and
 exits non-zero if any critical problem is found.
 
 ```bash
-./bin/prefix_table_integrity.sh [SEVERITY] <prefix_table> <max_prefix_length>
-./bin/prefix_table_integrity.sh -t TABLE [-x NUM] [-s SEVERITY]
+./bin/authors/authors_prefix_check.sh [SEVERITY] <prefix_table> <max_prefix_length>
+./bin/authors/authors_prefix_check.sh -t TABLE [-x NUM] [-s SEVERITY]
 ```
 
 Severities: `all` (default), `critical`, `warnings`, `info`.
 
 ```bash
-./bin/prefix_table_integrity.sh -t tmp_SORTED_AUTHORS -x 5
+./bin/authors/authors_prefix_check.sh -t tmp_SORTED_AUTHORS -x 5
 ```
 
-### `bin/prefix_tree_visualizer.sh`
+### `bin/authors/authors_prefix_tree.sh`
 
 Renders the prefix table as a Unicode tree (`├──`, `└──`, `│`), grouped by
 category (Symbols, Digits, ASCII, Cyrillic, Other) with true Russian
 alphabetical ordering, per-node counts/ranges, depth limiting, and filtering.
 
 ```bash
-./bin/prefix_tree_visualizer.sh tmp_SORTED_AUTHORS [--depth N] [--filter CATEGORY]
+./bin/authors/authors_prefix_tree.sh tmp_SORTED_AUTHORS [--depth N] [--filter CATEGORY]
 ```
 
-### `bin/build_shell_nested_authors.sh`
+### `bin/authors/authors_tree_build.sh`
 
 Emits `mkdir -p` commands (or SQL) that build a nested directory hierarchy from
 the author names. A level is only created when its prefix is shared by at least
@@ -134,21 +134,21 @@ and safe to copy-paste. The SQL output keeps the raw prefix (its rows escape
 single quotes for the SQL literal).
 
 ```bash
-./bin/build_shell_nested_authors.sh <input_file> <minimum_authors> <max_prefix_length>
-./bin/build_shell_nested_authors.sh -i INPUT_FILE [-m NUM] [-x NUM] [-d ON|OFF] [-f SHELL|SQL] [-r PATH] [-c ON|OFF]
+./bin/authors/authors_tree_build.sh <input_file> <minimum_authors> <max_prefix_length>
+./bin/authors/authors_tree_build.sh -i INPUT_FILE [-m NUM] [-x NUM] [-d ON|OFF] [-f SHELL|SQL] [-r PATH] [-c ON|OFF]
 ```
 
 Options: `-m/--min-authors` (default 10), `-x/--max-prefix` (default 5),
 `-f/--format` (`SHELL` or `SQL`), `-r/--root-dir`, `-c/--clean-run`.
 
 ```bash
-./bin/build_shell_nested_authors.sh -i data/fixtures/authors_list_from_db.txt -m 10 -x 5
+./bin/authors/authors_tree_build.sh -i data/fixtures/authors_list_from_db.txt -m 10 -x 5
 ```
 
 ### `bin/merge_books_into_skeleton.sh`
 
 Builds the author prefix tree **in memory** from a flat author list (the same
-range-walk algorithm as `bin/build_shell_nested_authors.sh`: a prefix becomes
+range-walk algorithm as `bin/authors/authors_tree_build.sh`: a prefix becomes
 a directory only when at least `--min-authors` authors share it, capped at
 `--max-prefix` characters), then copies the files of every top-level author
 folder in a legacy archive into a directory named after the author, placed
@@ -265,7 +265,7 @@ addition to the merge tool's skip list.
 ### `lib/utf8_prefix_generator.awk`
 
 The original AWK generator, kept as a parity reference against
-`bin/build_prefix_table.sh`. Emits the same `prefix<TAB>count<TAB>start<TAB>end`
+`bin/authors/authors_prefix_build.sh`. Emits the same `prefix<TAB>count<TAB>start<TAB>end`
 rows (in hash order — sort before comparing).
 
 ```bash
@@ -514,9 +514,9 @@ Each tool has a self-contained regression suite, plus one end-to-end suite that
 chains the whole pipeline. All suites must run from WSL:
 
 ```bash
-wsl.exe bash tests/test_build_prefix_table.sh        # generator: goldens, invariants, parity, CLI
-wsl.exe bash tests/test_build_shell_nested_authors.sh
-wsl.exe bash tests/test_prefix_tree_visualizer.sh    # renderer: goldens, descent, filters, depth, CLI
+wsl.exe bash tests/test_authors_prefix_build.sh        # generator: goldens, invariants, parity, CLI
+wsl.exe bash tests/test_authors_tree_build.sh
+wsl.exe bash tests/test_authors_prefix_tree.sh    # renderer: goldens, descent, filters, depth, CLI
 wsl.exe bash tests/test_utf8_prefix_generator.sh     # AWK generator: direct edge-case tests
 wsl.exe bash tests/test_e2e_pipeline.sh              # generator -> validator -> renderer on real data
 wsl.exe bash tests/test_merge_books_into_skeleton.sh # archive -> in-memory prefix hierarchy (WSL)
@@ -565,10 +565,10 @@ Releases are tagged with a tool-prefixed name:
 
 | Tool | Version | Tag |
 |---|---|---|
-| `bin/build_prefix_table.sh` | 1.0.4 | `build_prefix_table-1.0.4` |
-| `bin/prefix_table_integrity.sh` | 1.2.1 | `prefix_table_integrity-1.2.1` |
-| `bin/prefix_tree_visualizer.sh` | 2.8.1 | `v2.8.1` |
-| `bin/build_shell_nested_authors.sh` | 6.6.10 | `v6.6.10` |
+| `bin/authors/authors_prefix_build.sh` | 1.0.4 | `build_prefix_table-1.0.4` |
+| `bin/authors/authors_prefix_check.sh` | 1.2.1 | `prefix_table_integrity-1.2.1` |
+| `bin/authors/authors_prefix_tree.sh` | 2.8.1 | `v2.8.1` |
+| `bin/authors/authors_tree_build.sh` | 6.6.10 | `v6.6.10` |
 | `bin/merge_books_into_skeleton.sh` | 0.2.0 | `merge_books_into_skeleton-0.2.0` |
 | `bin/merge_skeleton_into_books.sh` | 0.2.3 | `merge_skeleton_into_books-0.2.3` |
 | `bin/authors/authors_export.sh` | 1.0.2 | `export_authors_from_db-1.0.2` |
@@ -602,10 +602,10 @@ To cut a release: bump the header version, run the WSL test suites (see
 ## Repository layout
 
 ```
-bin/build_prefix_table.sh           prefix-table generator (working script)
-bin/prefix_table_integrity.sh       prefix-table validator
-bin/prefix_tree_visualizer.sh       prefix-tree renderer
-bin/build_shell_nested_authors.sh   nested-directory builder
+bin/authors/authors_prefix_build.sh           prefix-table generator (working script)
+bin/authors/authors_prefix_check.sh       prefix-table validator
+bin/authors/authors_prefix_tree.sh       prefix-tree renderer
+bin/authors/authors_tree_build.sh   nested-directory builder
 bin/authors/authors_export.sh       regenerate the author list from the DB
 bin/reconcile_library.sh            personal-catalog collection-progress report
 bin/estimate_download_size.sh       catalog download-size estimate for a to-collect round

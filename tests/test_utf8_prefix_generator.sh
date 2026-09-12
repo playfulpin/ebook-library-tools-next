@@ -5,7 +5,7 @@
 #
 # Direct regression suite for lib/utf8_prefix_generator.awk, the original AWK
 # prefix-table generator.  Unlike the parity group in
-# tests/test_build_prefix_table.sh -- which only ever compares this script against
+# tests/test_authors_prefix_build.sh -- which only ever compares this script against
 # the newer generator (a SYMMETRIC check: both can share a bug and still
 # agree) -- this suite asserts the AWK script's own output, row for row.
 #

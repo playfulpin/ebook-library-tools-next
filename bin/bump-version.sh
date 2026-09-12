@@ -31,10 +31,10 @@
 #   ./bin/bump-version.sh <tool> <new_version>
 #
 #   <tool> is one of (case-sensitive):
-#       build_shell_nested_authors    (6.6.x)
-#       build_prefix_table            (1.0.x)
-#       prefix_table_integrity        (1.2.x)
-#       prefix_tree_visualizer        (2.8.x)
+#       build_shell_nested_authors    (6.6.x) -> authors_tree_build
+#       build_prefix_table            (1.0.x) -> authors_prefix_build
+#       prefix_table_integrity        (1.2.x) -> authors_prefix_check
+#       prefix_tree_visualizer        (2.8.x) -> authors_prefix_tree
 #       merge_books_into_skeleton     (0.1.x, bin + lib twin)
 #       merge_skeleton_into_books     (0.1.x)
 #       utf8_prefix_generator         (1.x, two-part versions only)
@@ -50,7 +50,7 @@
 #   the tool's version shape (X.Y.Z for shell tools, X.Y for the AWK tool).
 #
 # EXAMPLES
-#   ./bin/bump-version.sh build_shell_nested_authors 6.6.11
+#   ./bin/bump-version.sh build_shell_nested_authors 6.6.11   # key unchanged
 #   ./bin/bump-version.sh merge_books_into_skeleton 0.1.4
 #   ./bin/bump-version.sh utf8_prefix_generator 1.2
 #
@@ -154,10 +154,10 @@ usage() {
     echo "Usage: $0 <tool> <new_version>"
     echo ""
     echo "Tools (case-sensitive):"
-    echo "  build_shell_nested_authors    (6.6.x)"
-    echo "  build_prefix_table            (1.0.x)"
-    echo "  prefix_table_integrity        (1.2.x)"
-    echo "  prefix_tree_visualizer        (2.8.x)"
+    echo "  authors_tree_build            (6.6.x)  [was build_shell_nested_authors]"
+    echo "  authors_prefix_build          (1.0.x)  [was build_prefix_table]"
+    echo "  authors_prefix_check          (1.2.x)  [was prefix_table_integrity]"
+    echo "  authors_prefix_tree           (2.8.x)  [was prefix_tree_visualizer]"
     echo "  merge_books_into_skeleton     (0.1.x, bin + lib twin)"
     echo "  merge_skeleton_into_books     (0.1.x)"
     echo "  utf8_prefix_generator         (1.x, two-part versions only)"
@@ -192,20 +192,20 @@ main() {
     # shape:   version shape to validate against
     case "$tool" in
         build_shell_nested_authors)
-            primary="bin/build_shell_nested_authors.sh"
-            marker="bin/build_shell_nested_authors.sh"
+            primary="bin/authors/authors_tree_build.sh"
+            marker="bin/authors/authors_tree_build.sh"
             ;;
         build_prefix_table)
-            primary="bin/build_prefix_table.sh"
-            marker="bin/build_prefix_table.sh"
+            primary="bin/authors/authors_prefix_build.sh"
+            marker="bin/authors/authors_prefix_build.sh"
             ;;
         prefix_table_integrity)
-            primary="bin/prefix_table_integrity.sh"
-            marker="bin/prefix_table_integrity.sh"
+            primary="bin/authors/authors_prefix_check.sh"
+            marker="bin/authors/authors_prefix_check.sh"
             ;;
         prefix_tree_visualizer)
-            primary="bin/prefix_tree_visualizer.sh"
-            marker="bin/prefix_tree_visualizer.sh"
+            primary="bin/authors/authors_prefix_tree.sh"
+            marker="bin/authors/authors_prefix_tree.sh"
             ;;
         merge_books_into_skeleton)
             primary="bin/merge_books_into_skeleton.sh"
@@ -303,7 +303,7 @@ Done. Verify with:
 Then finish the release manually:
   1. Add a CHANGELOG.md entry for $tool $new.
   2. Run the relevant suite(s) under WSL:
-       wsl.exe bash tests/test_build_shell_nested_authors.sh   # or the tool's suite
+       wsl.exe bash tests/test_authors_tree_build.sh   # or the tool's suite
   3. Commit, then tag (tool-prefixed or v-prefixed per convention).
 EOF
 }

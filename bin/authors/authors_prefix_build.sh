@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# bin/build_prefix_table.sh
+# bin/authors/authors_prefix_build.sh
 #
 # Version:       1.0.4
 # Last updated:  2026-08-11 20:39
@@ -21,7 +21,7 @@
 #
 #   The table contains EVERY distinct prefix of EVERY author, from length 1
 #   up to MAX_PREFIX_LENGTH (singletons included), and is the input consumed
-#   by bin/prefix_table_integrity.sh (validator) and bin/prefix_tree_visualizer.sh
+#   by bin/authors/authors_prefix_check.sh (validator) and bin/authors/authors_prefix_tree.sh
 #   (renderer).
 #
 # -----------------------------------------------------------------------------
@@ -29,23 +29,23 @@
 # -----------------------------------------------------------------------------
 #   Positional style:
 #
-#       ./bin/build_prefix_table.sh <input_file> [<max_prefix_length>]
+#       ./bin/authors/authors_prefix_build.sh <input_file> [<max_prefix_length>]
 #
 #   Named-option style (only the input file is required; -x defaults to 5):
 #
-#       ./bin/build_prefix_table.sh -i INPUT_FILE [-x MAX_PREFIX_LENGTH] \
+#       ./bin/authors/authors_prefix_build.sh -i INPUT_FILE [-x MAX_PREFIX_LENGTH] \
 #           [-o OUTPUT_FILE] [-d ON|OFF]
 #
 #   Both styles may be mixed; named options win over positional values.
 #   Output goes to stdout unless -o/--output is given.
 #
 # EXAMPLES
-#   ./bin/build_prefix_table.sh alphabet_from_db.txt 5 > tmp_SORTED_AUTHORS
-#   ./bin/build_prefix_table.sh -i authors_list_clean_nfc.txt -x 5 -o tmp_SORTED_AUTHORS
-#   ./bin/build_prefix_table.sh -i data/fixtures/authors_list_from_db.txt -x 5 -d on | head
+#   ./bin/authors/authors_prefix_build.sh alphabet_from_db.txt 5 > tmp_SORTED_AUTHORS
+#   ./bin/authors/authors_prefix_build.sh -i authors_list_clean_nfc.txt -x 5 -o tmp_SORTED_AUTHORS
+#   ./bin/authors/authors_prefix_build.sh -i data/fixtures/authors_list_from_db.txt -x 5 -d on | head
 #
 # -----------------------------------------------------------------------------
-# ALGORITHM (the sorted-range walk, from bin/build_shell_nested_authors.sh)
+# ALGORITHM (the sorted-range walk, from bin/authors/authors_tree_build.sh)
 # -----------------------------------------------------------------------------
 #   1. NORMALIZE + SORT
 #      The input is read once, CRLF line endings are converted to LF, blank
@@ -122,7 +122,7 @@ readonly WALKER_VARIANT="pre-order trie walker"
 
 # Defaults for the optional command-line switches (-x, -o, -d).
 # MAX_PREFIX_LENGTH is measured in characters and matches the toolchain
-# default used by bin/build_shell_nested_authors.sh and bin/prefix_table_integrity.sh.
+# default used by bin/authors/authors_tree_build.sh and bin/authors/authors_prefix_check.sh.
 readonly DEFAULT_MAX_PREFIX_LENGTH=5
 readonly DEFAULT_DEBUG_MODE="OFF"
 
@@ -157,7 +157,7 @@ declare -i TOTAL_ROW_COUNT=0
 # Print the command-line contract to standard error and exit with status 1.
 # -----------------------------------------------------------------------------
 usage() {
-    echo "bin/build_prefix_table.sh v$SCRIPT_VERSION"
+    echo "bin/authors/authors_prefix_build.sh v$SCRIPT_VERSION"
     echo ""
     echo "Usage: $0 <input_file> [<max_prefix_length>]"
     echo "   or: $0 -i FILE [-x NUM] [-o FILE] [-d ON|OFF]"
@@ -371,7 +371,7 @@ emit_table_row() {
 #
 # Recursively walk one branch of the prefix tree and emit one row per node,
 # in PRE-ORDER (node before its children, children in byte order).  This is
-# the same sorted-range recursion that bin/build_shell_nested_authors.sh uses to
+# the same sorted-range recursion that bin/authors/authors_tree_build.sh uses to
 # build directory trees -- the difference is that EVERY prefix becomes a row:
 # there is no minimum-count filter and no space-boundary skip, because the
 # table must list every prefix exactly once.
@@ -452,9 +452,9 @@ process_prefix() {
         child_end=$i
 
         # Note: a space next character is a legitimate CHILD here -- unlike
-        # bin/build_shell_nested_authors.sh, which skips word boundaries when
+        # bin/authors/authors_tree_build.sh, which skips word boundaries when
         # building directories.  The table lists every prefix, so "де " is a
-        # valid row (and bin/prefix_table_integrity.sh reports it as a warning).
+        # valid row (and bin/authors/authors_prefix_check.sh reports it as a warning).
         process_prefix "${current_prefix}${next_character}" "$child_start" "$child_end"
     done
 }
@@ -537,7 +537,7 @@ main() {
     # walker variant make a stale copy instantly recognizable -- it prints an
     # older version or no banner at all.  Usage/validation errors still exit
     # before this point, so -h and bad invocations don't banner.
-    echo "bin/build_prefix_table.sh v$SCRIPT_VERSION ($WALKER_VARIANT)" >&2
+    echo "bin/authors/authors_prefix_build.sh v$SCRIPT_VERSION ($WALKER_VARIANT)" >&2
 
     # --- Run the pipeline ----------------------------------------------------
     read_and_sort_authors

@@ -18,7 +18,7 @@
 #   (desktop.ini, Thumbs.db by default) are never copied.
 #
 #   The prefix tree uses the same range-walk algorithm as
-#   bin/build_shell_nested_authors.sh (>= MINIMUM_AUTHORS authors per
+#   bin/authors/authors_tree_build.sh (>= MINIMUM_AUTHORS authors per
 #   prefix, capped at MAX_PREFIX_LENGTH), so the layout matches the old
 #   on-disk skeleton -- but nothing is built to disk first: the old
 #   Empty_Skeleton staging folder no longer exists.

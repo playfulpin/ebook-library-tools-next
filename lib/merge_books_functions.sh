@@ -17,7 +17,7 @@
 #   allowed.
 #
 #   The prefix tree is computed with the same range-walk algorithm as
-#   bin/build_shell_nested_authors.sh (sorted author list, contiguous prefix
+#   bin/authors/authors_tree_build.sh (sorted author list, contiguous prefix
 #   ranges, MINIMUM_AUTHORS pruning, MAX_PREFIX_LENGTH cap), so the result
 #   matches the on-disk skeleton that tool used to emit -- but nothing is
 #   materialized to disk first, and the old Empty_Skeleton staging folder is
@@ -584,7 +584,7 @@ merge_prefix_to_path() {
 # -----------------------------------------------------------------------------
 # Recursively walk one branch of the prefix tree over the sorted author
 # array and record EVERY valid prefix as an index row (path<TAB>last
-# component).  This is the SQL-mode walk of bin/build_shell_nested_authors.sh
+# component).  This is the SQL-mode walk of bin/authors/authors_tree_build.sh
 # (all valid prefixes, not just the deepest), because resolution needs every
 # level: author "Абби Линн" resolves to А/Аб, an ancestor of the deepest
 # emitted directory.

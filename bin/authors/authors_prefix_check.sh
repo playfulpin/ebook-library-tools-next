@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# bin/prefix_table_integrity.sh
+# bin/authors/authors_prefix_check.sh
 #
 # Version:       1.2.1
 # Last updated:  2026-08-11 17:55
@@ -24,11 +24,11 @@
 # -----------------------------------------------------------------------------
 #   Positional style (backward compatible with the original 1.x CLI):
 #
-#       ./bin/prefix_table_integrity.sh [SEVERITY] prefix_table MAX_PREFIX_LENGTH
+#       ./bin/authors/authors_prefix_check.sh [SEVERITY] prefix_table MAX_PREFIX_LENGTH
 #
 #   Named-option style:
 #
-#       ./bin/prefix_table_integrity.sh -t TABLE [-x MAX_PREFIX_LENGTH] [-s SEVERITY]
+#       ./bin/authors/authors_prefix_check.sh -t TABLE [-x MAX_PREFIX_LENGTH] [-s SEVERITY]
 #
 #   SEVERITY (default: all):
 #       all        Show all PROBLEM messages (critical + warnings)
@@ -41,9 +41,9 @@
 #   --info are accepted too.  Named options win over positional values.
 #
 # EXAMPLES
-#   ./bin/prefix_table_integrity.sh tmp_SORTED_AUTHORS 5
-#   ./bin/prefix_table_integrity.sh --critical tmp_SORTED_AUTHORS 5
-#   ./bin/prefix_table_integrity.sh -t tmp_SORTED_AUTHORS -x 5 -s warnings
+#   ./bin/authors/authors_prefix_check.sh tmp_SORTED_AUTHORS 5
+#   ./bin/authors/authors_prefix_check.sh --critical tmp_SORTED_AUTHORS 5
+#   ./bin/authors/authors_prefix_check.sh -t tmp_SORTED_AUTHORS -x 5 -s warnings
 #
 # -----------------------------------------------------------------------------
 # SEVERITY LEVELS
@@ -159,7 +159,7 @@ declare -i INFO_COUNT=0
 # Print the command-line contract and exit with status 1.
 # -----------------------------------------------------------------------------
 usage() {
-    echo "bin/prefix_table_integrity.sh v$SCRIPT_VERSION"
+    echo "bin/authors/authors_prefix_check.sh v$SCRIPT_VERSION"
     echo ""
     echo "Usage: $0 [SEVERITY] prefix_table MAX_PREFIX_LENGTH"
     echo "   or: $0 -t TABLE [-x MAX_PREFIX_LENGTH] [-s SEVERITY]"
@@ -520,7 +520,7 @@ check_table() {
 
         # --- 8. Byte order ---------------------------------------------------
         # The toolchain sorts the table with LC_ALL=C (byte order), and the
-        # range-based tree walk in bin/build_shell_nested_authors.sh DEPENDS on
+        # range-based tree walk in bin/authors/authors_tree_build.sh DEPENDS on
         # contiguity.  LC_ALL=C forces the comparison to byte order so case
         # variants (В vs в) are checked exactly as the generator sorted them.
         if [[ "$first_row" == true ]]; then
