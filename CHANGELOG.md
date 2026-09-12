@@ -9,6 +9,26 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **Phase 3 of the refactoring plan: common shell infrastructure
+  (`lib/`) — new v1.0.0 libraries.**  `lib/common.sh` (standard
+  `set -Eeuo pipefail` init, symlink-safe `SCRIPT_DIR`/`PROJECT_ROOT`
+  resolution that works at both `bin/` and the future `bin/<group>/`
+  depth, `die`, `require_command`, `timestamp_now`), `lib/logging.sh`
+  (the house `log`/`debug` triplet, now byte-identical everywhere, plus
+  tagged `log_info/warn/error`), `lib/cli.sh` (global-flag scan with
+  `CLI_REMAINING_COUNT`, exit-code contract 0/1/2), `lib/filesystem.sh`
+  (`fs_tree_fingerprint` verbatim from refresh, `fs_prune_empty_dirs`
+  verbatim policy from finalize, guards, `fs_mktmp`), and
+  `lib/database.sh` (shared `db_mysql_argv`/`db_run_query`/`db_run_sql`,
+  opt-in; `mariadb_lifecycle.sh` unchanged).  Every function is seeded
+  from real duplicated code (Phase 1 inventory §11.1).  Documented
+  exception per plan §7.1: `report_library.sh` keeps `set -uo pipefail`
+  via `common_init --no-errexit` when converted.  New suite
+  `tests/test_lib_infrastructure.sh` — 42 assertions; CI syntax check
+  extended to `lib/*.sh`.  No `bin/` tool converted yet — that is
+  Phase 4, one tool at a time.  See
+  `docs/PHASE_03_COMMON_INFRASTRUCTURE.md`.
+
 - **`bin/report_library.sh` v1.1.0 -> v1.2.0 — the hybrid wish-list
   view.**  `--hybrid` merges BOTH planning sources into one render:
   the native app state (`mllbr_main.mlgroup`/`mlgroupname`, v1.1) for

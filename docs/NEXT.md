@@ -1,12 +1,15 @@
 # NEXT — where to resume
 
-> Updated: 2026-09-07 02:40 CDT — **reporting layer complete for now**:
-> v1.6.0 published (hybrid wish-list view), all four DO_IT assignment
-> docs folded into `docs/DO_IT_ongoing.md` (timestamped parts with
-> resolutions). Resume with the By-Series gap report. Releases
-> v1.3.0 → v1.6.0 published on GitHub; `report_library.sh` v1.2.0
-> (TSV plan + native `mllbr_main` views + hybrid merge) and
-> `refresh_myprivatelib.sh` v1.0.0 shipped.
+> Updated: 2026-09-12 — **refactoring Phase 3 shipped**:
+> common shell infrastructure under `lib/` (common/logging/cli/
+> filesystem/database, v1.0.0 each; 42-assertion suite; CI wired).
+> Phase 1 (inventory, `PHASE_01_INVENTORY.md`), Phase 2 (ratified
+> target architecture, `PHASE_02_TARGET_ARCHITECTURE.md` — bin/ group
+> subdirs, rename map frozen, MIT license landed) and Phase 3
+> (`PHASE_03_COMMON_INFRASTRUCTURE.md`) are complete. Next: **Phase 4
+> — convert tools one at a time** onto the shared infrastructure
+> while executing the rename groups; first group is the AUTHORS
+> chain (see D-02.5).
 
 ## Resume checklist
 

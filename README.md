@@ -272,6 +272,19 @@ rows (in hash order — sort before comparing).
 gawk -v maxlen=5 -F '\n' -f lib/utf8_prefix_generator.awk <sorted_input>
 ```
 
+### Shared libraries (`lib/common.sh`, `lib/logging.sh`, `lib/cli.sh`, `lib/filesystem.sh`, `lib/database.sh`)
+
+Phase 3 of the refactoring plan: the common shell infrastructure every
+tool builds on. `common.sh` provides standard `set -Eeuo pipefail`
+initialization, project-root detection at any `bin/` depth, and the
+`die`/`require_command` helpers; `logging.sh` owns the house
+`[timestamp] message` format; `cli.sh` owns the global flags
+(`-h/-v/--debug`) and the 0/1/2 exit-code contract; `filesystem.sh`
+hosts the tree fingerprint and empty-dir prune; `database.sh` assembles
+the shared `mysql` argv (opt-in). The MariaDB server lifecycle remains
+in `lib/mariadb_lifecycle.sh`. Conversion of individual tools happens
+in Phase 4 — see `docs/PHASE_03_COMMON_INFRASTRUCTURE.md`.
+
 ### `bin/reconcile_library.sh`
 
 Personal-catalog **collection-progress** report.  The scope file
@@ -511,6 +524,7 @@ wsl.exe bash tests/test_merge_skeleton_into_books.sh # BooksInput_* -> Books rsy
 bash tests/test_export_authors_from_db.sh            # exporter: argv, rows, lifecycle mocks (runs anywhere)
 bash tests/test_reconcile_library.sh                 # recon: classification + collection-progress summary (mock mysql)
 bash tests/test_estimate_download_size.sh            # estimator: sums, top-rated-first breakdown, lifecycle mocks (runs anywhere)
+bash tests/test_lib_infrastructure.sh                # Phase 3 libs: init, root detection, logging, cli, fs, db (runs anywhere)
 bash tests/test_backup_myprivatelib.sh                 # backup/restore: argv, gz artifact, restore guards, lifecycle mocks (runs anywhere)
 bash tests/test_populate_myprivatelib.sh               # populate: md5 map, walk/hash, resolve, AUTO_INCREMENT strip + source-key-verbatim rebuild, parity abort, lifecycle mocks (runs anywhere)
 bash tests/test_refresh_myprivatelib.sh              # refresh: checkpoint decisions (unchanged/changed/forced), child invocation, failure isolation (runs anywhere)
