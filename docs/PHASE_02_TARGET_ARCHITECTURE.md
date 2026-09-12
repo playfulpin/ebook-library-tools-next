@@ -348,7 +348,7 @@ All rename work happens on a refactor branch (`refactor/<topic>`), merged to `ma
 Pure renames/moves do **not** bump tool versions or repo tags. Real behavior changes during Phase 4 refactors bump the tool version via `version_bump` as usual (Blueprint §43–44).
 
 **Decision D-02.16 — MIT License [RATIFIED 2026-09-07].**
-The repository ships a `LICENSE` file under the **MIT** license (© 2026 Mike / playfulpin). Trivial addition with no code impact; land it with the next commit series.
+The repository ships a `LICENSE` file under the **MIT** license (© 2026 Mike / playfulpin). **Landed 2026-09-07** at the repository root, together with this document's ratification update.
 
 ---
 
@@ -371,7 +371,7 @@ The repository ships a `LICENSE` file under the **MIT** license (© 2026 Mike / 
 | D-02.13 | Compatibility wrappers | **RATIFIED — NO wrappers**, clean cutover per group | personal toolchain, no external callers |
 | D-02.14 | Refactor branch + green-CI-per-group | RATIFIED | |
 | D-02.15 | Renames don't bump versions | RATIFIED | |
-| D-02.16 | Add `LICENSE` | **RATIFIED — MIT** | land with next commit series |
+| D-02.16 | Add `LICENSE` | **RATIFIED — MIT** | landed 2026-09-07 (`LICENSE` at repo root) |
 
 ---
 
