@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# tests/test_report_library.sh
+# tests/test_library_report.sh
 #
-# Regression suite for bin/report_library.sh (the personal-library wish list
+# Regression suite for bin/library/library_report.sh (the personal-library wish list
 # and reporting view).  No real MariaDB is needed: the suite installs a mock
 # `mysql` that answers the read-only catalog join/search queries from fixture
 # rows and records argv, and disables lifecycle management via a nonexistent
@@ -21,14 +21,14 @@
 #   grouping, added-date, not-in-library listing, library-name filter in
 #   the SQL, empty-groups failure, view-name validation).
 #
-# Usage:  bash tests/test_report_library.sh
+# Usage:  bash tests/test_library_report.sh
 # Runs anywhere (pure text processing).
 # -----------------------------------------------------------------------------
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-TOOL="$REPO_ROOT/bin/report_library.sh"
+TOOL="$REPO_ROOT/bin/library/library_report.sh"
 
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -124,7 +124,7 @@ reset_wish() { # seed the wish file (header + rows)
     } > "$WISH"
 }
 
-echo "== report_library =="
+echo "== library_report =="
 
 # --- 1. view: grouping, tallies, series/rating, not-in-library ----------------
 reset_wish
@@ -392,5 +392,5 @@ if (( FAIL_COUNT > 0 )); then
     printf '  - %s\n' "${FAILURE_LINES[@]}"
     exit 1
 fi
-echo "All report_library tests passed."
+echo "All library_report tests passed."
 exit 0

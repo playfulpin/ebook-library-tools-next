@@ -1,13 +1,14 @@
 # NEXT — where to resume
 
-> Updated: 2026-09-12 — **refactoring Phase 4, groups 1–3 DONE**:
-> AUTHORS chain in `bin/authors/`, merge pair + estimate/reconcile in
-> `bin/books/`, backup/populate/refresh in `bin/library/`; infra
-> consumers converted onto `common_init`; progress log in
-> `docs/PHASE_04_TOOL_CONVERSION.md`. Remaining: **group 4** —
-> `report_library` → `library_report`, `bump-version` → `version_bump`
-> (flat), configs, final docs pass, then `ARCHITECTURE.md` and a
-> release. Phases 1–3 complete.
+> Updated: 2026-09-12 — **refactoring Phase 4 COMPLETE (all four
+> groups)**: AUTHORS chain in `bin/authors/`, merge pair +
+> estimate/reconcile in `bin/books/`, backup/populate/refresh + report
+> in `bin/library/`, `bin/version_bump.sh` flat in `bin/`; all
+> infra consumers converted onto `common_init`; progress log in
+> `docs/PHASE_04_TOOL_CONVERSION.md` v1.2.0. Remaining: **final docs
+> pass** — distill `ARCHITECTURE.md` from the ratified Phase 2 doc,
+> sign off `docs/Measurable Phase Completion Criteria.md` for Phase 4,
+> then cut a release tag. Phases 1–3 complete.
 
 ## Resume checklist
 
@@ -16,22 +17,22 @@ cd /home/mike/GIT_ROOT/MultiLib_Utilities
 git status             # expect: clean tree, on main, up to date with origin/main
 git log --oneline -3   # expect: d648a67 (hybrid view) at the top; tags v1.5.0 + v1.6.0 on 612b5e2 / d648a67
 bash tests/test_version_sync.sh          # 14/14 (fast, mock-only)
-bash tests/test_report_library.sh        # 71/71 (mock mysql, runs anywhere)
-bash tests/test_refresh_myprivatelib.sh  # 20/20
-bash tests/test_populate_myprivatelib.sh # 35/35
+bash tests/test_library_report.sh        # 71/71 (mock mysql, runs anywhere)
+bash tests/test_library_refresh.sh       # 20/20
+bash tests/test_library_populate.sh      # 35/35
 ```
 
 ### Reporting quickstart
 
 ```bash
-./bin/report_library.sh --search piranha            # find bookids
-./bin/report_library.sh --add 882939 --period 2026-09 --note "..."
-./bin/report_library.sh                             # TSV plan view
-./bin/report_library.sh --native                    # app wishlists (mllbr_main), by author
-./bin/report_library.sh --native series             # app wishlists, series order
-./bin/report_library.sh --hybrid                    # TSV plan x app state, one view
-./bin/report_library.sh --set-status 882939 done
-./bin/report_library.sh --export md                 # printable export
+./bin/library/library_report.sh --search piranha            # find bookids
+./bin/library/library_report.sh --add 882939 --period 2026-09 --note "..."
+./bin/library/library_report.sh                             # TSV plan view
+./bin/library/library_report.sh --native                    # app wishlists (mllbr_main), by author
+./bin/library/library_report.sh --native series             # app wishlists, series order
+./bin/library/library_report.sh --hybrid                    # TSV plan x app state, one view
+./bin/library/library_report.sh --set-status 882939 done
+./bin/library/library_report.sh --export md                 # printable export
 ```
 
 Wish state: `data/wishlist.tsv` (bookid, added, target_period, status,
@@ -43,7 +44,7 @@ note) + native `mllbr_main.mlgroup` rows (marked in-app).
 |---|---|
 | `myprivatelib` | live in MultiLib.exe, full-scale operation confirmed by the user; populate v1.3.0 (verbatim source keys, 0 AUTO_INCREMENT, FK gate) |
 | `bin/refresh_myprivatelib.sh` v1.0.0 | shipped; tree-fingerprint checkpoint; first real run will write the checkpoint (`--status` shows `no-checkpoint`) |
-| `bin/report_library.sh` v1.2.0 | shipped; TSV wish list (`data/wishlist.tsv`), view + mutations + exports; `--native title\|author\|series\|all` views over the app-managed `mllbr_main` wishlists (read-only, library-scoped; companion SQL `data/sql/qry_wishlist_native.sql`); `--hybrid` merges both sources (native status wins, TSV keeps periods, ★ favorites, source tags); suite 71/71 |
+| `bin/library/library_report.sh` v1.2.0 | shipped; TSV wish list (`data/wishlist.tsv`), view + mutations + exports; `--native title\|author\|series\|all` views over the app-managed `mllbr_main` wishlists (read-only, library-scoped; companion SQL `data/sql/qry_wishlist_native.sql`); `--hybrid` merges both sources (native status wins, TSV keeps periods, ★ favorites, source tags); suite 71/71 |
 | Releases | v1.3.0 (`47f8ddc`, verbatim keys) + v1.4.0 (`708d963`, refresh + wish list) + v1.5.0 (`612b5e2`, native wishlist views) + v1.6.0 (`d648a67`, hybrid view) published on GitHub, v1.6.0 = Latest |
 | CI | green on `d648a67` |
 | Assignment history | `docs/DO_IT_ongoing.md` (Parts 1-4, folded + resolved) |

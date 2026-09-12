@@ -9,6 +9,24 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **Phase 4, rename group 4 (final) — `library_report` and
+  `version_bump` land the ratified layout.**
+  `report_library.sh` → `bin/library/library_report.sh` (infra
+  consumer, converted onto `common_init --no-errexit` — the documented
+  `set -uo pipefail` exception applied as planned; local log/debug/die
+  deleted), `bump-version.sh` → `bin/version_bump.sh` (flat in `bin/`
+  per D-02.3).  Config/suite/registries switched: suite
+  `tests/test_library_report.sh` (71/71), config
+  `config/library_report.conf`, sync-test + bump registries, README
+  (tool section, testing list, release-table tag, repo layout, bump
+  example), RELEASE_NOTES.  **Fix:** the `version_bump` case registry
+  still answered five OLD tool keys (`build_shell_nested_authors`,
+  `build_prefix_table`, `prefix_table_integrity`,
+  `prefix_tree_visualizer`, `export_authors_from_db`) while its usage
+  text already advertised the new ones — bumps by the new names would
+  have failed; keys aligned, example updated, version 1.0.1 → 1.0.2.
+  Phase 4 progress log updated to v1.2.0 (all four groups done).
+
 - **Phase 4, rename group 3 — estimate/reconcile join `bin/books/`,
   the myprivatelib trio joins `bin/library/`.**
   `estimate_download_size.sh` → `bin/books/books_estimate.sh`,

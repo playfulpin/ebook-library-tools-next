@@ -1,11 +1,11 @@
 # Phase 4 — Tool Conversion & Rename (progress log)
 
 > **Deliverable of:** Phase 4 of `docs/ebook-library-tools — Updated Refactoring Plan.md` (§8)
-> **Version:** 1.1.0
+> **Version:** 1.2.0
 > **Created:** 2026-09-12
 > **Based on:** ratified rename map D-02.5 (`docs/PHASE_02_TARGET_ARCHITECTURE.md` §4) and the Phase 3 infrastructure (`docs/PHASE_03_COMMON_INFRASTRUCTURE.md`)
 > **Scope:** all 14 tools move into the ratified `bin/<group>/` layout, convert onto the shared `lib/` infrastructure where it genuinely applies, with suites/configs/registries/docs switched in the same commit (clean cutover, D-02.13 — no wrappers). Versions never bump on pure renames (D-02.15).
-> **Status:** groups 1–3 **done and CI-green**; group 4 (last) pending.
+> **Status:** **all four groups done** — Phase 4 complete pending final docs (ARCHITECTURE.md, completion-criteria sign-off) and release.
 
 ---
 
@@ -72,20 +72,27 @@ Behavioral renames that follow the tool rename: reconcile exports are now `books
 
 Incident notes: the refresh suite's mock project had to be upgraded — the orchestrator now resolves children as `$PROJECT_ROOT/bin/library/<tool>` and sources `lib/common.sh`, so the mock carries `bin/library/` children and a copy of the real `lib/` (this is the intended effect of the infrastructure: the old copy could never have caught it). Suite globs for the renamed report files were caught by the suites themselves.
 
-## 5. Group 4 — final (PENDING)
+## 5. Group 4 — final (DONE)
+
+Commits: this changeset. Two moves + one infra conversion:
 
 | Old | New | Notes |
 |---|---|---|
-| `bin/report_library.sh` | `bin/library/library_report.sh` | infra consumer; `--no-errexit` documented exception applies |
-| `bin/bump-version.sh` | `bin/version_bump.sh` (flat in `bin/`) | registry self-reference; keep old keys as `[was …]` |
-| `config/report_library.conf` | `config/library_report.conf` | |
-| docs pass | — | README repo-layout section, final terminology sweep |
+| `bin/report_library.sh` | `bin/library/library_report.sh` | infra consumer — **converted onto `common_init --no-errexit`** (the documented §7.1 exception applied as planned: the leftover `set -uo pipefail` is a deliberate no-op on top of `set -Euo pipefail`; local `log/debug/die` deleted, the triplet now exists only in `lib/logging.sh`) |
+| `bin/bump-version.sh` | `bin/version_bump.sh` (flat in `bin/`) | registry self-reference fixed; **case registry keys updated to the new names** (`authors_tree_build`, `authors_prefix_build`, `authors_prefix_check`, `authors_prefix_tree`, `authors_export`) — this closes a latent inconsistency: the usage text already advertised the new keys while the case statement still answered only the old ones, so those bumps would have failed; version 1.0.1 → 1.0.2 (behavioral fix) |
+| `config/report_library.conf` | `config/library_report.conf` | tool's `shellcheck` source comment updated to the depth-2 relative path |
+| suite | `tests/test_library_report.sh` | 71/71 green; section banners updated to the new tool name |
+| registries | `bump-version` case registry, `test_version_sync` registry, README (tool section + testing list + release-table tag + repo layout + bump example), RELEASE_NOTES | clean cutover |
+
+Incident notes: the `version_bump` case-registry mismatch was found and fixed during the group-4 sweep (usage text vs case keys disagreed for five tools); the `-h`/`--help` contract is unchanged. Historical docs (`DO_IT_ongoing.md`, the User Guide) keep old paths deliberately — they are dated archives, not living instructions.
+
+## 5b. Phase 4 wrap-up
 
 After group 4: `ARCHITECTURE.md` is distilled from the ratified Phase 2 document (D-02.12), `docs/Measurable Phase Completion Criteria.md` gets its Phase 4 sign-off, and a release (repo tag) cuts.
 
-## 6. Validation state after groups 1–3
+## 6. Validation state after groups 1–4
 
 - Syntax: `bin/*.sh` + `bin/*/*.sh` + `lib/*.sh` all clean.
 - Version sync: **14/14**.
-- Suites green under WSL: all five AUTHORS/BOOKS/LIBRARY group-3 suites, both group-2 suites, `test_report_library` (71), `test_lib_infrastructure` (42), e2e pipeline (real fixture), utf8 generator suite.
-- CI: green on every group commit (`b3f9811`, `acebddd`, `68d2bcf`, `cb17b2d`).
+- Suites green under WSL: all five group-3 suites, both group-2 suites, all five AUTHORS suites, `test_library_report` (71), `test_lib_infrastructure` (42), e2e pipeline (real fixture), utf8 generator suite.
+- CI: green on every group commit (`b3f9811`, `acebddd`, `68d2bcf`, `cb17b2d`, group-3 `b1a540a`).

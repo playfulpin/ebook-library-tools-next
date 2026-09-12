@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# bin/bump-version.sh
+# bin/version_bump.sh
 #
-# Version:       1.0.1
-# Last updated:  2026-09-03 23:50
+# Version:       1.0.2
+# Last updated:  2026-09-07
 #
 # -----------------------------------------------------------------------------
 # PURPOSE
@@ -28,7 +28,7 @@
 # -----------------------------------------------------------------------------
 # USAGE
 # -----------------------------------------------------------------------------
-#   ./bin/bump-version.sh <tool> <new_version>
+#   ./bin/version_bump.sh <tool> <new_version>
 #
 #   <tool> is one of (case-sensitive):
 #       build_shell_nested_authors    (6.6.x) -> authors_tree_build
@@ -44,15 +44,15 @@
 #       backup_myprivatelib          (1.0.x) -> library_backup
 #       populate_myprivatelib        (1.3.x) -> library_populate
 #       refresh_myprivatelib         (1.0.x) -> library_refresh
-#       report_library                  (1.0.x)
+
 #
 #   <new_version> must be strictly greater than the current version and match
 #   the tool's version shape (X.Y.Z for shell tools, X.Y for the AWK tool).
 #
 # EXAMPLES
-#   ./bin/bump-version.sh build_shell_nested_authors 6.6.11   # key unchanged
-#   ./bin/bump-version.sh books_merge 0.1.4
-#   ./bin/bump-version.sh utf8_prefix_generator 1.2
+#   ./bin/version_bump.sh authors_tree_build 6.6.12
+#   ./bin/version_bump.sh books_merge 0.1.4
+#   ./bin/version_bump.sh utf8_prefix_generator 1.2
 #
 # -----------------------------------------------------------------------------
 # AFTER BUMPING
@@ -149,7 +149,7 @@ bump_doc() {
 # usage
 # -----------------------------------------------------------------------------
 usage() {
-    echo "bin/bump-version.sh v$(version_from_header "$0")"
+    echo "bin/version_bump.sh v$(version_from_header "$0")"
     echo ""
     echo "Usage: $0 <tool> <new_version>"
     echo ""
@@ -167,7 +167,7 @@ usage() {
     echo "  library_backup                (1.0.x)  [was backup_myprivatelib]"
     echo "  library_populate              (1.3.x)  [was populate_myprivatelib]"
     echo "  library_refresh               (1.0.x)  [was refresh_myprivatelib]"
-    echo "  report_library                  (1.0.x)"
+    echo "  library_report                (1.2.x)  [was report_library]"
     echo ""
     echo "Example: $0 build_shell_nested_authors 6.6.11"
     exit 1
@@ -191,19 +191,19 @@ main() {
     # marker:  the path as it appears in README.md / RELEASE_NOTES.md
     # shape:   version shape to validate against
     case "$tool" in
-        build_shell_nested_authors)
+        authors_tree_build)
             primary="bin/authors/authors_tree_build.sh"
             marker="bin/authors/authors_tree_build.sh"
             ;;
-        build_prefix_table)
+        authors_prefix_build)
             primary="bin/authors/authors_prefix_build.sh"
             marker="bin/authors/authors_prefix_build.sh"
             ;;
-        prefix_table_integrity)
+        authors_prefix_check)
             primary="bin/authors/authors_prefix_check.sh"
             marker="bin/authors/authors_prefix_check.sh"
             ;;
-        prefix_tree_visualizer)
+        authors_prefix_tree)
             primary="bin/authors/authors_prefix_tree.sh"
             marker="bin/authors/authors_prefix_tree.sh"
             ;;
@@ -221,7 +221,7 @@ main() {
             marker="lib/utf8_prefix_generator.awk"
             shape="x.y"
             ;;
-        export_authors_from_db)
+        authors_export)
             primary="bin/authors/authors_export.sh"
             marker="bin/authors/authors_export.sh"
             ;;
@@ -245,9 +245,9 @@ main() {
             primary="bin/library/library_refresh.sh"
             marker="bin/library/library_refresh.sh"
             ;;
-        report_library)
-            primary="bin/report_library.sh"
-            marker="bin/report_library.sh"
+        library_report)
+            primary="bin/library/library_report.sh"
+            marker="bin/library/library_report.sh"
             ;;
         *)
             echo "Error: unknown tool '$tool'." >&2

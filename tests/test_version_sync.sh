@@ -14,7 +14,7 @@
 #
 # This suite exists because hand-editing five files drifts: the merge tools
 # shipped with docs at 0.1.1 while the header said 0.1.2, and the lib twin
-# was once forgotten entirely.  bin/bump-version.sh edits all locations in
+# was once forgotten entirely.  bin/version_bump.sh edits all locations in
 # one shot; this suite is the safety net that proves it (or catches a manual
 # bump that missed a file).
 #
@@ -34,7 +34,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # twin:    optional lib header that must match the primary
 # marker:  the path string that identifies the tool's row/line in the docs
 #          (matches README.md table rows and RELEASE_NOTES shipped lines)
-# The registry mirrors bin/bump-version.sh; keep them in lockstep.
+# The registry mirrors bin/version_bump.sh; keep them in lockstep.
 PASS_COUNT=0
 FAIL_COUNT=0
 declare -a FAILURE_LINES=()
@@ -167,8 +167,8 @@ check_tool library_populate \
 check_tool library_refresh \
     "bin/library/library_refresh.sh" "" "bin/library/library_refresh.sh"
 
-check_tool report_library \
-    "bin/report_library.sh" "" "bin/report_library.sh"
+check_tool library_report \
+    "bin/library/library_report.sh" "" "bin/library/library_report.sh"
 
 # --- summary --------------------------------------------------------------------
 echo

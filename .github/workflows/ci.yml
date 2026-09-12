@@ -40,7 +40,7 @@ jobs:
           bash tests/test_library_backup.sh
           bash tests/test_library_populate.sh
           bash tests/test_library_refresh.sh
-          bash tests/test_report_library.sh
+          bash tests/test_library_report.sh
           bash tests/test_lib_infrastructure.sh
 
       - name: UTF-8 suites (WSL-style, multibyte bash)

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# bin/report_library.sh
+# bin/library/library_report.sh
 #
 # Version:       1.2.0
 # Last updated:  2026-09-07 03:20
@@ -77,33 +77,41 @@
 # -----------------------------------------------------------------------------
 # USAGE
 # -----------------------------------------------------------------------------
-#   ./bin/report_library.sh                          # render the wish-list view
-#   ./bin/report_library.sh --search piranha         # find bookids first
-#   ./bin/report_library.sh --add 882939 --period 2026-09 --note "Piranha"
-#   ./bin/report_library.sh --set-status 882939 reading
-#   ./bin/report_library.sh --set-status 882939 done
-#   ./bin/report_library.sh --export md              # report_wishlist_<ts>.md
-#   ./bin/report_library.sh --list                   # raw entries, offline
-#   ./bin/report_library.sh --native                 # app wishlists, by author
-#   ./bin/report_library.sh --native title           # app wishlists, by title
-#   ./bin/report_library.sh --native series          # app wishlists, series order
-#   ./bin/report_library.sh --hybrid                 # TSV plan x app state, one view
+#   ./bin/library/library_report.sh                          # render the wish-list view
+#   ./bin/library/library_report.sh --search piranha         # find bookids first
+#   ./bin/library/library_report.sh --add 882939 --period 2026-09 --note "Piranha"
+#   ./bin/library/library_report.sh --set-status 882939 reading
+#   ./bin/library/library_report.sh --set-status 882939 done
+#   ./bin/library/library_report.sh --export md              # report_wishlist_<ts>.md
+#   ./bin/library/library_report.sh --list                   # raw entries, offline
+#   ./bin/library/library_report.sh --native                 # app wishlists, by author
+#   ./bin/library/library_report.sh --native title           # app wishlists, by title
+#   ./bin/library/library_report.sh --native series          # app wishlists, series order
+#   ./bin/library/library_report.sh --hybrid                 # TSV plan x app state, one view
 #
 # Exit codes: 0 success, 1 operational failure, 2 usage error.
 ###############################################################################
 
 set -uo pipefail
 
+# --- shared infrastructure (refactor Phase 3) ----------------------------------
+# common.sh resolves SCRIPT_DIR/PROJECT_ROOT at any bin/ depth and provides
+# log/debug/die.  Documented exception (plan §7.1, D-02 in PHASE_03 §2.1):
+# this tool's view pipelines rely on failing command substitutions, so it
+# runs WITHOUT -e — common_init --no-errexit removes it explicitly.
+# shellcheck source=../../lib/common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../lib" && pwd)/common.sh"
+common_init --no-errexit
+
 SCRIPT_VERSION="1.2.0"
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # --- shared MariaDB lifecycle (auto-start when down; graceful stop on exit) ----
 # shellcheck source=../lib/mariadb_lifecycle.sh
 source "$PROJECT_ROOT/lib/mariadb_lifecycle.sh"
 
 # --- defaults (config file may override; env wins over config) -----------------
-CONF_FILE="${REPORT_CONF_FILE:-$PROJECT_ROOT/config/report_library.conf}"
-[[ -f "$CONF_FILE" ]] && # shellcheck source=../config/report_library.conf
+CONF_FILE="${REPORT_CONF_FILE:-$PROJECT_ROOT/config/library_report.conf}"
+[[ -f "$CONF_FILE" ]] && # shellcheck source=../config/library_report.conf
     source "$CONF_FILE"
 
 WISHLIST_FILE="${REPORT_WISHLIST_FILE:-$PROJECT_ROOT/data/wishlist.tsv}"
@@ -127,13 +135,11 @@ ARG_NATIVE="author"  # native view: title | author | series | all
 ARG_EXPORT=""
 NO_DB=0
 
-log()   { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >&2; }
-debug() { if (( DEBUG )); then log "debug: $*"; fi; }
-die()   { log "error: $*"; exit 1; }
+# log/debug/die come from lib/logging.sh via common_init
 usage2(){ echo "Try '$0 --help'." >&2; }
 
 _STARTED_MARIADB=0
-tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/report_library.XXXXXX")"
+tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/library_report.XXXXXX")"
 cleanup() {
     rm -rf "$tmp_dir"
     if (( _STARTED_MARIADB )); then mariadb_stop_if_started; fi
@@ -142,7 +148,7 @@ trap cleanup EXIT
 
 print_help() {
     cat >&2 <<EOF
-Usage: report_library.sh [options]
+Usage: library_report.sh [options]
 
 Wish list (reading plan) for the personal library: the books you want to
 read within a given time period.  State lives in a TSV file
@@ -233,7 +239,7 @@ while (( $# > 0 )); do
         --no-db) NO_DB=1; shift ;;
         -d|--debug)   DEBUG=1; shift ;;
         -h|--help)    print_help; exit 0 ;;
-        -v|--version) echo "bin/report_library.sh v$SCRIPT_VERSION"; exit 0 ;;
+        -v|--version) echo "bin/library/library_report.sh v$SCRIPT_VERSION"; exit 0 ;;
         *) echo "Error: unknown option '$1'" >&2; usage2; exit 2 ;;
     esac
 done

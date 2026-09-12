@@ -400,18 +400,18 @@ Orchestrates the freshness loop: detect change -> backup -> populate.
 ./bin/library/library_refresh.sh --force     # refresh even when the checkpoint says up-to-date
 ```
 
-### `bin/report_library.sh`
+### `bin/library/library_report.sh`
 
 The personal-library wish list (reading plan) and reporting view.
 
 ```bash
-./bin/report_library.sh --search piranha        # find bookids by title/author
-./bin/report_library.sh --add 882939 --period 2026-09 --note "Piranha cycle"
-./bin/report_library.sh                         # render the wish-list view (DB join)
-./bin/report_library.sh --set-status 882939 reading
-./bin/report_library.sh --set-status 882939 done
-./bin/report_library.sh --export md             # report_wishlist_<ts>.md
-./bin/report_library.sh --list --no-db          # raw entries, offline
+./bin/library/library_report.sh --search piranha        # find bookids by title/author
+./bin/library/library_report.sh --add 882939 --period 2026-09 --note "Piranha cycle"
+./bin/library/library_report.sh                         # render the wish-list view (DB join)
+./bin/library/library_report.sh --set-status 882939 reading
+./bin/library/library_report.sh --set-status 882939 done
+./bin/library/library_report.sh --export md             # report_wishlist_<ts>.md
+./bin/library/library_report.sh --list --no-db          # raw entries, offline
 ```
 
 **Wish-list store (v1.0.0).**  State lives in `data/wishlist.tsv` —
@@ -425,7 +425,7 @@ target period then author, marks entries `[ ]` wish / `[~]` reading /
 yet in the library separately so a book can be planned before it is
 collected.  Mutations never touch the server; the view auto-starts
 MariaDB via the shared lifecycle when it is down.  Defaults live in
-`config/report_library.conf` (`REPORT_WISHLIST_FILE`,
+`config/library_report.conf` (`REPORT_WISHLIST_FILE`,
 `REPORT_OUTPUT_DIR`, `REPORT_TARGET_DB`, `REPORT_STATUSES`).
 
 **Tree-fingerprint checkpoint (v1.0.0).**  The checkpoint is a recursive
@@ -528,7 +528,7 @@ bash tests/test_lib_infrastructure.sh                # Phase 3 libs: init, root 
 bash tests/test_library_backup.sh                 # backup/restore: argv, gz artifact, restore guards, lifecycle mocks (runs anywhere)
 bash tests/test_library_populate.sh               # populate: md5 map, walk/hash, resolve, AUTO_INCREMENT strip + source-key-verbatim rebuild, parity abort, lifecycle mocks (runs anywhere)
 bash tests/test_library_refresh.sh              # refresh: checkpoint decisions (unchanged/changed/forced), child invocation, failure isolation (runs anywhere)
-bash tests/test_report_library.sh                    # report: wish-file format, mutations, view grouping, exports, tolerance, password hygiene (runs anywhere)
+bash tests/test_library_report.sh                    # report: wish-file format, mutations, view grouping, exports, tolerance, password hygiene (runs anywhere)
 bash tests/test_version_sync.sh                      # version locations agree (runs anywhere)
 ```
 
@@ -538,11 +538,11 @@ golden files.
 
 A new `tests/test_version_sync.sh` suite (runs anywhere) verifies that every
 tool's version is identical across all four tracked locations — header, lib
-twin, README release-table row, and RELEASE_NOTES shipped line. `bin/bump-version.sh`
+twin, README release-table row, and RELEASE_NOTES shipped line. `bin/version_bump.sh`
 edits all four in one shot, so use it for every bump:
 
 ```bash
-./bin/bump-version.sh build_shell_nested_authors 6.6.11
+./bin/version_bump.sh authors_tree_build 6.6.12
 ```
 
 ## Continuous integration
@@ -577,7 +577,7 @@ Releases are tagged with a tool-prefixed name:
 | `bin/library/library_backup.sh` | 1.0.0 | `library_backup-1.0.0` |
 | `bin/library/library_populate.sh` | 1.3.0 | `library_populate-1.3.0` |
 | `bin/library/library_refresh.sh` | 1.0.0 | `library_refresh-1.0.0` |
-| `bin/report_library.sh` | 1.2.0 | `report_library-1.2.0` |
+| `bin/library/library_report.sh` | 1.2.0 | `library_report-1.2.0` |
 | `lib/utf8_prefix_generator.awk` | 1.1 | `utf8_prefix_generator-1.1` |
 
 `v2.8.1` and `v6.6.8` predate the tool-prefixed convention.
@@ -602,18 +602,15 @@ To cut a release: bump the header version, run the WSL test suites (see
 ## Repository layout
 
 ```
-bin/authors/authors_prefix_build.sh           prefix-table generator (working script)
-bin/authors/authors_prefix_check.sh       prefix-table validator
-bin/authors/authors_prefix_tree.sh       prefix-tree renderer
-bin/authors/authors_tree_build.sh   nested-directory builder
-bin/authors/authors_export.sh       regenerate the author list from the DB
-bin/books/books_reconcile.sh            personal-catalog collection-progress report
-bin/books/books_estimate.sh       catalog download-size estimate for a to-collect round
-bin/library/library_backup.sh            backup/restore of the app-registered myprivatelib library DB
-bin/library/library_populate.sh          rebuild myprivatelib from the Books collection (md5-matched, explicit keys, AUTO_INCREMENT-free schema, genre tree, catalog filename)
-bin/bump-version.sh                 bump one tool's version across header + docs
-bin/books/books_merge.sh    archive -> in-memory prefix merge tool (BooksInput_<ts> out)
-bin/books/books_finalize.sh    BooksInput_* -> Books rsync finalize tool
+bin/                            user-facing commands, grouped by function
+  authors/                      authors_export.sh, authors_prefix_build.sh,
+                                authors_prefix_check.sh, authors_prefix_tree.sh,
+                                authors_tree_build.sh
+  books/                        books_merge.sh, books_finalize.sh,
+                                books_estimate.sh, books_reconcile.sh
+  library/                      library_backup.sh, library_populate.sh,
+                                library_refresh.sh, library_report.sh
+bin/version_bump.sh                 bump one tool's version across header + docs (flat in bin/, not a group)
 lib/books_functions.sh        shared functions for the merge tool
 lib/mariadb_lifecycle.sh            shared MariaDB lifecycle (start/stop/readiness)
 lib/utf8_prefix_generator.awk       original AWK generator (parity reference)

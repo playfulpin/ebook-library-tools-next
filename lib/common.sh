@@ -31,7 +31,7 @@
 #                     opt-in — only DB tools pay for them).
 #
 # NOTE: common_init sets `set -Eeuo pipefail`.  Known compatibility
-# exception, documented per plan §7.1: bin/report_library.sh runs under
+# exception, documented per plan §7.1: bin/library/library_report.sh runs under
 # `set -uo pipefail` (no -e) because its view pipeline relies on
 # non-zero command substitutions; when that tool converts (Phase 4) it
 # must call `common_init --no-errexit` or keep its own mode explicitly.
@@ -45,7 +45,7 @@ _ETL_COMMON_SH=1
 # --- 1. standard initialization (plan §7.1) -----------------------------------
 # set -E (ERR trap inheritable) + -e + -u + -o pipefail.
 # Documented exception (plan §7.1): a tool that must run WITHOUT -e (today
-# only bin/report_library.sh, `set -uo pipefail`) calls `common_init
+# only bin/library/library_report.sh, `set -uo pipefail`) calls `common_init
 # --no-errexit` immediately after sourcing — never silently.
 set -Eeuo pipefail
 
