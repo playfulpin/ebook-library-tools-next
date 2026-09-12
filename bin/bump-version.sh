@@ -38,7 +38,7 @@
 #       merge_books_into_skeleton     (0.1.x, bin + lib twin)
 #       merge_skeleton_into_books     (0.1.x)
 #       utf8_prefix_generator         (1.x, two-part versions only)
-#       export_authors_from_db        (1.0.x)
+#       export_authors_from_db        (1.0.x)  -> authors_export
 #       reconcile_library             (1.0.x)
 #       estimate_download_size        (1.0.x)
 #       backup_myprivatelib             (1.0.x)
@@ -161,7 +161,7 @@ usage() {
     echo "  merge_books_into_skeleton     (0.1.x, bin + lib twin)"
     echo "  merge_skeleton_into_books     (0.1.x)"
     echo "  utf8_prefix_generator         (1.x, two-part versions only)"
-    echo "  export_authors_from_db        (1.0.x)"
+    echo "  authors_export                (1.0.x)"
     echo "  reconcile_library             (1.0.x)"
     echo "  estimate_download_size        (1.0.x)"
     echo "  backup_myprivatelib             (1.0.x)"
@@ -222,8 +222,8 @@ main() {
             shape="x.y"
             ;;
         export_authors_from_db)
-            primary="bin/export_authors_from_db.sh"
-            marker="bin/export_authors_from_db.sh"
+            primary="bin/authors/authors_export.sh"
+            marker="bin/authors/authors_export.sh"
             ;;
         reconcile_library)
             primary="bin/reconcile_library.sh"

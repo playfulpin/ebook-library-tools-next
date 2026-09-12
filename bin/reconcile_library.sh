@@ -13,7 +13,7 @@
 #   the recommended-author list - authors with highly rated books in the
 #   chosen genre, presented to the user as a catalog to collect from
 #   (default: data/fixtures/authors_list_from_db.txt, regenerable from the
-#   MariaDB catalog via bin/export_authors_from_db.sh).  The library root
+#   MariaDB catalog via bin/authors/authors_export.sh).  The library root
 #   (default: /mnt/c/Backup_Go7/Books) is where the user keeps the books
 #   (*.fb2 / *.zip) they have collected so far for later reading.
 #
@@ -40,7 +40,7 @@
 #   snapshot is pulled so each row also carries the catalog book count
 #   (TotalCount) next to the on-disk file count; --no-db skips the pull
 #   (orphans then classify as unknown, counts show "-").
-#   The MariaDB lifecycle is shared with bin/export_authors_from_db.sh via
+#   The MariaDB lifecycle is shared with bin/authors/authors_export.sh via
 #   lib/mariadb_lifecycle.sh (auto-start when down, graceful stop on exit
 #   when this process started it).
 #

@@ -34,7 +34,7 @@
 #   same defaults.  The password is passed via MYSQL_PWD only and never
 #   appears on a client command line.  mysqldump is used for backups;
 #   MYSQLDUMP_CLIENT overrides it.  MariaDB lifecycle mirrors
-#   bin/export_authors_from_db.sh: a server that is down is started
+#   bin/authors/authors_export.sh: a server that is down is started
 #   (elevated PowerShell) and, because this tool started it, stopped again
 #   on exit (graceful SHUTDOWN with a taskkill fallback); a server that was
 #   already running is left untouched.  --dry-run never starts or stops the
@@ -126,7 +126,7 @@ cleanup() {
 trap cleanup EXIT
 
 # --- build client argv (password never included) --------------------------------
-# Array construction mirrors bin/export_authors_from_db.sh: host/port/user as
+# Array construction mirrors bin/authors/authors_export.sh: host/port/user as
 # flags, password via MYSQL_PWD only, session charset pinned with --init-command.
 build_client_args() { # name mysql|mysqldump -> sets $mysql_args / $mysqldump_args
     local which="$1" bin

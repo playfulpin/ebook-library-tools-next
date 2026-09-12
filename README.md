@@ -49,7 +49,7 @@ in the byte-sorted list (`end` is inclusive, so `count == end - start + 1`).
 - **`rsync`** — required by the finalize step
   (`bin/merge_skeleton_into_books.sh`). WSL and Ubuntu CI runners ship it.
 - **A `mysql`/`mariadb` client (optional)** — only needed to regenerate the
-  author list with `bin/export_authors_from_db.sh` and to size the next
+  author list with `bin/authors/authors_export.sh` and to size the next
   collecting round with `bin/estimate_download_size.sh`. The prefix/merge
   tools themselves never touch the database.
 
@@ -61,9 +61,9 @@ no longer a hand-maintained snapshot: regenerate it straight from the MariaDB
 catalog whenever the library changes.
 
 ```bash
-./bin/export_authors_from_db.sh                  # -> data/fixtures/authors_list_from_db.txt
-./bin/export_authors_from_db.sh --dry-run        # count the authors, write nothing
-./bin/export_authors_from_db.sh -q MY_QUERY.sql -o -   # run a different query to stdout
+./bin/authors/authors_export.sh                  # -> data/fixtures/authors_list_from_db.txt
+./bin/authors/authors_export.sh --dry-run        # count the authors, write nothing
+./bin/authors/authors_export.sh -q MY_QUERY.sql -o -   # run a different query to stdout
 ```
 
 The default query (`data/sql/qry_authors_4_and_5_all.sql`) selects authors
@@ -521,7 +521,7 @@ wsl.exe bash tests/test_utf8_prefix_generator.sh     # AWK generator: direct edg
 wsl.exe bash tests/test_e2e_pipeline.sh              # generator -> validator -> renderer on real data
 wsl.exe bash tests/test_merge_books_into_skeleton.sh # archive -> in-memory prefix hierarchy (WSL)
 wsl.exe bash tests/test_merge_skeleton_into_books.sh # BooksInput_* -> Books rsync finalize (WSL/Linux + rsync)
-bash tests/test_export_authors_from_db.sh            # exporter: argv, rows, lifecycle mocks (runs anywhere)
+bash tests/test_authors_export.sh            # exporter: argv, rows, lifecycle mocks (runs anywhere)
 bash tests/test_reconcile_library.sh                 # recon: classification + collection-progress summary (mock mysql)
 bash tests/test_estimate_download_size.sh            # estimator: sums, top-rated-first breakdown, lifecycle mocks (runs anywhere)
 bash tests/test_lib_infrastructure.sh                # Phase 3 libs: init, root detection, logging, cli, fs, db (runs anywhere)
@@ -571,7 +571,7 @@ Releases are tagged with a tool-prefixed name:
 | `bin/build_shell_nested_authors.sh` | 6.6.10 | `v6.6.10` |
 | `bin/merge_books_into_skeleton.sh` | 0.2.0 | `merge_books_into_skeleton-0.2.0` |
 | `bin/merge_skeleton_into_books.sh` | 0.2.3 | `merge_skeleton_into_books-0.2.3` |
-| `bin/export_authors_from_db.sh` | 1.0.2 | `export_authors_from_db-1.0.2` |
+| `bin/authors/authors_export.sh` | 1.0.2 | `export_authors_from_db-1.0.2` |
 | `bin/reconcile_library.sh` | 1.0.3 | `reconcile_library-1.0.3` |
 | `bin/estimate_download_size.sh` | 1.0.0 | `estimate_download_size-1.0.0` |
 | `bin/backup_myprivatelib.sh` | 1.0.0 | `backup_myprivatelib-1.0.0` |
@@ -589,7 +589,7 @@ on top of the library-catalog refactor**, moved the merge pipeline to run
 without an on-disk skeleton (in-memory `BooksInput_<ts>` staging, rsync
 finalize with a live `pv -l` progress bar) and added CI on every push and
 pull request.  **`v1.2.0`, cut 2026-09-03, is the current production
-release**: the author list is DB-driven — `bin/export_authors_from_db.sh`
+release**: the author list is DB-driven — `bin/authors/authors_export.sh`
 regenerates `data/fixtures/authors_list_from_db.txt` from a query against
 the MariaDB catalog and manages the server lifecycle itself (auto-start
 when down, graceful stop on exit), and the working fixture is a
@@ -606,7 +606,7 @@ bin/build_prefix_table.sh           prefix-table generator (working script)
 bin/prefix_table_integrity.sh       prefix-table validator
 bin/prefix_tree_visualizer.sh       prefix-tree renderer
 bin/build_shell_nested_authors.sh   nested-directory builder
-bin/export_authors_from_db.sh       regenerate the author list from the DB
+bin/authors/authors_export.sh       regenerate the author list from the DB
 bin/reconcile_library.sh            personal-catalog collection-progress report
 bin/estimate_download_size.sh       catalog download-size estimate for a to-collect round
 bin/backup_myprivatelib.sh            backup/restore of the app-registered myprivatelib library DB
@@ -631,7 +631,7 @@ tests/                          fixtures and golden files
 
 docs/BOOK_LIBRARY_MERGE_PLAN.md        skeleton + merge design document
 
-data/fixtures/authors_list_from_db.txt        flat author list (regenerated from the DB by bin/export_authors_from_db.sh)
+data/fixtures/authors_list_from_db.txt        flat author list (regenerated from the DB by bin/authors/authors_export.sh)
 data/sql/CTE_table.sql / data/sql/populate_tree.sql   nested-set dictionary table (schema + data)
 data/sql/qry_authors_4_and_5_all.sql           default author-list query (rated-4/5 authors) for the exporter
 

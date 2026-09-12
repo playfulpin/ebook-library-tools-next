@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# bin/export_authors_from_db.sh
+# bin/authors/authors_export.sh
 #
 # Version:       1.0.2
 # Last updated:  2026-09-03
@@ -36,7 +36,7 @@
 # -----------------------------------------------------------------------------
 # USAGE
 # -----------------------------------------------------------------------------
-#   ./bin/export_authors_from_db.sh [options]
+#   ./bin/authors/authors_export.sh [options]
 #
 #   Options:
 #       -q, --query-file FILE   SQL file to execute
@@ -77,8 +77,13 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# --- shared infrastructure (refactor Phase 3) ----------------------------------
+# common.sh sets set -Eeuo pipefail, resolves SCRIPT_DIR/PROJECT_ROOT at any
+# bin/ depth, and provides log/debug/die; it does NOT source database.sh
+# (opt-in), and mariadb_lifecycle.sh stays sourced explicitly below.
+# shellcheck source=../lib/common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../lib" && pwd)/common.sh"
+common_init
 
 readonly SCRIPT_VERSION="$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
 
@@ -97,14 +102,9 @@ MYSQL_EXTRA_ARGS="${MYSQL_EXTRA_ARGS:---default-character-set=utf8}"
 QUERY_FILE="${QUERY_FILE:-$PROJECT_ROOT/data/sql/qry_authors_4_and_5_all.sql}"
 OUTPUT_FILE="${OUTPUT_FILE:-$PROJECT_ROOT/data/fixtures/authors_list_from_db.txt}"
 DRY_RUN=0
-DEBUG=0
-
-log()  { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >&2; }
-debug() { if (( DEBUG )); then log "debug: $*"; fi; }
-die()  { log "error: $*"; exit 1; }
 
 # --- shared MariaDB lifecycle (lib/mariadb_lifecycle.sh) -----------------------
-# shellcheck source=../lib/mariadb_lifecycle.sh
+# shellcheck source=../../lib/mariadb_lifecycle.sh
 source "$PROJECT_ROOT/lib/mariadb_lifecycle.sh"
 
 # EXIT trap: remove temp files and stop MariaDB only if this script started it.
@@ -119,7 +119,7 @@ trap cleanup EXIT
 
 print_help() {
     cat >&2 <<'EOF'
-Usage: export_authors_from_db.sh [options]
+Usage: authors_export.sh [options]
 
 Regenerate the flat author list (one name per line) from the MariaDB
 catalog by running a query file, e.g. data/sql/qry_authors_4_and_5_all.sql.
@@ -159,8 +159,7 @@ while (( $# > 0 )); do
         --output=*) OUTPUT_FILE="${1#*=}"; shift ;;
         -n|--dry-run) DRY_RUN=1; shift ;;
         -d|--debug)   DEBUG=1; shift ;;
-        -h|--help)    print_help; exit 0 ;;
-        -v|--version) echo "bin/export_authors_from_db.sh v$SCRIPT_VERSION"; exit 0 ;;
+        -h|--help)    print_help; exit 0 ;;        -v|--version) echo "bin/authors/authors_export.sh v$SCRIPT_VERSION"; exit 0 ;;
         *) echo "Error: unknown option '$1'" >&2; echo "Try '$0 --help'." >&2; exit 2 ;;
     esac
 done

@@ -5,7 +5,7 @@
 #
 # End-to-end regression suite for the toolchain's three-stage pipeline run on
 # the REAL author list (data/fixtures/authors_list_from_db.txt, regenerated
-# from the MariaDB catalog by bin/export_authors_from_db.sh):
+# from the MariaDB catalog by bin/authors/authors_export.sh):
 #
 #     bin/build_prefix_table.sh  ->  bin/prefix_table_integrity.sh  ->  bin/prefix_tree_visualizer.sh
 #     (generate)                  (validate)                    (render)

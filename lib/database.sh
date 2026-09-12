@@ -9,7 +9,7 @@
 # Last updated:  2026-09-07
 #
 # Provides (seeded verbatim from the argv block repeated in
-# reconcile_library.sh / report_library.sh / export_authors_from_db.sh):
+# reconcile_library.sh / report_library.sh / authors_export.sh):
 #   db_mysql_argv      - assemble the shared mysql argv from MYSQL_* env
 #   db_run_query       - execute a query file, stdout only
 #   db_run_sql         - execute an inline SQL string, stdout only

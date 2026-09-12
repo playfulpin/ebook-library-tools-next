@@ -150,7 +150,7 @@ check_tool utf8_prefix_generator \
     "lib/utf8_prefix_generator.awk" "" "lib/utf8_prefix_generator.awk"
 
 check_tool export_authors_from_db \
-    "bin/export_authors_from_db.sh" "" "bin/export_authors_from_db.sh"
+    "bin/authors/authors_export.sh" "" "bin/authors/authors_export.sh"
 
 check_tool reconcile_library \
     "bin/reconcile_library.sh" "" "bin/reconcile_library.sh"

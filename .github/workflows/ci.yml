@@ -18,7 +18,7 @@ jobs:
       - name: Shell syntax check
         run: |
           set -e
-          for f in bin/*.sh lib/*.sh lib/*.awk; do
+          for f in bin/*.sh bin/*/*.sh lib/*.sh lib/*.awk; do
             [[ -f "$f" ]] || continue
             case "$f" in
               *.sh) bash -n "$f" ;;
@@ -34,7 +34,7 @@ jobs:
         run: |
           bash tests/test_merge_books_into_skeleton.sh
           bash tests/test_merge_skeleton_into_books.sh
-          bash tests/test_export_authors_from_db.sh
+          bash tests/test_authors_export.sh
           bash tests/test_reconcile_library.sh
           bash tests/test_estimate_download_size.sh
           bash tests/test_backup_myprivatelib.sh

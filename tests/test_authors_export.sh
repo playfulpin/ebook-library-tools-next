@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# tests/test_export_authors_from_db.sh
+# tests/test_authors_export.sh
 #
-# Regression suite for bin/export_authors_from_db.sh (the DB -> flat author
+# Regression suite for bin/authors/authors_export.sh (the DB -> flat author
 # list exporter).  No real MariaDB is needed: the suite installs a mock
 # `mysql` earlier in PATH that records its argv and emits canned result rows.
 #
@@ -21,14 +21,14 @@
 #     reports would-start / would-stop
 #   - version header stays in sync with `--version` (1.0.x)
 #
-# Usage:  bash tests/test_export_authors_from_db.sh
+# Usage:  bash tests/test_authors_export.sh
 # Runs anywhere (pure text processing; the mock avoids any DB dependency).
 # -----------------------------------------------------------------------------
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-EXPORTER="$REPO_ROOT/bin/export_authors_from_db.sh"
+EXPORTER="$REPO_ROOT/bin/authors/authors_export.sh"
 
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -90,7 +90,7 @@ run_export() { # [args...] ; stdout->$OUT, stderr->$ERR ; rc->$RC
     RC=$?
 }
 
-echo "== export_authors_from_db =="
+echo "== authors_export =="
 
 # --- version / usage -----------------------------------------------------------
 version="$(sed -n 's/^# Version:[[:space:]]*//p' "$EXPORTER" | head -n 1)"
@@ -101,7 +101,7 @@ else
 fi
 
 bash "$EXPORTER" --version >"$TMPDIR/v.txt" 2>&1
-if [[ "$(cat "$TMPDIR/v.txt")" == "bin/export_authors_from_db.sh v$version" ]]; then
+if [[ "$(cat "$TMPDIR/v.txt")" == "bin/authors/authors_export.sh v$version" ]]; then
     report "version_flag" ok
 else
     report "version_flag" fail "got '$(cat "$TMPDIR/v.txt")'"

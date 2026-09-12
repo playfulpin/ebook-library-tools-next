@@ -10,7 +10,7 @@
 #   Shared MariaDB lifecycle management for tools that talk to the portable
 #   MariaDB running on the Windows host (WSL2 <-> Windows interop), identical
 #   to the logic in BookTracker-import's booktracker-ingest_functions.sh and
-#   previously inlined in bin/export_authors_from_db.sh.
+#   previously inlined in bin/authors/authors_export.sh.
 #
 #   The sourced tool defines `log()` (stderr timestamped line) and the
 #   variables DRY_RUN and MYSQL_* before sourcing this file, then uses:
