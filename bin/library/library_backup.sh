@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# bin/backup_myprivatelib.sh
+# bin/library/library_backup.sh
 #
 # Version:       1.0.0
 # Last updated:  2026-09-04
@@ -43,7 +43,7 @@
 # -----------------------------------------------------------------------------
 # USAGE
 # -----------------------------------------------------------------------------
-#   ./bin/backup_myprivatelib.sh [options] [backup | restore FILE | verify FILE | list]
+#   ./bin/library/library_backup.sh [options] [backup | restore FILE | verify FILE | list]
 #
 #   Actions (positional; default: backup):
 #       backup               dump + gzip the library DB into BACKUP_DIR
@@ -65,7 +65,7 @@
 #       1   operational failure (client missing, server down, bad backup)
 #       2   usage error
 #
-#   Environment / config (config/backup_myprivatelib.conf; all overridable):
+#   Environment / config (config/library_backup.conf; all overridable):
 #       BACKUP_DIR      where backups live (default: /mnt/c/Backup_Go7/myprivatelib-backups)
 #       BACKUP_DB       the library database to back up (default: myprivatelib)
 #       BACKUP_KEEP     keep only the N newest backups; 0 = keep all (default: 0)
@@ -80,8 +80,12 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# --- shared infrastructure (refactor Phase 3) ----------------------------------
+# common.sh sets set -Eeuo pipefail, resolves SCRIPT_DIR/PROJECT_ROOT at any
+# bin/ depth, and provides log/debug/die.
+# shellcheck source=../../lib/common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../lib" && pwd)/common.sh"
+common_init
 
 readonly SCRIPT_VERSION="$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
 
@@ -98,7 +102,7 @@ MYSQLDUMP_CLIENT="${MYSQLDUMP_CLIENT:-mysqldump}"
 MYSQL_CONNECT_TIMEOUT="${MYSQL_CONNECT_TIMEOUT:-10}"
 
 # --- config file ---------------------------------------------------------------
-CONF_FILE="${CONF_FILE:-$PROJECT_ROOT/config/backup_myprivatelib.conf}"
+CONF_FILE="${CONF_FILE:-$PROJECT_ROOT/config/library_backup.conf}"
 [[ -f "$CONF_FILE" ]] && source "$CONF_FILE"
 
 BACKUP_DIR="${BACKUP_DIR:-/mnt/c/Backup_Go7/myprivatelib-backups}"
@@ -107,10 +111,6 @@ BACKUP_KEEP="${BACKUP_KEEP:-0}"
 DRY_RUN=0
 DEBUG=0
 FORCE=0
-
-log()  { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >&2; }
-debug() { if (( DEBUG )); then log "debug: $*"; fi; }
-die()  { log "error: $*"; exit 1; }
 
 # --- shared MariaDB lifecycle (lib/mariadb_lifecycle.sh) -----------------------
 # shellcheck source=../lib/mariadb_lifecycle.sh
@@ -305,7 +305,7 @@ do_list() {
 
 print_help() {
     cat >&2 <<'EOF'
-Usage: backup_myprivatelib.sh [options] [backup | restore FILE | verify FILE | list]
+Usage: library_backup.sh [options] [backup | restore FILE | verify FILE | list]
 
 Backup and restore the personal library database (myprivatelib) with
 mysqldump.  This is the safety net that must exist BEFORE anything is
@@ -328,7 +328,7 @@ Options:
 
 Exit codes: 0 success, 1 operational failure, 2 usage error.
 
-Environment / config (config/backup_myprivatelib.conf, all overridable):
+Environment / config (config/library_backup.conf, all overridable):
   BACKUP_DIR / BACKUP_DB / BACKUP_KEEP
   MYSQLDUMP_CLIENT, MYSQL_CLIENT, MYSQL_HOST, MYSQL_PORT, MYSQL_USER,
   MYSQL_PASSWORD (MYSQL_PWD only), MYSQL_EXTRA_ARGS,
@@ -348,7 +348,7 @@ while (( $# > 0 )); do
         -n|--dry-run) DRY_RUN=1; shift ;;
         -d|--debug)   DEBUG=1; shift ;;
         -h|--help)    print_help; exit 0 ;;
-        -v|--version) echo "bin/backup_myprivatelib.sh v$SCRIPT_VERSION"; exit 0 ;;
+        -v|--version) echo "bin/library/library_backup.sh v$SCRIPT_VERSION"; exit 0 ;;
         -*)
             echo "Error: unknown option '$1'" >&2; echo "Try '$0 --help'." >&2; exit 2 ;;
         *)

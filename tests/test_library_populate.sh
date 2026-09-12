@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# tests/test_populate_myprivatelib.sh
+# tests/test_library_populate.sh
 #
-# Regression suite for bin/populate_myprivatelib.sh v1.3.0 (rebuild of the
+# Regression suite for bin/library/library_populate.sh v1.3.0 (rebuild of the
 # app-registered personal library DB from the on-disk Books collection by
 # md5-matching against the flibusta catalog, with SOURCE keys copied
 # VERBATIM (no synthetic keys) and an AUTO_INCREMENT-free target schema).
@@ -48,14 +48,14 @@
 #     use / stop, no tasklist disables management, --dry-run reports only)
 #   - version header stays in sync with `--version` (1.3.x)
 #
-# Usage:  bash tests/test_populate_myprivatelib.sh
+# Usage:  bash tests/test_library_populate.sh
 # Runs anywhere (pure text processing; the mocks avoid any DB dependency).
 # -----------------------------------------------------------------------------
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-TOOL="$REPO_ROOT/bin/populate_myprivatelib.sh"
+TOOL="$REPO_ROOT/bin/library/library_populate.sh"
 
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -321,7 +321,7 @@ mlauthor 3}" \
 sql()  { grep -c "$1" "$MOCK_SQL_LOG" 2>/dev/null || echo 0; }
 argv() { grep -c "$1" "$MOCK_LOG" 2>/dev/null || echo 0; }
 
-echo "== populate_myprivatelib (source keys verbatim) =="
+echo "== library_populate (source keys verbatim) =="
 
 # --- version / usage -----------------------------------------------------------
 version="$(sed -n 's/^# Version:[[:space:]]*//p' "$TOOL" | head -n 1)"
@@ -331,7 +331,7 @@ case "$version" in
 esac
 
 bash "$TOOL" --version >"$TMPDIR/v.txt" 2>&1
-if [[ "$(cat "$TMPDIR/v.txt")" == "bin/populate_myprivatelib.sh v$version" ]]; then
+if [[ "$(cat "$TMPDIR/v.txt")" == "bin/library/library_populate.sh v$version" ]]; then
     report "version_flag" ok
 else
     report "version_flag" fail "got '$(cat "$TMPDIR/v.txt")'"
@@ -553,7 +553,7 @@ if grep -q "bookids registered" "$OUT" && grep -q "3" "$OUT" <<<"$(grep 'bookids
 else
     report "bookids_registered" fail "out=$(grep 'bookids' "$OUT" | tr '\n' '|')"
 fi
-report_f="$(ls -1 "$REPORT_DIR"/populate_myprivatelib_*.tsv 2>/dev/null | head -n 1 || true)"
+report_f="$(ls -1 "$REPORT_DIR"/library_populate_*.tsv 2>/dev/null | head -n 1 || true)"
 if [[ -n "$report_f" ]] && grep -q "^processed_at" "$report_f" \
    && grep -q "$zip1_md5" "$report_f" \
    && grep -q "$fb2_md5" "$report_f"; then

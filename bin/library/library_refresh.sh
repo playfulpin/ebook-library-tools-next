@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# bin/refresh_myprivatelib.sh
+# bin/library/library_refresh.sh
 #
 # Version:       1.0.0
 # Last updated:  2026-09-06 22:00
@@ -28,8 +28,8 @@
 #       1. fingerprint the Books tree          (find -printf, sorted)
 #       2. compare against the checkpoint file -> up-to-date or needs-work
 #       3. needs-work:
-#            a. backup_myprivatelib.sh         (safety dump before the purge)
-#            b. populate_myprivatelib.sh       (md5 match + verbatim keys)
+#            a. library_backup.sh         (safety dump before the purge)
+#            b. library_populate.sh       (md5 match + verbatim keys)
 #       4. write the new checkpoint (mtime = run stamp)
 #
 #   Steps a/b delegate to the existing tools via `bash "$tool"` with
@@ -51,7 +51,7 @@
 # -----------------------------------------------------------------------------
 # USAGE
 # -----------------------------------------------------------------------------
-#   ./bin/refresh_myprivatelib.sh [options]
+#   ./bin/library/library_refresh.sh [options]
 #
 #   Options:
 #       -f, --force          skip the checkpoint comparison, always run
@@ -68,7 +68,7 @@
 #       1   operational failure
 #       2   usage error
 #
-#   Environment / config (config/refresh_myprivatelib.conf; all overridable):
+#   Environment / config (config/library_refresh.conf; all overridable):
 #       REFRESH_LIBRARY_ROOT   the Books tree to watch (default:
 #                              /mnt/c/Backup_Go7/Books - keep in sync with
 #                              POP_LIBRARY_ROOT)
@@ -84,13 +84,17 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# --- shared infrastructure (refactor Phase 3) ----------------------------------
+# common.sh sets set -Eeuo pipefail, resolves SCRIPT_DIR/PROJECT_ROOT at any
+# bin/ depth, and provides log/debug/die.
+# shellcheck source=../../lib/common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../lib" && pwd)/common.sh"
+common_init
 
 readonly SCRIPT_VERSION="$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
 
 # --- config file ---------------------------------------------------------------
-CONF_FILE="${CONF_FILE:-$PROJECT_ROOT/config/refresh_myprivatelib.conf}"
+CONF_FILE="${CONF_FILE:-$PROJECT_ROOT/config/library_refresh.conf}"
 [[ -f "$CONF_FILE" ]] && source "$CONF_FILE"
 
 REFRESH_LIBRARY_ROOT="${REFRESH_LIBRARY_ROOT:-/mnt/c/Backup_Go7/Books}"
@@ -102,10 +106,6 @@ DRY_RUN=0
 FORCE=0
 STATUS_ONLY=0
 DEBUG=0
-
-log()  { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >&2; }
-debug() { if (( DEBUG )); then log "debug: $*"; fi; }
-die()  { log "error: $*"; exit 1; }
 
 checkpoint_file="$REFRESH_REPORT_DIR/$REFRESH_CHECKPOINT"
 
@@ -159,13 +159,13 @@ while (( $# > 0 )); do
         -d|--debug)   DEBUG=1; shift ;;
         -h|--help)
             cat >&2 <<'EOF'
-Usage: refresh_myprivatelib.sh [options]
+Usage: library_refresh.sh [options]
 
 Orchestrate the freshness loop of the personal library (myprivatelib):
 fingerprint the on-disk Books tree (rel path + size + mtime per file),
 compare against the checkpoint from the previous run, and when anything
-changed run the safety backup (backup_myprivatelib.sh) followed by the
-rebuild (populate_myprivatelib.sh), then write the new checkpoint.
+changed run the safety backup (library_backup.sh) followed by the
+rebuild (library_populate.sh), then write the new checkpoint.
 The checkpoint is a recursive tree fingerprint - not a single stat of
 the root folder - because folder mtimes do not reliably propagate on
 the Windows mount when files land in subfolders.
@@ -181,12 +181,12 @@ Options:
 Exit codes: 0 success (incl. up to date), 1 operational failure,
 2 usage error.
 
-Environment / config (config/refresh_myprivatelib.conf, all overridable):
+Environment / config (config/library_refresh.conf, all overridable):
   REFRESH_LIBRARY_ROOT / REFRESH_REPORT_DIR / REFRESH_CHECKPOINT /
   REFRESH_MYSQL_ARGS; MYSQL_* pass through to the child tools.
 EOF
             exit 0 ;;
-        -v|--version) echo "bin/refresh_myprivatelib.sh v$SCRIPT_VERSION"; exit 0 ;;
+        -v|--version) echo "bin/library/library_refresh.sh v$SCRIPT_VERSION"; exit 0 ;;
         *) echo "Error: unknown option '$1'" >&2; echo "Try '$0 --help'." >&2; exit 2 ;;
     esac
 done
@@ -224,8 +224,8 @@ esac
 
 if (( DRY_RUN )); then
     if (( FORCE )) || [[ "$decision" != "up-to-date" ]]; then
-        log "dry-run: would back up myprivatelib (backup_myprivatelib.sh)"
-        log "dry-run: would rebuild myprivatelib from $REFRESH_LIBRARY_ROOT (populate_myprivatelib.sh)"
+        log "dry-run: would back up myprivatelib (library_backup.sh)"
+        log "dry-run: would rebuild myprivatelib from $REFRESH_LIBRARY_ROOT (library_populate.sh)"
         log "dry-run: would write the checkpoint to $checkpoint_file"
     fi
     exit 0
@@ -233,11 +233,11 @@ fi
 
 # --- the real refresh: backup -> populate -> checkpoint ------------------------------
 log "info : step 1/3: safety backup"
-run_tool "$PROJECT_ROOT/bin/backup_myprivatelib.sh" \
+run_tool "$PROJECT_ROOT/bin/library/library_backup.sh" \
     || die "backup failed; myprivatelib left untouched (populate not run)"
 
 log "info : step 2/3: rebuild"
-run_tool "$PROJECT_ROOT/bin/populate_myprivatelib.sh" \
+run_tool "$PROJECT_ROOT/bin/library/library_populate.sh" \
     || die "populate failed; the pre-run backup above preserves the previous state"
 
 log "info : step 3/3: checkpoint"

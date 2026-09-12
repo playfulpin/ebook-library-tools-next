@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# tests/test_estimate_download_size.sh
+# tests/test_books_estimate.sh
 #
-# Regression suite for bin/estimate_download_size.sh (the catalog download-
+# Regression suite for bin/books/books_estimate.sh (the catalog download-
 # size estimator for a to-collect author list).  No real MariaDB is needed:
 # the suite installs a mock `mysql` earlier in PATH that records its argv,
 # reads the query on stdin, and emits canned rows for the five query shapes:
@@ -33,14 +33,14 @@
 #     would-stop
 #   - version header stays in sync with `--version` (1.0.x)
 #
-# Usage:  bash tests/test_estimate_download_size.sh
+# Usage:  bash tests/test_books_estimate.sh
 # Runs anywhere (pure text processing; the mock avoids any DB dependency).
 # -----------------------------------------------------------------------------
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-ESTIMATOR="$REPO_ROOT/bin/estimate_download_size.sh"
+ESTIMATOR="$REPO_ROOT/bin/books/books_estimate.sh"
 
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -139,7 +139,7 @@ run_estimate() { # [args...] ; stdout->$OUT, stderr->$ERR ; rc->$RC
     RC=$?
 }
 
-echo "== estimate_download_size =="
+echo "== books_estimate =="
 
 # --- version / usage -----------------------------------------------------------
 version="$(sed -n 's/^# Version:[[:space:]]*//p' "$ESTIMATOR" | head -n 1)"
@@ -150,7 +150,7 @@ else
 fi
 
 bash "$ESTIMATOR" --version >"$TMPDIR/v.txt" 2>&1
-if [[ "$(cat "$TMPDIR/v.txt")" == "bin/estimate_download_size.sh v$version" ]]; then
+if [[ "$(cat "$TMPDIR/v.txt")" == "bin/books/books_estimate.sh v$version" ]]; then
     report "version_flag" ok
 else
     report "version_flag" fail "got '$(cat "$TMPDIR/v.txt")'"
@@ -237,12 +237,12 @@ else
 fi
 
 # --- default output path (report dir exists) --------------------------------------
-rm -f "$REPORT_DIR"/estimate_download_size_*.tsv
+rm -f "$REPORT_DIR"/books_estimate_*.tsv
 MOCK_RC=0 run_estimate
-if (( RC == 0 )) && ls "$REPORT_DIR"/estimate_download_size_*.tsv >/dev/null 2>&1; then
+if (( RC == 0 )) && ls "$REPORT_DIR"/books_estimate_*.tsv >/dev/null 2>&1; then
     report "default_output_path" ok
 else
-    report "default_output_path" fail "rc=$RC no estimate_download_size_*.tsv in $REPORT_DIR"
+    report "default_output_path" fail "rc=$RC no books_estimate_*.tsv in $REPORT_DIR"
 fi
 
 # --- dry-run: connects, summarizes, writes nothing ---------------------------------

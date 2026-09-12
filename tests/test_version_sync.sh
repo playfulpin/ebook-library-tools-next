@@ -152,20 +152,20 @@ check_tool utf8_prefix_generator \
 check_tool export_authors_from_db \
     "bin/authors/authors_export.sh" "" "bin/authors/authors_export.sh"
 
-check_tool reconcile_library \
-    "bin/reconcile_library.sh" "" "bin/reconcile_library.sh"
+check_tool books_reconcile \
+    "bin/books/books_reconcile.sh" "" "bin/books/books_reconcile.sh"
 
-check_tool estimate_download_size \
-    "bin/estimate_download_size.sh" "" "bin/estimate_download_size.sh"
+check_tool books_estimate \
+    "bin/books/books_estimate.sh" "" "bin/books/books_estimate.sh"
 
-check_tool backup_myprivatelib \
-    "bin/backup_myprivatelib.sh" "" "bin/backup_myprivatelib.sh"
+check_tool library_backup \
+    "bin/library/library_backup.sh" "" "bin/library/library_backup.sh"
 
-check_tool populate_myprivatelib \
-    "bin/populate_myprivatelib.sh" "" "bin/populate_myprivatelib.sh"
+check_tool library_populate \
+    "bin/library/library_populate.sh" "" "bin/library/library_populate.sh"
 
-check_tool refresh_myprivatelib \
-    "bin/refresh_myprivatelib.sh" "" "bin/refresh_myprivatelib.sh"
+check_tool library_refresh \
+    "bin/library/library_refresh.sh" "" "bin/library/library_refresh.sh"
 
 check_tool report_library \
     "bin/report_library.sh" "" "bin/report_library.sh"

@@ -1,13 +1,13 @@
 # NEXT — where to resume
 
-> Updated: 2026-09-12 — **refactoring Phase 4 underway**:
-> rename groups 1+2 are DONE — the AUTHORS chain lives in
-> `bin/authors/` and the critical merge pair in `bin/books/`
-> (`books_merge` + `lib/books_functions.sh` twin + `books_finalize`);
-> CI green. Remaining groups per D-02.5: 3rd = books_estimate,
-> books_reconcile + library_backup/populate/refresh, 4th =
-> library_report, last = version_bump (flat, no move). Phases 1–3
-> complete (inventory, architecture, common infrastructure).
+> Updated: 2026-09-12 — **refactoring Phase 4, groups 1–3 DONE**:
+> AUTHORS chain in `bin/authors/`, merge pair + estimate/reconcile in
+> `bin/books/`, backup/populate/refresh in `bin/library/`; infra
+> consumers converted onto `common_init`; progress log in
+> `docs/PHASE_04_TOOL_CONVERSION.md`. Remaining: **group 4** —
+> `report_library` → `library_report`, `bump-version` → `version_bump`
+> (flat), configs, final docs pass, then `ARCHITECTURE.md` and a
+> release. Phases 1–3 complete.
 
 ## Resume checklist
 

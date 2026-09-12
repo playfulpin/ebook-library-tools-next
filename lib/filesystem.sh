@@ -13,7 +13,7 @@
 #   fs_require_file     - die unless a file exists
 #   fs_mktmp            - safe mktemp dir with house naming + trap cleanup
 #   fs_tree_fingerprint - Books-tree fingerprint (rel path, size, mtime),
-#                         byte-stable; verbatim from bin/refresh_myprivatelib.sh
+#                         byte-stable; verbatim from bin/library/library_refresh.sh
 #   fs_prune_empty_dirs - the house prune one-liner with dry-run support;
 #                         verbatim from bin/books/books_finalize.sh
 #
@@ -49,7 +49,7 @@ fs_mktmp() { # $1 = prefix
     mktemp -d "${TMPDIR:-/tmp}/${prefix}.XXXXXX"
 }
 
-# --- tree fingerprint (verbatim from refresh_myprivatelib.sh v1.0.0) -----------
+# --- tree fingerprint (verbatim from library_refresh.sh v1.0.0) -----------
 # Why not a root-only stat: mtimes of parent directories do not reliably
 # propagate on the Windows/9P mount when files are added to subfolders.
 # LC_ALL=C keeps the sort byte-stable so identical trees produce

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# bin/estimate_download_size.sh
+# bin/books/books_estimate.sh
 #
 # Version:       1.0.0
 # Last updated:  2026-09-03 22:35
@@ -11,8 +11,8 @@
 # -----------------------------------------------------------------------------
 #   Estimate the download size of the next collecting round BEFORE anything
 #   is downloaded.  Given a to-collect author list (one canonical name per
-#   line - e.g. the reconcile_library.sh shopping-list export
-#   reconcile_to_collect_<ts>.txt, or the recommended-author fixture
+#   line - e.g. the books_reconcile.sh shopping-list export
+#   books_reconcile_to_collect_<ts>.txt, or the recommended-author fixture
 #   data/fixtures/authors_list_from_db.txt), it sums the real per-book
 #   sizes the catalog stores (mlbook.filesize) for those authors and prints
 #   two DISTINCT-BOOK totals (a co-authored book counts once even when
@@ -47,13 +47,13 @@
 # -----------------------------------------------------------------------------
 # USAGE
 # -----------------------------------------------------------------------------
-#   ./bin/estimate_download_size.sh [options]
+#   ./bin/books/books_estimate.sh [options]
 #
 #   Options:
 #       -i, --input-file FILE   to-collect author list (one name per line)
 #                               [default: data/fixtures/authors_list_from_db.txt]
 #       -o, --output FILE       per-author breakdown TSV (top-rated first)
-#                               [default: <report-dir>/estimate_download_size_<ts>.tsv]
+#                               [default: <report-dir>/books_estimate_<ts>.tsv]
 #       -r, --report-dir DIR    directory for the breakdown file
 #                               [default: /mnt/c/Backup_Go7/merge-reports]
 #       -n, --dry-run           connect, compute, summarize; write nothing
@@ -66,7 +66,7 @@
 #       1   operational failure (client missing, server down, bad query)
 #       2   usage error
 #
-#   Environment (all optional; also settable in config/estimate_download_size.conf):
+#   Environment (all optional; also settable in config/books_estimate.conf):
 #       ESTIMATE_INPUT_FILE / ESTIMATE_REPORT_DIR
 #       plus the MYSQL_* and MARIA_* contract from BookTracker-import
 #       (defaults in lib/mariadb_lifecycle.sh).
@@ -75,13 +75,17 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# --- shared infrastructure (refactor Phase 3) ----------------------------------
+# common.sh sets set -Eeuo pipefail, resolves SCRIPT_DIR/PROJECT_ROOT at any
+# bin/ depth, and provides log/debug/die.
+# shellcheck source=../../lib/common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../lib" && pwd)/common.sh"
+common_init
 
 readonly SCRIPT_VERSION="$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
 
 # --- config file (flag > env > config > built-in default) --------------------
-CONF_FILE="${ESTIMATE_CONF_FILE:-$PROJECT_ROOT/config/estimate_download_size.conf}"
+CONF_FILE="${ESTIMATE_CONF_FILE:-$PROJECT_ROOT/config/books_estimate.conf}"
 if [[ -f "$CONF_FILE" ]]; then
     # shellcheck disable=SC1090
     source "$CONF_FILE"
@@ -93,10 +97,6 @@ ESTIMATE_REPORT_DIR="${ESTIMATE_REPORT_DIR:-/mnt/c/Backup_Go7/merge-reports}"
 OUTPUT_FILE=""
 DRY_RUN=0
 DEBUG=0
-
-log()  { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >&2; }
-debug() { if (( DEBUG )); then log "debug: $*"; fi; }
-die()  { log "error: $*"; exit 1; }
 
 # --- shared MariaDB lifecycle (lib/mariadb_lifecycle.sh) -----------------------
 # shellcheck source=../lib/mariadb_lifecycle.sh
@@ -111,12 +111,12 @@ trap cleanup EXIT
 
 print_help() {
     cat >&2 <<'EOF'
-Usage: estimate_download_size.sh [options]
+Usage: books_estimate.sh [options]
 
 Estimate the download size of the next collecting round straight from the
 catalog, BEFORE anything is downloaded.  The input is a to-collect author
 list (one canonical name per line - e.g. the reconcile shopping-list export
-reconcile_to_collect_<ts>.txt, or data/fixtures/authors_list_from_db.txt).
+books_reconcile_to_collect_<ts>.txt, or data/fixtures/authors_list_from_db.txt).
 Two DISTINCT-BOOK totals are computed from real per-book sizes
 (mlbook.filesize) - a co-authored book counts once even when several list
 authors wrote it, so the totals are the honest "how much will I download":
@@ -145,7 +145,7 @@ Options:
   -i, --input-file FILE   to-collect author list (one name per line)
                           [default: data/fixtures/authors_list_from_db.txt]
   -o, --output FILE       per-author breakdown TSV (top-rated first)
-                          [default: <report-dir>/estimate_download_size_<ts>.tsv]
+                          [default: <report-dir>/books_estimate_<ts>.tsv]
   -r, --report-dir DIR    directory for the breakdown file
                           [default: /mnt/c/Backup_Go7/merge-reports]
   -n, --dry-run           connect, compute, summarize; write nothing
@@ -175,7 +175,7 @@ while (( $# > 0 )); do
         -n|--dry-run) DRY_RUN=1; shift ;;
         -d|--debug)   DEBUG=1; shift ;;
         -h|--help)    print_help; exit 0 ;;
-        -v|--version) echo "bin/estimate_download_size.sh v$SCRIPT_VERSION"; exit 0 ;;
+        -v|--version) echo "bin/books/books_estimate.sh v$SCRIPT_VERSION"; exit 0 ;;
         *) echo "Error: unknown option '$1'" >&2; echo "Try '$0 --help'." >&2; exit 2 ;;
     esac
 done
@@ -391,14 +391,14 @@ if (( DRY_RUN )); then
     if [[ -n "$OUTPUT_FILE" ]]; then
         log "dry-run: would write breakdown to $OUTPUT_FILE"
     else
-        log "dry-run: would write breakdown to $ESTIMATE_REPORT_DIR/estimate_download_size_<ts>.tsv"
+        log "dry-run: would write breakdown to $ESTIMATE_REPORT_DIR/books_estimate_<ts>.tsv"
     fi
     exit 0
 fi
 
 if [[ -z "$OUTPUT_FILE" ]]; then
     [[ -d "$ESTIMATE_REPORT_DIR" ]] || die "report directory does not exist: $ESTIMATE_REPORT_DIR"
-    OUTPUT_FILE="$ESTIMATE_REPORT_DIR/estimate_download_size_$(date '+%Y%m%d-%H%M%S').tsv"
+    OUTPUT_FILE="$ESTIMATE_REPORT_DIR/books_estimate_$(date '+%Y%m%d-%H%M%S').tsv"
 fi
 out_dir="$(dirname "$OUTPUT_FILE")"
 [[ -d "$out_dir" ]] || die "output directory does not exist: $out_dir"

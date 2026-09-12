@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# tests/test_reconcile_library.sh
+# tests/test_books_reconcile.sh
 #
-# Regression suite for bin/reconcile_library.sh (catalog scope vs on-disk
+# Regression suite for bin/books/books_reconcile.sh (catalog scope vs on-disk
 # library reconciliation).  No real MariaDB and no real library are needed:
 # the suite builds a fake library tree and a fake scope file, and installs a
 # mock `mysql` for the mlauthorname snapshot (or runs with --no-db).
@@ -13,7 +13,7 @@
 #   mock-snapshot book counts + known-orphan classification, password never
 #   on the mysql command line, and usage/error paths.
 #
-# Usage:  bash tests/test_reconcile_library.sh
+# Usage:  bash tests/test_books_reconcile.sh
 # Runs anywhere (pure text processing; lifecycle management is disabled via a
 # nonexistent MARIA_TASKLIST, mirroring the exporter suite).
 # -----------------------------------------------------------------------------
@@ -21,7 +21,7 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-TOOL="$REPO_ROOT/bin/reconcile_library.sh"
+TOOL="$REPO_ROOT/bin/books/books_reconcile.sh"
 
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -91,7 +91,7 @@ run_tool() { # [args...]
     RC=$?
 }
 
-echo "== reconcile_library =="
+echo "== books_reconcile =="
 
 # --- version / usage ------------------------------------------------------------
 version="$(sed -n 's/^# Version:[[:space:]]*//p' "$TOOL" | head -n 1)"
@@ -101,7 +101,7 @@ else
     report "version_header" fail "got '$version', expected ^1.0.[0-9]+$"
 fi
 bash "$TOOL" --version >"$TMPDIR_WS/v.txt" 2>&1
-if [[ "$(cat "$TMPDIR_WS/v.txt")" == "bin/reconcile_library.sh v$version" ]]; then
+if [[ "$(cat "$TMPDIR_WS/v.txt")" == "bin/books/books_reconcile.sh v$version" ]]; then
     report "version_flag" ok
 else
     report "version_flag" fail
@@ -122,7 +122,7 @@ fi
 # --- no-db classification (matched / missing / empty / orphan-unknown) ---------
 rm -f "$REPORT_DIR"/*
 run_tool -l "$LIB" -s "$SCOPE" --no-db
-report_file="$(ls "$REPORT_DIR"/reconcile_library_*.tsv 2>/dev/null | head -1)"
+report_file="$(ls "$REPORT_DIR"/books_reconcile_*.tsv 2>/dev/null | head -1)"
 if (( RC == 0 )) && [[ -n "$report_file" ]]; then
     report "no_db_run_writes_report" ok
 else
@@ -166,7 +166,7 @@ fi
 # the run also exports the next-round shopping list: every recommended
 # author with no books on disk yet (Мартынов Георгий missing + Абби Линн
 # empty folder), byte-ordered, one canonical name per line
-report_file="$(ls "$REPORT_DIR"/reconcile_to_collect_*.txt 2>/dev/null | head -1)"
+report_file="$(ls "$REPORT_DIR"/books_reconcile_to_collect_*.txt 2>/dev/null | head -1)"
 if [[ -n "$report_file" ]] \
    && grep -qF "Мартынов Георгий" "$report_file" \
    && grep -qF "Абби Линн" "$report_file" \
@@ -194,7 +194,7 @@ fi
 # --- db snapshot: book counts + orphan-known ------------------------------------
 rm -f "$REPORT_DIR"/* "$MOCK_LOG"
 MOCK_PASSWORD=s3cret run_tool -l "$LIB" -s "$SCOPE"
-report_file="$(ls "$REPORT_DIR"/reconcile_library_*.tsv 2>/dev/null | head -1)"
+report_file="$(ls "$REPORT_DIR"/books_reconcile_*.tsv 2>/dev/null | head -1)"
 row_known=$'\tMeXXanik Гоблин\t0\t1\t1\t12\t2\torphan-known'
 row_counts=$'\tАзимов Айзек\t1\t1\t1\t25\t1\tmatched'
 if grep -qF "$row_known" "$report_file"; then
@@ -226,7 +226,7 @@ fi
 # beyond-books review export (db run above): every on-disk file attributed
 # to a beyond-list author (MeXXanik Гоблин + Стругацкие Братья), as
 # author<TAB>relative-path; collected-author files are excluded
-beyond_file="$(ls "$REPORT_DIR"/reconcile_beyond_books_*.tsv 2>/dev/null | head -1)"
+beyond_file="$(ls "$REPORT_DIR"/books_reconcile_beyond_books_*.tsv 2>/dev/null | head -1)"
 row_a=$'MeXXanik Гоблин\tM/MeXXanik Гоблин/loose.zip'
 row_b=$'MeXXanik Гоблин\tM/MeXXanik Гоблин/Серия/book1.fb2'
 row_c=$'Стругацкие Братья\tM/Стругацкие Братья/kniga1.fb2'
@@ -272,7 +272,7 @@ printf 'Абрамов Александр\nАбби Линн\nАзимов Ай�
 printf 'Абрамов Александр\t9\nАбби Линн\t3\nАзимов Айзек\t7\n' > "$MOCK_CATALOG"
 rm -f "$REPORT_DIR"/* "$MOCK_LOG"
 run_tool -l "$NESTED" -s "$NESTED_SCOPE"
-report_file="$(ls "$REPORT_DIR"/reconcile_library_*.tsv 2>/dev/null | head -1)"
+report_file="$(ls "$REPORT_DIR"/books_reconcile_*.tsv 2>/dev/null | head -1)"
 row_nested=$'\tАбрамов Александр\t1\t1\t1\t9\t2\tmatched'
 row_nested_ci=$'\tАбби Линн\t1\t1\t1\t3\t1\tmatched'
 row_nested_miss=$'\tАзимов Айзек\t1\t0\t1\t7\t-\tmissing'

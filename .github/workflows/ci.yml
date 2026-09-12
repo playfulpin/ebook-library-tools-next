@@ -35,11 +35,11 @@ jobs:
           bash tests/test_books_merge.sh
           bash tests/test_books_finalize.sh
           bash tests/test_authors_export.sh
-          bash tests/test_reconcile_library.sh
-          bash tests/test_estimate_download_size.sh
-          bash tests/test_backup_myprivatelib.sh
-          bash tests/test_populate_myprivatelib.sh
-          bash tests/test_refresh_myprivatelib.sh
+          bash tests/test_books_reconcile.sh
+          bash tests/test_books_estimate.sh
+          bash tests/test_library_backup.sh
+          bash tests/test_library_populate.sh
+          bash tests/test_library_refresh.sh
           bash tests/test_report_library.sh
           bash tests/test_lib_infrastructure.sh
 

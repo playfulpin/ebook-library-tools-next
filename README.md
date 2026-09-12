@@ -50,7 +50,7 @@ in the byte-sorted list (`end` is inclusive, so `count == end - start + 1`).
   (`bin/books/books_finalize.sh`). WSL and Ubuntu CI runners ship it.
 - **A `mysql`/`mariadb` client (optional)** — only needed to regenerate the
   author list with `bin/authors/authors_export.sh` and to size the next
-  collecting round with `bin/estimate_download_size.sh`. The prefix/merge
+  collecting round with `bin/books/books_estimate.sh`. The prefix/merge
   tools themselves never touch the database.
 
 ## The author list
@@ -285,7 +285,7 @@ the shared `mysql` argv (opt-in). The MariaDB server lifecycle remains
 in `lib/mariadb_lifecycle.sh`. Conversion of individual tools happens
 in Phase 4 — see `docs/PHASE_03_COMMON_INFRASTRUCTURE.md`.
 
-### `bin/reconcile_library.sh`
+### `bin/books/books_reconcile.sh`
 
 Personal-catalog **collection-progress** report.  The scope file
 (`data/fixtures/authors_list_from_db.txt`) is the recommended-author list —
@@ -297,32 +297,32 @@ list (the user's own picks, known / unknown to the catalog), with catalog
 book counts (mlauthorname snapshot) next to on-disk file counts.
 
 ```bash
-./bin/reconcile_library.sh                # summary + per-run TSV report
-./bin/reconcile_library.sh --no-db        # skip the mlauthorname snapshot
-./bin/reconcile_library.sh --dry-run      # analyze, write no report
+./bin/books/books_reconcile.sh                # summary + per-run TSV report
+./bin/books/books_reconcile.sh --no-db        # skip the mlauthorname snapshot
+./bin/books/books_reconcile.sh --dry-run      # analyze, write no report
 ```
 
 Each run also writes the **next-round shopping list** — the recommended
 authors with no books on disk yet (`authors (remaining to collect)`) — as
-`reconcile_to_collect_<ts>.txt` next to the TSV report: byte-ordered, one
+`books_reconcile_to_collect_<ts>.txt` next to the TSV report: byte-ordered, one
 canonical name per line, the same shape as the author-list fixture, so it
 can feed the merge pipeline directly.  In DB mode it additionally writes
-the **beyond-books review export** — `reconcile_beyond_books_<ts>.tsv`,
+the **beyond-books review export** — `books_reconcile_beyond_books_<ts>.tsv`,
 every on-disk file attributed to a beyond-list author as
 `author<TAB>relative-path` — the per-file content behind
 `books (beyond list authors)`, to review whether those books should stay.
 
 Options: `-l/--library-root`, `-s/--scope-file`, `-r/--report-dir`,
 `--no-db`, `-n/--dry-run`, `-d/--debug`, `-v/--version`, `-h/--help`.
-Defaults live in `config/reconcile_library.conf`; the MariaDB lifecycle and
+Defaults live in `config/books_reconcile.conf`; the MariaDB lifecycle and
 `MYSQL_*` client settings are shared via `lib/mariadb_lifecycle.sh`.
 
-### `bin/estimate_download_size.sh`
+### `bin/books/books_estimate.sh`
 
 Estimates the download size of the next collecting round **straight from the
 catalog, before anything is downloaded**.  The input is a to-collect author
 list (one canonical name per line — e.g. the reconcile shopping-list export
-`reconcile_to_collect_<ts>.txt`, or the recommended-author fixture); the
+`books_reconcile_to_collect_<ts>.txt`, or the recommended-author fixture); the
 tool sums the real per-book sizes the catalog stores (`mlbook.filesize`)
 through the same `mlauthorname -> mlauthor -> mlbook` linkage and
 whitespace normalization the exporter uses, so a list exported from the
@@ -338,15 +338,15 @@ honest "how much will I download" figures:
   (~432 GB for the same round).
 
 ```bash
-./bin/estimate_download_size.sh                                          # the recommended-author fixture
-./bin/estimate_download_size.sh -i <merge-reports>/reconcile_to_collect_20260903-212501.txt
-./bin/estimate_download_size.sh --dry-run                                # summarize, write nothing
+./bin/books/books_estimate.sh                                          # the recommended-author fixture
+./bin/books/books_estimate.sh -i <merge-reports>/books_reconcile_to_collect_20260903-212501.txt
+./bin/books/books_estimate.sh --dry-run                                # summarize, write nothing
 ```
 
 Every run also writes a **per-author breakdown TSV** next to the summary,
 sorted **top-rated first** (5-rated qualifying books desc, then qualifying
 count desc) so the round can be prioritized author by author:
-`estimate_download_size_<ts>.tsv` with columns
+`books_estimate_<ts>.tsv` with columns
 `author | qualifying_books | qualifying_bytes | 5rated_books | avg_rating |
 full_books | full_bytes`; the top 10 of that order are printed in the
 summary.  Per-author rows attribute co-authored books to each author, so
@@ -358,9 +358,9 @@ and writes no breakdown file).
 
 Options: `-i/--input-file`, `-o/--output`, `-r/--report-dir`,
 `-n/--dry-run`, `-d/--debug`, `-v/--version`, `-h/--help`.  Defaults live
-in `config/estimate_download_size.conf`.
+in `config/books_estimate.conf`.
 
-### `bin/backup_myprivatelib.sh`
+### `bin/library/library_backup.sh`
 
 Backup / restore of the **app-registered personal library database
 (`myprivatelib`)** — the sibling library the MultiLib desktop app created
@@ -369,11 +369,11 @@ This is the safety net that must exist BEFORE anything is populated into
 `myprivatelib` (see `docs/REPRESENTATION_PLAN.md`):
 
 ```bash
-./bin/backup_myprivatelib.sh                              # backup (default action)
-./bin/backup_myprivatelib.sh list                         # list backups newest first
-./bin/backup_myprivatelib.sh verify <file>.sql.gz         # integrity-check a backup
-./bin/backup_myprivatelib.sh restore <file>.sql.gz        # restore over the library
-./bin/backup_myprivatelib.sh --dry-run restore <file>.sql.gz   # report only
+./bin/library/library_backup.sh                              # backup (default action)
+./bin/library/library_backup.sh list                         # list backups newest first
+./bin/library/library_backup.sh verify <file>.sql.gz         # integrity-check a backup
+./bin/library/library_backup.sh restore <file>.sql.gz        # restore over the library
+./bin/library/library_backup.sh --dry-run restore <file>.sql.gz   # report only
 ```
 
 `backup` dumps the library DB with `mysqldump` and gzips it into
@@ -386,18 +386,18 @@ shared via `lib/mariadb_lifecycle.sh`; the password travels via
 `MYSQL_PWD` only, never on a command line.
 
 Options: `-f/--force`, `-n/--dry-run`, `-d/--debug`, `-v/--version`,
-`-h/--help`.  Defaults live in `config/backup_myprivatelib.conf`
+`-h/--help`.  Defaults live in `config/library_backup.conf`
 (`BACKUP_DIR`, `BACKUP_DB`, `BACKUP_KEEP`).
 
-### `bin/refresh_myprivatelib.sh`
+### `bin/library/library_refresh.sh`
 
 Orchestrates the freshness loop: detect change -> backup -> populate.
 
 ```bash
-./bin/refresh_myprivatelib.sh             # refresh only when the Books tree changed
-./bin/refresh_myprivatelib.sh --status    # checkpoint state + file count, no side effects
-./bin/refresh_myprivatelib.sh --dry-run   # report the decision and the plan, change nothing
-./bin/refresh_myprivatelib.sh --force     # refresh even when the checkpoint says up-to-date
+./bin/library/library_refresh.sh             # refresh only when the Books tree changed
+./bin/library/library_refresh.sh --status    # checkpoint state + file count, no side effects
+./bin/library/library_refresh.sh --dry-run   # report the decision and the plan, change nothing
+./bin/library/library_refresh.sh --force     # refresh even when the checkpoint says up-to-date
 ```
 
 ### `bin/report_library.sh`
@@ -446,7 +446,7 @@ cron-friendly contract.  The directory-mtime case is covered by a
 dedicated suite assertion (touching only a folder does NOT flip the
 decision).
 
-### `bin/populate_myprivatelib.sh`
+### `bin/library/library_populate.sh`
 
 Rebuild the **app-registered personal library database (`myprivatelib`)**
 from the on-disk `Books` collection (Phase 1 of
@@ -458,9 +458,9 @@ unambiguous.  **Only books present in the `Books` folder are represented**
 — no exact-copy of the flibusta catalog:
 
 ```bash
-./bin/populate_myprivatelib.sh                     # rebuild myprivatelib from Books
-./bin/populate_myprivatelib.sh --dry-run           # walk + resolve + summarize, write nothing
-./bin/populate_myprivatelib.sh --debug             # verbose diagnostics
+./bin/library/library_populate.sh                     # rebuild myprivatelib from Books
+./bin/library/library_populate.sh --dry-run           # walk + resolve + summarize, write nothing
+./bin/library/library_populate.sh --debug             # verbose diagnostics
 ```
 
 **Source keys verbatim, AUTO_INCREMENT-free schema (v1.3.0).**  MultiLib.exe
@@ -505,7 +505,7 @@ to `POP_REPORT_DIR`; the MariaDB lifecycle and `MYSQL_*` client settings
 are shared via `lib/mariadb_lifecycle.sh`, password via `MYSQL_PWD` only.
 
 Options: `-n/--dry-run`, `-d/--debug`, `-v/--version`, `-h/--help`.
-Defaults live in `config/populate_myprivatelib.conf` (`POP_LIBRARY_ROOT`,
+Defaults live in `config/library_populate.conf` (`POP_LIBRARY_ROOT`,
 `POP_REPORT_DIR`, `POP_SOURCE_DB`, `POP_TARGET_DB`, `POP_CHUNK`).
 
 ## Testing
@@ -522,12 +522,12 @@ wsl.exe bash tests/test_e2e_pipeline.sh              # generator -> validator ->
 wsl.exe bash tests/test_books_merge.sh # archive -> in-memory prefix hierarchy (WSL)
 wsl.exe bash tests/test_books_finalize.sh # BooksInput_* -> Books rsync finalize (WSL/Linux + rsync)
 bash tests/test_authors_export.sh            # exporter: argv, rows, lifecycle mocks (runs anywhere)
-bash tests/test_reconcile_library.sh                 # recon: classification + collection-progress summary (mock mysql)
-bash tests/test_estimate_download_size.sh            # estimator: sums, top-rated-first breakdown, lifecycle mocks (runs anywhere)
+bash tests/test_books_reconcile.sh                 # recon: classification + collection-progress summary (mock mysql)
+bash tests/test_books_estimate.sh            # estimator: sums, top-rated-first breakdown, lifecycle mocks (runs anywhere)
 bash tests/test_lib_infrastructure.sh                # Phase 3 libs: init, root detection, logging, cli, fs, db (runs anywhere)
-bash tests/test_backup_myprivatelib.sh                 # backup/restore: argv, gz artifact, restore guards, lifecycle mocks (runs anywhere)
-bash tests/test_populate_myprivatelib.sh               # populate: md5 map, walk/hash, resolve, AUTO_INCREMENT strip + source-key-verbatim rebuild, parity abort, lifecycle mocks (runs anywhere)
-bash tests/test_refresh_myprivatelib.sh              # refresh: checkpoint decisions (unchanged/changed/forced), child invocation, failure isolation (runs anywhere)
+bash tests/test_library_backup.sh                 # backup/restore: argv, gz artifact, restore guards, lifecycle mocks (runs anywhere)
+bash tests/test_library_populate.sh               # populate: md5 map, walk/hash, resolve, AUTO_INCREMENT strip + source-key-verbatim rebuild, parity abort, lifecycle mocks (runs anywhere)
+bash tests/test_library_refresh.sh              # refresh: checkpoint decisions (unchanged/changed/forced), child invocation, failure isolation (runs anywhere)
 bash tests/test_report_library.sh                    # report: wish-file format, mutations, view grouping, exports, tolerance, password hygiene (runs anywhere)
 bash tests/test_version_sync.sh                      # version locations agree (runs anywhere)
 ```
@@ -572,11 +572,11 @@ Releases are tagged with a tool-prefixed name:
 | `bin/books/books_merge.sh` | 0.2.0 | `books_merge-0.2.0` |
 | `bin/books/books_finalize.sh` | 0.2.3 | `books_finalize-0.2.3` |
 | `bin/authors/authors_export.sh` | 1.0.2 | `export_authors_from_db-1.0.2` |
-| `bin/reconcile_library.sh` | 1.0.3 | `reconcile_library-1.0.3` |
-| `bin/estimate_download_size.sh` | 1.0.0 | `estimate_download_size-1.0.0` |
-| `bin/backup_myprivatelib.sh` | 1.0.0 | `backup_myprivatelib-1.0.0` |
-| `bin/populate_myprivatelib.sh` | 1.3.0 | `populate_myprivatelib-1.3.0` |
-| `bin/refresh_myprivatelib.sh` | 1.0.0 | `refresh_myprivatelib-1.0.0` |
+| `bin/books/books_reconcile.sh` | 1.0.3 | `books_reconcile-1.0.3` |
+| `bin/books/books_estimate.sh` | 1.0.0 | `books_estimate-1.0.0` |
+| `bin/library/library_backup.sh` | 1.0.0 | `library_backup-1.0.0` |
+| `bin/library/library_populate.sh` | 1.3.0 | `library_populate-1.3.0` |
+| `bin/library/library_refresh.sh` | 1.0.0 | `library_refresh-1.0.0` |
 | `bin/report_library.sh` | 1.2.0 | `report_library-1.2.0` |
 | `lib/utf8_prefix_generator.awk` | 1.1 | `utf8_prefix_generator-1.1` |
 
@@ -607,10 +607,10 @@ bin/authors/authors_prefix_check.sh       prefix-table validator
 bin/authors/authors_prefix_tree.sh       prefix-tree renderer
 bin/authors/authors_tree_build.sh   nested-directory builder
 bin/authors/authors_export.sh       regenerate the author list from the DB
-bin/reconcile_library.sh            personal-catalog collection-progress report
-bin/estimate_download_size.sh       catalog download-size estimate for a to-collect round
-bin/backup_myprivatelib.sh            backup/restore of the app-registered myprivatelib library DB
-bin/populate_myprivatelib.sh          rebuild myprivatelib from the Books collection (md5-matched, explicit keys, AUTO_INCREMENT-free schema, genre tree, catalog filename)
+bin/books/books_reconcile.sh            personal-catalog collection-progress report
+bin/books/books_estimate.sh       catalog download-size estimate for a to-collect round
+bin/library/library_backup.sh            backup/restore of the app-registered myprivatelib library DB
+bin/library/library_populate.sh          rebuild myprivatelib from the Books collection (md5-matched, explicit keys, AUTO_INCREMENT-free schema, genre tree, catalog filename)
 bin/bump-version.sh                 bump one tool's version across header + docs
 bin/books/books_merge.sh    archive -> in-memory prefix merge tool (BooksInput_<ts> out)
 bin/books/books_finalize.sh    BooksInput_* -> Books rsync finalize tool
@@ -619,10 +619,10 @@ lib/mariadb_lifecycle.sh            shared MariaDB lifecycle (start/stop/readine
 lib/utf8_prefix_generator.awk       original AWK generator (parity reference)
 config/books_merge.conf             defaults for the merge tool (input file, paths, tree knobs)
 config/books_finalize.conf   defaults for the finalize tool (paths + discovery root)
-config/reconcile_library.conf       defaults for the recon report (library root, scope, report dir)
-config/estimate_download_size.conf  defaults for the estimator (input list, report dir)
-config/backup_myprivatelib.conf   defaults for the backup tool (backup dir, db, retention)
-config/populate_myprivatelib.conf defaults for the population tool (library root, report dir, db pair, chunk)
+config/books_reconcile.conf       defaults for the recon report (library root, scope, report dir)
+config/books_estimate.conf  defaults for the estimator (input list, report dir)
+config/library_backup.conf   defaults for the backup tool (backup dir, db, retention)
+config/library_populate.conf defaults for the population tool (library root, report dir, db pair, chunk)
 
 tests/test_*.sh                 regression suites (one per tool + e2e + version sync)
 tests/                          fixtures and golden files

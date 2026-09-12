@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# tests/test_refresh_myprivatelib.sh
+# tests/test_library_refresh.sh
 #
-# Regression suite for bin/refresh_myprivatelib.sh v1.0.0 (the freshness
+# Regression suite for bin/library/library_refresh.sh v1.0.0 (the freshness
 # orchestrator: tree-fingerprint checkpoint -> backup -> populate ->
 # checkpoint).  No real MariaDB and no real Books tree are needed: the
 # suite builds a fixture library, and the two child tools are mock scripts
@@ -24,14 +24,14 @@
 #   - the checkpoint is byte-stable: two fingerprints of an unchanged
 #     tree compare equal (cmp)
 #
-# Usage:  bash tests/test_refresh_myprivatelib.sh
+# Usage:  bash tests/test_library_refresh.sh
 # Runs anywhere (pure text processing; no DB, no WSL needed).
 # -----------------------------------------------------------------------------
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-TOOL="$REPO_ROOT/bin/refresh_myprivatelib.sh"
+TOOL="$REPO_ROOT/bin/library/library_refresh.sh"
 
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -69,13 +69,13 @@ CALL_LOG="$TMP/calls.log"
 
 # A real tool stand-in: records "backup <args>" / "populate <args>" and can
 # be told to fail via MOCK_FAIL=backup|populate.
-cat > "$MOCK_BIN/backup_myprivatelib.sh" <<'EOF'
+cat > "$MOCK_BIN/library_backup.sh" <<'EOF'
 #!/usr/bin/env bash
 printf 'backup %s\n' "$*" >> "${CALL_LOG:?}"
 [[ "${MOCK_FAIL:-}" == "backup" ]] && exit 1
 exit 0
 EOF
-cat > "$MOCK_BIN/populate_myprivatelib.sh" <<'EOF'
+cat > "$MOCK_BIN/library_populate.sh" <<'EOF'
 #!/usr/bin/env bash
 printf 'populate %s\n' "$*" >> "${CALL_LOG:?}"
 [[ "${MOCK_FAIL:-}" == "populate" ]] && exit 1
@@ -87,10 +87,16 @@ chmod +x "$MOCK_BIN"/*.sh
 # (PROJECT_ROOT/bin/<tool>), so the mock project must carry the children
 # in its own bin/ alongside the tool under test.
 MOCK_ROOT="$TMP/mockproj"
-mkdir -p "$MOCK_ROOT/bin"
-cp "$TOOL" "$MOCK_ROOT/bin/"
-cp "$MOCK_BIN/backup_myprivatelib.sh" "$MOCK_BIN/populate_myprivatelib.sh" "$MOCK_ROOT/bin/"
-MOCKTOOL="$MOCK_ROOT/bin/refresh_myprivatelib.sh"
+mkdir -p "$MOCK_ROOT/bin/library" "$MOCK_ROOT/lib"
+cp "$TOOL" "$MOCK_ROOT/bin/library/"
+# the tool sources lib/common.sh relative to its own location; the mock
+# project needs the real lib/ for the shared infrastructure to load
+cp "$REPO_ROOT"/lib/{common,logging,cli,filesystem}.sh "$MOCK_ROOT/lib/"
+# children live in the mock's bin/library/ — the orchestrator resolves them
+# as $PROJECT_ROOT/bin/library/<tool>
+mkdir -p "$MOCK_ROOT/bin/library"
+cp "$MOCK_BIN/library_backup.sh" "$MOCK_BIN/library_populate.sh" "$MOCK_ROOT/bin/library/"
+MOCKTOOL="$MOCK_ROOT/bin/library/library_refresh.sh"
 
 run_tool() { # [args...]
     OUT="$TMP/stdout.txt" ERR="$TMP/stderr.txt"
@@ -105,7 +111,7 @@ run_tool() { # [args...]
 
 calls() { grep -c "^$1" "$CALL_LOG" 2>/dev/null; }   # grep -c prints 0 on no match
 
-echo "== refresh_myprivatelib (checkpoint orchestrator) =="
+echo "== library_refresh (checkpoint orchestrator) =="
 
 # --- version / usage -----------------------------------------------------------------
 version="$(sed -n 's/^# Version:[[:space:]]*//p' "$TOOL" | head -n 1)"
@@ -115,7 +121,7 @@ case "$version" in
 esac
 
 bash "$TOOL" --version >"$TMP/v.txt" 2>&1
-if [[ "$(cat "$TMP/v.txt")" == "bin/refresh_myprivatelib.sh v$version" ]]; then
+if [[ "$(cat "$TMP/v.txt")" == "bin/library/library_refresh.sh v$version" ]]; then
     report "version_flag" ok
 else
     report "version_flag" fail "got '$(cat "$TMP/v.txt")'"

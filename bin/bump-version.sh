@@ -39,11 +39,11 @@
 #       books_finalize                (0.1.x) [was merge_skeleton_into_books]
 #       utf8_prefix_generator         (1.x, two-part versions only)
 #       export_authors_from_db        (1.0.x)  -> authors_export
-#       reconcile_library             (1.0.x)
-#       estimate_download_size        (1.0.x)
-#       backup_myprivatelib             (1.0.x)
-#       populate_myprivatelib           (1.3.x)
-#       refresh_myprivatelib            (1.0.x)
+#       reconcile_library             (1.0.x) -> books_reconcile
+#       estimate_download_size        (1.0.x) -> books_estimate
+#       backup_myprivatelib          (1.0.x) -> library_backup
+#       populate_myprivatelib        (1.3.x) -> library_populate
+#       refresh_myprivatelib         (1.0.x) -> library_refresh
 #       report_library                  (1.0.x)
 #
 #   <new_version> must be strictly greater than the current version and match
@@ -162,11 +162,11 @@ usage() {
     echo "  books_finalize                (0.1.x)  [was merge_skeleton_into_books]"
     echo "  utf8_prefix_generator         (1.x, two-part versions only)"
     echo "  authors_export                (1.0.x)"
-    echo "  reconcile_library             (1.0.x)"
-    echo "  estimate_download_size        (1.0.x)"
-    echo "  backup_myprivatelib             (1.0.x)"
-    echo "  populate_myprivatelib           (1.3.x)"
-    echo "  refresh_myprivatelib            (1.0.x)"
+    echo "  books_reconcile               (1.0.x)  [was reconcile_library]"
+    echo "  books_estimate                (1.0.x)  [was estimate_download_size]"
+    echo "  library_backup                (1.0.x)  [was backup_myprivatelib]"
+    echo "  library_populate              (1.3.x)  [was populate_myprivatelib]"
+    echo "  library_refresh               (1.0.x)  [was refresh_myprivatelib]"
     echo "  report_library                  (1.0.x)"
     echo ""
     echo "Example: $0 build_shell_nested_authors 6.6.11"
@@ -225,25 +225,25 @@ main() {
             primary="bin/authors/authors_export.sh"
             marker="bin/authors/authors_export.sh"
             ;;
-        reconcile_library)
-            primary="bin/reconcile_library.sh"
-            marker="bin/reconcile_library.sh"
+        books_reconcile)
+            primary="bin/books/books_reconcile.sh"
+            marker="bin/books/books_reconcile.sh"
             ;;
-        estimate_download_size)
-            primary="bin/estimate_download_size.sh"
-            marker="bin/estimate_download_size.sh"
+        books_estimate)
+            primary="bin/books/books_estimate.sh"
+            marker="bin/books/books_estimate.sh"
             ;;
-        backup_myprivatelib)
-            primary="bin/backup_myprivatelib.sh"
-            marker="bin/backup_myprivatelib.sh"
+        library_backup)
+            primary="bin/library/library_backup.sh"
+            marker="bin/library/library_backup.sh"
             ;;
-        populate_myprivatelib)
-            primary="bin/populate_myprivatelib.sh"
-            marker="bin/populate_myprivatelib.sh"
+        library_populate)
+            primary="bin/library/library_populate.sh"
+            marker="bin/library/library_populate.sh"
             ;;
-        refresh_myprivatelib)
-            primary="bin/refresh_myprivatelib.sh"
-            marker="bin/refresh_myprivatelib.sh"
+        library_refresh)
+            primary="bin/library/library_refresh.sh"
+            marker="bin/library/library_refresh.sh"
             ;;
         report_library)
             primary="bin/report_library.sh"

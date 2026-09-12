@@ -9,6 +9,24 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **Phase 4, rename group 3 — estimate/reconcile join `bin/books/`,
+  the myprivatelib trio joins `bin/library/`.**
+  `estimate_download_size.sh` → `bin/books/books_estimate.sh`,
+  `reconcile_library.sh` → `bin/books/books_reconcile.sh`,
+  `backup_myprivatelib.sh` → `bin/library/library_backup.sh`,
+  `populate_myprivatelib.sh` → `bin/library/library_populate.sh`,
+  `refresh_myprivatelib.sh` → `bin/library/library_refresh.sh` — all
+  five flipped onto the Phase 3 shared infrastructure (`common_init`;
+  local log/debug/die and root blocks deleted).  Renamed outputs:
+  `books_estimate_<ts>.tsv`, `books_reconcile_<stamp>.tsv`,
+  `books_reconcile_to_collect_<ts>.txt`,
+  `books_reconcile_beyond_books_<ts>.tsv`,
+  `library_populate_<ts>.tsv`.  Suites/configs/registries/CI/README/
+  RELEASE_NOTES switched in the same commits; the refresh suite's mock
+  project now carries `bin/library/` children and the real `lib/` (the
+  orchestrator resolves both under its own root).  No behavior change;
+  versions unchanged.  Progress log: `docs/PHASE_04_TOOL_CONVERSION.md`.
+
 - **Phase 4, rename group 2 — the critical BOOKS merge pair moved into
   `bin/books/`.**  `merge_books_into_skeleton.sh` →
   `bin/books/books_merge.sh`, `merge_skeleton_into_books.sh` →

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# bin/reconcile_library.sh
+# bin/books/books_reconcile.sh
 #
 # Version:       1.0.3
 # Last updated:  2026-09-03 21:40
@@ -47,11 +47,11 @@
 #   Output: summary on stdout + one TSV report per run in the report dir
 #   (processed_at, author, in_scope, on_disk, catalog_known, catalog_books,
 #   disk_files, status).  Each run also writes the next-round shopping
-#   list (reconcile_to_collect_<ts>.txt): the recommended authors with no
+#   list (books_reconcile_to_collect_<ts>.txt): the recommended authors with no
 #   books on disk yet, one canonical name per line in byte order - the
 #   same shape as the author-list fixture, so it can feed the merge
 #   pipeline directly.  In DB mode it additionally writes the beyond-books
-#   review export (reconcile_beyond_books_<ts>.tsv): every on-disk file
+#   review export (books_reconcile_beyond_books_<ts>.tsv): every on-disk file
 #   attributed to a beyond-list author as author<TAB>relative-path, the
 #   per-file content behind "books (beyond list authors)", so the user
 #   can review whether those books should stay.  Read-only against the
@@ -60,7 +60,7 @@
 # -----------------------------------------------------------------------------
 # USAGE
 # -----------------------------------------------------------------------------
-#   ./bin/reconcile_library.sh [options]
+#   ./bin/books/books_reconcile.sh [options]
 #
 #   Options:
 #       -l, --library-root DIR   library root to scan
@@ -80,7 +80,7 @@
 #       1   operational failure
 #       2   usage error
 #
-#   Environment (all optional; also settable in config/reconcile_library.conf):
+#   Environment (all optional; also settable in config/books_reconcile.conf):
 #       RECON_LIBRARY_ROOT / RECON_SCOPE_FILE / RECON_REPORT_DIR / RECON_DB
 #       plus the MYSQL_* and MARIA_* contract from BookTracker-import
 #       (defaults in lib/mariadb_lifecycle.sh).
@@ -89,13 +89,17 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# --- shared infrastructure (refactor Phase 3) ----------------------------------
+# common.sh sets set -Eeuo pipefail, resolves SCRIPT_DIR/PROJECT_ROOT at any
+# bin/ depth, and provides log/debug/die.
+# shellcheck source=../../lib/common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../lib" && pwd)/common.sh"
+common_init
 
 readonly SCRIPT_VERSION="$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
 
 # --- config file (flag > env > config > built-in default) --------------------
-CONF_FILE="${RECON_CONF_FILE:-$PROJECT_ROOT/config/reconcile_library.conf}"
+CONF_FILE="${RECON_CONF_FILE:-$PROJECT_ROOT/config/books_reconcile.conf}"
 if [[ -f "$CONF_FILE" ]]; then
     # shellcheck disable=SC1090
     source "$CONF_FILE"
@@ -108,10 +112,6 @@ RECON_DB="${RECON_DB:-1}"
 
 DRY_RUN=0
 DEBUG=0
-
-log()  { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >&2; }
-debug() { if (( DEBUG )); then log "debug: $*"; fi; }
-die()  { log "error: $*"; exit 1; }
 
 # --- shared MariaDB lifecycle (lib/mariadb_lifecycle.sh) -----------------------
 # shellcheck source=../lib/mariadb_lifecycle.sh
@@ -126,7 +126,7 @@ trap cleanup EXIT
 
 print_help() {
     cat >&2 <<'EOF'
-Usage: reconcile_library.sh [options]
+Usage: books_reconcile.sh [options]
 
 Track the PERSONAL catalog's collection progress against the
 recommended-author list (the scope file, e.g.
@@ -181,7 +181,7 @@ while (( $# > 0 )); do
         -n|--dry-run) DRY_RUN=1; shift ;;
         -d|--debug)   DEBUG=1; shift ;;
         -h|--help)    print_help; exit 0 ;;
-        -v|--version) echo "bin/reconcile_library.sh v$SCRIPT_VERSION"; exit 0 ;;
+        -v|--version) echo "bin/books/books_reconcile.sh v$SCRIPT_VERSION"; exit 0 ;;
         *) echo "Error: unknown option '$1'" >&2; echo "Try '$0 --help'." >&2; exit 2 ;;
     esac
 done
@@ -481,8 +481,8 @@ printf '  %-33s %6s%%\n'   'listed / unlisted books ratio'    "$pct_listed_books
 printf '  %-33s %6s\n'     'empty (folder, no books)'         "${counts[empty]:-0}"
 
 stamp="$(date '+%Y%m%d-%H%M%S')"
-report_name="reconcile_library_$stamp.tsv"
-to_collect_name="reconcile_to_collect_$stamp.txt"
+report_name="books_reconcile_$stamp.tsv"
+to_collect_name="books_reconcile_to_collect_$stamp.txt"
 # Next-round shopping list: every recommended author with no books on disk
 # yet (missing rows + empty-folder rows), one canonical name per line in
 # byte order - the same shape as the author-list fixture.
@@ -513,7 +513,7 @@ if (( catalog_have )); then
     awk -F'\t' 'NR == FNR { keep[$1] = 1; next } keep[$1] { print }' \
         "$tmp_dir/orphan_names.txt" "$tmp_dir/attrib.txt" \
         | LC_ALL=C sort -t $'\t' -k1,1 -k2,2 > "$tmp_dir/beyond_books.tsv"
-    beyond_books_name="reconcile_beyond_books_$stamp.tsv"
+    beyond_books_name="books_reconcile_beyond_books_$stamp.tsv"
     beyond_files="$(wc -l < "$tmp_dir/beyond_books.tsv" | tr -d ' ')"
     beyond_authors="$(cut -f1 "$tmp_dir/beyond_books.tsv" | sort -u | wc -l | tr -d ' ')"
     if (( DRY_RUN )); then

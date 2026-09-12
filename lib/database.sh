@@ -9,7 +9,7 @@
 # Last updated:  2026-09-07
 #
 # Provides (seeded verbatim from the argv block repeated in
-# reconcile_library.sh / report_library.sh / authors_export.sh):
+# books_reconcile.sh / report_library.sh / authors_export.sh):
 #   db_mysql_argv      - assemble the shared mysql argv from MYSQL_* env
 #   db_run_query       - execute a query file, stdout only
 #   db_run_sql         - execute an inline SQL string, stdout only
@@ -73,7 +73,7 @@ db_require_server() { # [$2 = database] -> dies unless 'SELECT 1' answers
     local db="${1:-}"
     local out
     out="$(db_run_sql 'SELECT 1;' "$db" 2>/dev/null)" || \
-        die "cannot reach MariaDB (is the server running? see bin/backup_myprivatelib.sh)"
+        die "cannot reach MariaDB (is the server running? see bin/library/library_backup.sh)"
     [[ "$out" == *"1"* ]] || die "MariaDB answered unexpectedly: $out"
     return 0
 }

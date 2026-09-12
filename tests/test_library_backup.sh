@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# tests/test_backup_myprivatelib.sh
+# tests/test_library_backup.sh
 #
-# Regression suite for bin/backup_myprivatelib.sh (mysqldump backup / restore
+# Regression suite for bin/library/library_backup.sh (mysqldump backup / restore
 # of the app-registered personal library DB).  No real MariaDB is needed: the
 # suite installs mock `mysql` and `mysqldump` earlier in PATH that record
 # their argv (and, for restore, the stdin fed to the client).
@@ -24,14 +24,14 @@
 #     on exit, --dry-run only reports would-start / would-stop
 #   - version header stays in sync with `--version` (1.0.x)
 #
-# Usage:  bash tests/test_backup_myprivatelib.sh
+# Usage:  bash tests/test_library_backup.sh
 # Runs anywhere (pure text processing; the mock avoids any DB dependency).
 # -----------------------------------------------------------------------------
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-TOOL="$REPO_ROOT/bin/backup_myprivatelib.sh"
+TOOL="$REPO_ROOT/bin/library/library_backup.sh"
 
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -122,7 +122,7 @@ run_tool() { # [args...] ; stdout->$OUT, stderr->$ERR ; rc->$RC
     RC=$?
 }
 
-echo "== backup_myprivatelib =="
+echo "== library_backup =="
 
 # --- version / usage -----------------------------------------------------------
 version="$(sed -n 's/^# Version:[[:space:]]*//p' "$TOOL" | head -n 1)"
@@ -132,7 +132,7 @@ case "$version" in
 esac
 
 bash "$TOOL" --version >"$TMPDIR/v.txt" 2>&1
-if [[ "$(cat "$TMPDIR/v.txt")" == "bin/backup_myprivatelib.sh v$version" ]]; then
+if [[ "$(cat "$TMPDIR/v.txt")" == "bin/library/library_backup.sh v$version" ]]; then
     report "version_flag" ok
 else
     report "version_flag" fail "got '$(cat "$TMPDIR/v.txt")'"

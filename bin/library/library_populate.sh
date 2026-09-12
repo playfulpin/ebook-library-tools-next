@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# bin/populate_myprivatelib.sh
+# bin/library/library_populate.sh
 #
 # Version:       1.3.0
 # Last updated:  2026-09-06 14:30
@@ -118,7 +118,7 @@
 # -----------------------------------------------------------------------------
 # USAGE
 # -----------------------------------------------------------------------------
-#   ./bin/populate_myprivatelib.sh [options]
+#   ./bin/library/library_populate.sh [options]
 #
 #   Options:
 #       -n, --dry-run        walk + resolve + summarize, change nothing
@@ -132,7 +132,7 @@
 #           column-parity mismatch, rebuild error)
 #       2   usage error
 #
-#   Environment / config (config/populate_myprivatelib.conf; all overridable):
+#   Environment / config (config/library_populate.conf; all overridable):
 #       POP_LIBRARY_ROOT   the personal Books tree (default: /mnt/c/Backup_Go7/Books)
 #       POP_REPORT_DIR     where the per-run TSV report goes
 #                          (default: /mnt/c/Backup_Go7/merge-reports)
@@ -148,8 +148,12 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# --- shared infrastructure (refactor Phase 3) ----------------------------------
+# common.sh sets set -Eeuo pipefail, resolves SCRIPT_DIR/PROJECT_ROOT at any
+# bin/ depth, and provides log/debug/die.
+# shellcheck source=../../lib/common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../lib" && pwd)/common.sh"
+common_init
 
 readonly SCRIPT_VERSION="$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
 
@@ -163,7 +167,7 @@ MYSQL_EXTRA_ARGS="${MYSQL_EXTRA_ARGS:---default-character-set=utf8}"
 MYSQL_CONNECT_TIMEOUT="${MYSQL_CONNECT_TIMEOUT:-10}"
 
 # --- config file ---------------------------------------------------------------
-CONF_FILE="${CONF_FILE:-$PROJECT_ROOT/config/populate_myprivatelib.conf}"
+CONF_FILE="${CONF_FILE:-$PROJECT_ROOT/config/library_populate.conf}"
 [[ -f "$CONF_FILE" ]] && source "$CONF_FILE"
 
 POP_LIBRARY_ROOT="${POP_LIBRARY_ROOT:-/mnt/c/Backup_Go7/Books}"
@@ -174,10 +178,6 @@ POP_CHUNK="${POP_CHUNK:-500}"
 
 DRY_RUN=0
 DEBUG=0
-
-log()  { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >&2; }
-debug() { if (( DEBUG )); then log "debug: $*"; fi; }
-die()  { log "error: $*"; exit 1; }
 
 # --- shared MariaDB lifecycle (lib/mariadb_lifecycle.sh) -----------------------
 # shellcheck source=../lib/mariadb_lifecycle.sh
@@ -710,7 +710,7 @@ function parnum(s) { if (s == "NULL" || s == "") return "NULL"; return s }'
 do_report() {
     local stamp report_name report_path
     stamp="$(date '+%Y%m%d-%H%M%S')"
-    report_name="populate_myprivatelib_$stamp.tsv"
+    report_name="library_populate_$stamp.tsv"
     report_path="$POP_REPORT_DIR/$report_name"
     if (( DRY_RUN )); then
         log "dry-run: report would be written to $report_path"
@@ -728,7 +728,7 @@ do_report() {
 
 print_help() {
     cat >&2 <<'EOF'
-Usage: populate_myprivatelib.sh [options]
+Usage: library_populate.sh [options]
 
 Rebuild the app-registered personal library database (myprivatelib) from
 the on-disk Books collection, md5-matching every book file against the
@@ -756,7 +756,7 @@ Options:
 
 Exit codes: 0 success, 1 operational failure, 2 usage error.
 
-Environment / config (config/populate_myprivatelib.conf, all overridable):
+Environment / config (config/library_populate.conf, all overridable):
   POP_LIBRARY_ROOT / POP_REPORT_DIR / POP_SOURCE_DB / POP_TARGET_DB /
   POP_CHUNK; MYSQL_CLIENT, MYSQL_HOST, MYSQL_PORT, MYSQL_USER,
   MYSQL_PASSWORD (MYSQL_PWD only), MYSQL_EXTRA_ARGS,
@@ -770,7 +770,7 @@ while (( $# > 0 )); do
         -n|--dry-run) DRY_RUN=1; shift ;;
         -d|--debug)   DEBUG=1; shift ;;
         -h|--help)    print_help; exit 0 ;;
-        -v|--version) echo "bin/populate_myprivatelib.sh v$SCRIPT_VERSION"; exit 0 ;;
+        -v|--version) echo "bin/library/library_populate.sh v$SCRIPT_VERSION"; exit 0 ;;
         *) echo "Error: unknown option '$1'" >&2; echo "Try '$0 --help'." >&2; exit 2 ;;
     esac
 done
