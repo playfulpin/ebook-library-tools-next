@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# tests/test_merge_books_into_skeleton.sh
+# tests/test_books_merge.sh
 #
-# Regression suite for bin/merge_books_into_skeleton.sh: build the author
+# Regression suite for bin/books/books_merge.sh: build the author
 # prefix tree IN MEMORY from a flat author list, then copy the files of
 # every top-level archive author folder into a directory named after the
 # author, placed under the deepest valid prefix, preserving book-series
@@ -37,7 +37,7 @@
 #   * VERSION   -- bin and lib carry the same 0.2.x header version.
 #
 # Usage:
-#   wsl.exe bash tests/test_merge_books_into_skeleton.sh
+#   wsl.exe bash tests/test_books_merge.sh
 #
 # The prefix tree slices UTF-8 prefixes character by character, so the shell
 # must have multi-byte support (WSL).  Cygwin/MSYS bash is byte-based and
@@ -53,8 +53,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT="$SCRIPT_DIR/../bin/merge_books_into_skeleton.sh"
-LIB="$SCRIPT_DIR/../lib/merge_books_functions.sh"
+SCRIPT="$SCRIPT_DIR/../bin/books/books_merge.sh"
+LIB="$SCRIPT_DIR/../lib/books_functions.sh"
 
 [[ -f "$SCRIPT" ]] || { echo "ERROR: $SCRIPT not found" >&2; exit 2; }
 [[ -f "$LIB" ]] || { echo "ERROR: $LIB not found" >&2; exit 2; }
@@ -581,7 +581,7 @@ run_cli_tests() {
 
     # -h prints the version and exits non-zero (usage() exits 1).
     run_merge "$out" "$err" -- -h
-    if (( LAST_RC != 0 )) && grep -qE 'merge_books_into_skeleton\.sh v[0-9]+\.[0-9]+\.[0-9]+' "$err"; then
+    if (( LAST_RC != 0 )) && grep -qE 'books_merge.sh v[0-9]+\.[0-9]+\.[0-9]+' "$err"; then
         report "cli_help_version" ok
     else
         report "cli_help_version" fail "-h must print the version to stderr and exit 1"

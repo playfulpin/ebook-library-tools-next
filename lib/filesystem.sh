@@ -15,9 +15,9 @@
 #   fs_tree_fingerprint - Books-tree fingerprint (rel path, size, mtime),
 #                         byte-stable; verbatim from bin/refresh_myprivatelib.sh
 #   fs_prune_empty_dirs - the house prune one-liner with dry-run support;
-#                         verbatim from bin/merge_skeleton_into_books.sh
+#                         verbatim from bin/books/books_finalize.sh
 #
-# Archive/merge-specific logic stays in lib/merge_books_functions.sh and the
+# Archive/merge-specific logic stays in lib/books_functions.sh and the
 # future lib/books.sh (Blueprint §18: "Keep archive-specific logic in
 # books.sh").
 #
@@ -60,7 +60,7 @@ fs_tree_fingerprint() { # $1 = root -> one TSV line per file on stdout
         -printf '%P\t%s\t%T@\n' | LC_ALL=C sort )
 }
 
-# --- empty-dir prune (verbatim policy from merge_skeleton_into_books.sh) -------
+# --- empty-dir prune (verbatim policy from books_finalize.sh) -------
 # fs_prune_empty_dirs ROOT [dry-run-flag]
 #   Removes empty directories under ROOT (depth-first, root itself kept).
 #   With DRY_RUN=true (or any second arg), only counts and prints what

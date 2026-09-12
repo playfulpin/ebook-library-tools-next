@@ -9,6 +9,20 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **Phase 4, rename group 2 — the critical BOOKS merge pair moved into
+  `bin/books/`.**  `merge_books_into_skeleton.sh` →
+  `bin/books/books_merge.sh`, `merge_skeleton_into_books.sh` →
+  `bin/books/books_finalize.sh`, and their shared library
+  `lib/merge_books_functions.sh` → `lib/books_functions.sh` (the
+  version-sync twin moves with it).  Suites renamed
+  (`tests/test_books_merge.sh`, `tests/test_books_finalize.sh`),
+  configs renamed (`config/books_merge.conf`,
+  `config/books_finalize.conf`), `books_merge` sources its lib at the
+  new depth-2 path, the finalize report file is now
+  `books_finalize_<ts>.tsv` (gitignore pattern updated), and registry/
+  CI/README/RELEASE_NOTES all switch in the same commits.  No behavior
+  change; versions unchanged (pure renames).
+
 - **Phase 4, rename group 1 — the AUTHORS chain moved into
   `bin/authors/`.**  `export_authors_from_db.sh` →
   `bin/authors/authors_export.sh` (also flipped onto the Phase 3

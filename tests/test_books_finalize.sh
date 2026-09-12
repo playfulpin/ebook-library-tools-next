@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# tests/test_merge_skeleton_into_books.sh
+# tests/test_books_finalize.sh
 #
-# Regression suite for bin/merge_skeleton_into_books.sh, the rsync wrapper
+# Regression suite for bin/books/books_finalize.sh, the rsync wrapper
 # that finalizes a timestamped staging tree (BooksInput_<ts>, produced by
-# bin/merge_books_into_skeleton.sh, already pruned) into the Books library.
+# bin/books/books_merge.sh, already pruned) into the Books library.
 # The destination wins: --ignore-existing never overwrites a file already
 # present in the library.  A per-file TSV report records every copied file
 # and every kept-existing conflict.
@@ -26,7 +26,7 @@
 #   * VERSION      -- script carries a 0.2.x header version.
 #
 # Usage:
-#   bash tests/test_merge_skeleton_into_books.sh
+#   bash tests/test_books_finalize.sh
 #
 # Requires rsync on PATH; the suite SKIPS (exit 0) when it is absent (e.g.
 # Git Bash without rsync).  Ubuntu CI runners ship rsync.
@@ -37,7 +37,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT="$SCRIPT_DIR/../bin/merge_skeleton_into_books.sh"
+SCRIPT="$SCRIPT_DIR/../bin/books/books_finalize.sh"
 
 [[ -f "$SCRIPT" ]] || { echo "ERROR: $SCRIPT not found" >&2; exit 2; }
 
@@ -110,7 +110,7 @@ build_fixture() { # base
 
 # --- locate the single generated report file in REPORT_DIR ------------------
 report_for() { # report_dir -> prints the file path (or nothing)
-    find "$1" -maxdepth 1 -name 'merge_skeleton_into_books_*.tsv' | head -n 1
+    find "$1" -maxdepth 1 -name 'books_finalize_*.tsv' | head -n 1
 }
 
 # The real-run progress pipeline pipes rsync's listing through
@@ -291,7 +291,7 @@ run_cli_tests() {
 
     # -h prints version and exits non-zero (usage exits 1).
     run_script "$out" "$err" -- -h
-    if (( LAST_RC != 0 )) && grep -qE 'merge_skeleton_into_books\.sh v[0-9]+\.[0-9]+\.[0-9]+' "$err"; then
+    if (( LAST_RC != 0 )) && grep -qE 'books_finalize.sh v[0-9]+\.[0-9]+\.[0-9]+' "$err"; then
         report "cli_help_version" ok
     else
         report "cli_help_version" fail "-h must print the version and exit 1"

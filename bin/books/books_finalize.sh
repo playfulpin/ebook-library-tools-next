@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# bin/merge_skeleton_into_books.sh
+# bin/books_finalize.sh
 #
 # Version:       0.2.3
 # Last updated:  2026-09-03
@@ -10,7 +10,7 @@
 # PURPOSE
 # -----------------------------------------------------------------------------
 #   Finalize a timestamped staging tree (BooksInput_<ts>, produced by
-#   bin/merge_books_into_skeleton.sh, already pruned) into the Books library
+#   bin/books_merge.sh, already pruned) into the Books library
 #   with rsync.  The destination wins: --ignore-existing never overwrites a
 #   file already present in the library.  A per-file TSV report records every
 #   copied file and every kept-existing conflict.
@@ -51,13 +51,13 @@
 #     MERGE_REPORT_DIR     where the TSV report is written
 #
 #   Config file (optional):
-#     config/merge_skeleton_into_books.conf
+#     config/books_finalize.conf
 #     or any file given with --config=FILE
 #
 # -----------------------------------------------------------------------------
 # USAGE
 # -----------------------------------------------------------------------------
-#   ./bin/merge_skeleton_into_books.sh \
+#   ./bin/books_finalize.sh \
 #       --target /mnt/c/Backup_Go7/Books \
 #       --report-dir /mnt/c/Backup_Go7/merge-reports \
 #       --dry-run
@@ -68,7 +68,7 @@
 # -----------------------------------------------------------------------------
 # REPORT
 # -----------------------------------------------------------------------------
-#   merge_skeleton_into_books_<ts>.tsv in REPORT_DIR, one row per file in
+#   books_finalize_<ts>.tsv in REPORT_DIR, one row per file in
 #   the staging tree:
 #       source_file<TAB>target_file<TAB>status<TAB>reason
 #   status: copied | would-copy | kept-existing | would-keep
@@ -153,7 +153,7 @@ apply_environment() {
 usage() {
     local version
     version="$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
-    echo "bin/merge_skeleton_into_books.sh v$version" >&2
+    echo "bin/books_finalize.sh v$version" >&2
     echo "" >&2
     echo "Usage: $0 [OPTIONS] --target=DIR" >&2
     echo "" >&2
@@ -194,7 +194,7 @@ parse_arguments() {
                 exit 1
                 ;;
             -v|--version)
-                echo "merge_skeleton_into_books.sh v$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
+                echo "books_finalize.sh v$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
                 exit 0
                 ;;
             --dry-run)
@@ -260,7 +260,7 @@ main() {
     # ------------------------------------------------------------------
     local script_dir default_config
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    default_config="$script_dir/../config/merge_skeleton_into_books.conf"
+    default_config="$script_dir/../config/books_finalize.conf"
 
     if [[ -n "$CONFIG_FILE" ]]; then
         load_config "$CONFIG_FILE"
@@ -349,7 +349,7 @@ main() {
     local report_stamp report_dir
     report_stamp="$(date '+%Y%m%d-%H%M%S')"
     mkdir -p "$REPORT_DIR"
-    REPORT_FILE="$REPORT_DIR/merge_skeleton_into_books_$report_stamp.tsv"
+    REPORT_FILE="$REPORT_DIR/books_finalize_$report_stamp.tsv"
     if ! printf 'source_file\ttarget_file\tstatus\treason\n' > "$REPORT_FILE"; then
         echo "Warning: cannot write report '$REPORT_FILE'; continuing without one." >&2
         REPORT_FILE=""

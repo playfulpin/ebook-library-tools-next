@@ -6,8 +6,8 @@
 #
 # Every tool carries its version in up to four places, and they must agree:
 #   1. the tool's "# Version:" header comment (source of truth)
-#   2. its lib twin header, when it has one (merge_books_into_skeleton
-#      <-> lib/merge_books_functions.sh)
+#   2. its lib twin header, when it has one (books_merge
+#      <-> lib/books_functions.sh)
 #   3. its row in the README release table (both the version column and the
 #      tag column, which embeds the version)
 #   4. its line in the RELEASE_NOTES "Shipped tools" list
@@ -139,12 +139,12 @@ check_tool prefix_table_integrity \
 check_tool prefix_tree_visualizer \
     "bin/authors/authors_prefix_tree.sh" "" "bin/authors/authors_prefix_tree.sh"
 
-check_tool merge_books_into_skeleton \
-    "bin/merge_books_into_skeleton.sh" "lib/merge_books_functions.sh" \
-    "bin/merge_books_into_skeleton.sh"
+check_tool books_merge \
+    "bin/books/books_merge.sh" "lib/books_functions.sh" \
+    "bin/books/books_merge.sh"
 
-check_tool merge_skeleton_into_books \
-    "bin/merge_skeleton_into_books.sh" "" "bin/merge_skeleton_into_books.sh"
+check_tool books_finalize \
+    "bin/books/books_finalize.sh" "" "bin/books/books_finalize.sh"
 
 check_tool utf8_prefix_generator \
     "lib/utf8_prefix_generator.awk" "" "lib/utf8_prefix_generator.awk"

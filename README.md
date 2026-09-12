@@ -19,12 +19,12 @@ bin/authors/authors_prefix_build.sh ──> bin/authors/authors_prefix_check.sh 
 bin/authors/authors_tree_build.sh
    (build a nested directory tree from names: mkdir -p commands or SQL)
 
-bin/merge_books_into_skeleton.sh
+bin/books/books_merge.sh
    (merge a legacy archive into an in-memory author-prefix hierarchy,
     emitting a pruned, timestamped BooksInput_<ts> staging tree -- no
     on-disk skeleton is built or consumed)
 
-bin/merge_skeleton_into_books.sh
+bin/books/books_finalize.sh
    (rsync the BooksInput_* staging tree into the Books library,
     destination wins -- the old rename/prune/copy loop is gone)
 ```
@@ -47,7 +47,7 @@ in the byte-sorted list (`end` is inclusive, so `count == end - start + 1`).
 - **`gawk`** — required by `bin/authors/authors_prefix_tree.sh` and by the AWK parity
   checks.
 - **`rsync`** — required by the finalize step
-  (`bin/merge_skeleton_into_books.sh`). WSL and Ubuntu CI runners ship it.
+  (`bin/books/books_finalize.sh`). WSL and Ubuntu CI runners ship it.
 - **A `mysql`/`mariadb` client (optional)** — only needed to regenerate the
   author list with `bin/authors/authors_export.sh` and to size the next
   collecting round with `bin/estimate_download_size.sh`. The prefix/merge
@@ -145,7 +145,7 @@ Options: `-m/--min-authors` (default 10), `-x/--max-prefix` (default 5),
 ./bin/authors/authors_tree_build.sh -i data/fixtures/authors_list_from_db.txt -m 10 -x 5
 ```
 
-### `bin/merge_books_into_skeleton.sh`
+### `bin/books/books_merge.sh`
 
 Builds the author prefix tree **in memory** from a flat author list (the same
 range-walk algorithm as `bin/authors/authors_tree_build.sh`: a prefix becomes
@@ -171,7 +171,7 @@ unless the user allows it. The source archive is never modified. See
 `docs/BOOK_LIBRARY_MERGE_PLAN.md` for the full design.
 
 ```bash
-./bin/merge_books_into_skeleton.sh \
+./bin/books/books_merge.sh \
     --source /mnt/c/Backup_Go7/ToLoad \
     --input-file data/fixtures/authors_list_from_db.txt \
     --output-root /mnt/c/Backup_Go7 \
@@ -187,7 +187,7 @@ Options: `-s/--source`, `-i/--input-file`, `-o/--output-root`,
 nothing), `-v/--version`, `-h/--help`.
 
 Every setting resolves **flag > environment variable > config file > built-in
-default**. The optional `config/merge_books.conf` holds the input file,
+default**. The optional `config/books_merge.conf` holds the input file,
 source, output root, report directory, recursive behavior, overwrite policy,
 tree knobs, and the skip list (`MERGE_SKIP_NAMES`); the same keys work as
 environment variables (`MERGE_INPUT_FILE`, `MERGE_SOURCE_DIR`,
@@ -202,10 +202,10 @@ review the reports before a real copy.
 The prefix tree slices UTF-8 prefixes character by character, so — like the
 builder — this script requires a multibyte-capable shell (WSL).
 
-### `bin/merge_skeleton_into_books.sh`
+### `bin/books/books_finalize.sh`
 
 The finalize step: rsync a `BooksInput_<ts>` staging tree (produced by
-`bin/merge_books_into_skeleton.sh`, already named and already pruned) into
+`bin/books/books_merge.sh`, already named and already pruned) into
 the Books library. The rename and prune steps no longer exist; rsync does
 the copy, resumably and safely, with a **live progress bar** on the
 terminal:
@@ -234,13 +234,13 @@ disables it. A dry run only reports how many would be removed.
 
 ```bash
 # Dry run first (nothing changes)
-./bin/merge_skeleton_into_books.sh \
+./bin/books/books_finalize.sh \
     --output-root /mnt/c/Backup_Go7 \
     --target /mnt/c/Backup_Go7/Books \
     --dry-run
 
 # Explicit source
-./bin/merge_skeleton_into_books.sh \
+./bin/books/books_finalize.sh \
     --source /mnt/c/Backup_Go7/BooksInput_20260830-223135 \
     --target /mnt/c/Backup_Go7/Books
 ```
@@ -519,8 +519,8 @@ wsl.exe bash tests/test_authors_tree_build.sh
 wsl.exe bash tests/test_authors_prefix_tree.sh    # renderer: goldens, descent, filters, depth, CLI
 wsl.exe bash tests/test_utf8_prefix_generator.sh     # AWK generator: direct edge-case tests
 wsl.exe bash tests/test_e2e_pipeline.sh              # generator -> validator -> renderer on real data
-wsl.exe bash tests/test_merge_books_into_skeleton.sh # archive -> in-memory prefix hierarchy (WSL)
-wsl.exe bash tests/test_merge_skeleton_into_books.sh # BooksInput_* -> Books rsync finalize (WSL/Linux + rsync)
+wsl.exe bash tests/test_books_merge.sh # archive -> in-memory prefix hierarchy (WSL)
+wsl.exe bash tests/test_books_finalize.sh # BooksInput_* -> Books rsync finalize (WSL/Linux + rsync)
 bash tests/test_authors_export.sh            # exporter: argv, rows, lifecycle mocks (runs anywhere)
 bash tests/test_reconcile_library.sh                 # recon: classification + collection-progress summary (mock mysql)
 bash tests/test_estimate_download_size.sh            # estimator: sums, top-rated-first breakdown, lifecycle mocks (runs anywhere)
@@ -569,8 +569,8 @@ Releases are tagged with a tool-prefixed name:
 | `bin/authors/authors_prefix_check.sh` | 1.2.1 | `prefix_table_integrity-1.2.1` |
 | `bin/authors/authors_prefix_tree.sh` | 2.8.1 | `v2.8.1` |
 | `bin/authors/authors_tree_build.sh` | 6.6.10 | `v6.6.10` |
-| `bin/merge_books_into_skeleton.sh` | 0.2.0 | `merge_books_into_skeleton-0.2.0` |
-| `bin/merge_skeleton_into_books.sh` | 0.2.3 | `merge_skeleton_into_books-0.2.3` |
+| `bin/books/books_merge.sh` | 0.2.0 | `books_merge-0.2.0` |
+| `bin/books/books_finalize.sh` | 0.2.3 | `books_finalize-0.2.3` |
 | `bin/authors/authors_export.sh` | 1.0.2 | `export_authors_from_db-1.0.2` |
 | `bin/reconcile_library.sh` | 1.0.3 | `reconcile_library-1.0.3` |
 | `bin/estimate_download_size.sh` | 1.0.0 | `estimate_download_size-1.0.0` |
@@ -612,13 +612,13 @@ bin/estimate_download_size.sh       catalog download-size estimate for a to-coll
 bin/backup_myprivatelib.sh            backup/restore of the app-registered myprivatelib library DB
 bin/populate_myprivatelib.sh          rebuild myprivatelib from the Books collection (md5-matched, explicit keys, AUTO_INCREMENT-free schema, genre tree, catalog filename)
 bin/bump-version.sh                 bump one tool's version across header + docs
-bin/merge_books_into_skeleton.sh    archive -> in-memory prefix merge tool (BooksInput_<ts> out)
-bin/merge_skeleton_into_books.sh    BooksInput_* -> Books rsync finalize tool
-lib/merge_books_functions.sh        shared functions for the merge tool
+bin/books/books_merge.sh    archive -> in-memory prefix merge tool (BooksInput_<ts> out)
+bin/books/books_finalize.sh    BooksInput_* -> Books rsync finalize tool
+lib/books_functions.sh        shared functions for the merge tool
 lib/mariadb_lifecycle.sh            shared MariaDB lifecycle (start/stop/readiness)
 lib/utf8_prefix_generator.awk       original AWK generator (parity reference)
-config/merge_books.conf             defaults for the merge tool (input file, paths, tree knobs)
-config/merge_skeleton_into_books.conf   defaults for the finalize tool (paths + discovery root)
+config/books_merge.conf             defaults for the merge tool (input file, paths, tree knobs)
+config/books_finalize.conf   defaults for the finalize tool (paths + discovery root)
 config/reconcile_library.conf       defaults for the recon report (library root, scope, report dir)
 config/estimate_download_size.conf  defaults for the estimator (input list, report dir)
 config/backup_myprivatelib.conf   defaults for the backup tool (backup dir, db, retention)

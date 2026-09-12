@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# lib/merge_books_functions.sh
+# lib/books_functions.sh
 #
 # Version:       0.2.0
 # Last updated:  2026-09-01
@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 # PURPOSE
 # -----------------------------------------------------------------------------
-#   Shared functions for bin/merge_books_into_skeleton.sh: build the author
+#   Shared functions for bin/books/books_merge.sh: build the author
 #   prefix hierarchy IN MEMORY from a flat author list, then copy every file
 #   of every top-level author folder in a source archive into the deepest
 #   valid prefix directory for that author, without losing the book-series
@@ -175,7 +175,7 @@ merge_sanitize() {
 merge_usage() {
     local version
     version="$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
-    echo "bin/merge_books_into_skeleton.sh v$version" >&2
+    echo "bin/books/books_merge.sh v$version" >&2
     echo "" >&2
     echo "Usage: $0 --source=DIR --input-file=FILE [OPTIONS]" >&2
     echo "" >&2
@@ -223,7 +223,7 @@ merge_parse_args() {
                 exit 1
                 ;;
             -v|--version)
-                echo "merge_books_into_skeleton.sh v$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
+                echo "books_merge.sh v$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
                 exit 0
                 ;;
             --config=*)
@@ -1141,7 +1141,7 @@ merge_main() {
 
     local version
     version="$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
-    echo "merge_books_into_skeleton.sh v$version"
+    echo "books_merge.sh v$version"
     echo "  source:     $SOURCE_DIR"
     echo "  input:      $INPUT_FILE ($TOTAL_AUTHORS authors, min $MINIMUM_AUTHORS, max prefix $MAX_PREFIX_LENGTH)"
     echo "  staging:    $STAGING_DIR"

@@ -1,13 +1,13 @@
 # NEXT — where to resume
 
 > Updated: 2026-09-12 — **refactoring Phase 4 underway**:
-> rename group 1 (AUTHORS chain) is DONE — all five tools live in
-> `bin/authors/` (`authors_export` also converted onto the shared
-> infrastructure); CI green. Remaining groups per D-02.5:
-> 2nd = books_merge + books_finalize (critical), 3rd = estimate/
-> reconcile + library trio, 4th = library_report, last = version_bump
-> (flat, no move). Phases 1–3 complete (inventory, architecture,
-> common infrastructure).
+> rename groups 1+2 are DONE — the AUTHORS chain lives in
+> `bin/authors/` and the critical merge pair in `bin/books/`
+> (`books_merge` + `lib/books_functions.sh` twin + `books_finalize`);
+> CI green. Remaining groups per D-02.5: 3rd = books_estimate,
+> books_reconcile + library_backup/populate/refresh, 4th =
+> library_report, last = version_bump (flat, no move). Phases 1–3
+> complete (inventory, architecture, common infrastructure).
 
 ## Resume checklist
 

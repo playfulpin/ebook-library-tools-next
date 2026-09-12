@@ -13,8 +13,8 @@
 #   tracked location that carries that version in a single shot:
 #
 #       1. the tool's header comment ("# Version:")
-#       2. its lib twin header, when it has one (e.g. merge_books_into_skeleton
-#          <-> lib/merge_books_functions.sh)
+#       2. its lib twin header, when it has one (e.g. books_merge
+#          <-> lib/books_functions.sh)
 #       3. the tool's row in the README release table (version and tag
 #          columns — the tag embeds the version, so one substitution covers
 #          both)
@@ -35,8 +35,8 @@
 #       build_prefix_table            (1.0.x) -> authors_prefix_build
 #       prefix_table_integrity        (1.2.x) -> authors_prefix_check
 #       prefix_tree_visualizer        (2.8.x) -> authors_prefix_tree
-#       merge_books_into_skeleton     (0.1.x, bin + lib twin)
-#       merge_skeleton_into_books     (0.1.x)
+#       books_merge                   (0.1.x, bin + lib twin) [was merge_books_into_skeleton]
+#       books_finalize                (0.1.x) [was merge_skeleton_into_books]
 #       utf8_prefix_generator         (1.x, two-part versions only)
 #       export_authors_from_db        (1.0.x)  -> authors_export
 #       reconcile_library             (1.0.x)
@@ -51,7 +51,7 @@
 #
 # EXAMPLES
 #   ./bin/bump-version.sh build_shell_nested_authors 6.6.11   # key unchanged
-#   ./bin/bump-version.sh merge_books_into_skeleton 0.1.4
+#   ./bin/bump-version.sh books_merge 0.1.4
 #   ./bin/bump-version.sh utf8_prefix_generator 1.2
 #
 # -----------------------------------------------------------------------------
@@ -158,8 +158,8 @@ usage() {
     echo "  authors_prefix_build          (1.0.x)  [was build_prefix_table]"
     echo "  authors_prefix_check          (1.2.x)  [was prefix_table_integrity]"
     echo "  authors_prefix_tree           (2.8.x)  [was prefix_tree_visualizer]"
-    echo "  merge_books_into_skeleton     (0.1.x, bin + lib twin)"
-    echo "  merge_skeleton_into_books     (0.1.x)"
+    echo "  books_merge                   (0.1.x, bin + lib twin)  [was merge_books_into_skeleton]"
+    echo "  books_finalize                (0.1.x)  [was merge_skeleton_into_books]"
     echo "  utf8_prefix_generator         (1.x, two-part versions only)"
     echo "  authors_export                (1.0.x)"
     echo "  reconcile_library             (1.0.x)"
@@ -207,14 +207,14 @@ main() {
             primary="bin/authors/authors_prefix_tree.sh"
             marker="bin/authors/authors_prefix_tree.sh"
             ;;
-        merge_books_into_skeleton)
-            primary="bin/merge_books_into_skeleton.sh"
-            twin="lib/merge_books_functions.sh"
-            marker="bin/merge_books_into_skeleton.sh"
+        books_merge)
+            primary="bin/books/books_merge.sh"
+            twin="lib/books_functions.sh"
+            marker="bin/books/books_merge.sh"
             ;;
-        merge_skeleton_into_books)
-            primary="bin/merge_skeleton_into_books.sh"
-            marker="bin/merge_skeleton_into_books.sh"
+        books_finalize)
+            primary="bin/books/books_finalize.sh"
+            marker="bin/books/books_finalize.sh"
             ;;
         utf8_prefix_generator)
             primary="lib/utf8_prefix_generator.awk"

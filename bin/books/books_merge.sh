@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# bin/merge_books_into_skeleton.sh
+# bin/books/books_merge.sh
 #
 # Version:       0.2.0
 # Last updated:  2026-09-01
@@ -30,7 +30,7 @@
 #
 #   Only directories that actually receive a copied file are created, so the
 #   tree is pruned by construction.  The finalize step then rsyncs this tree
-#   into the Books library (see bin/merge_skeleton_into_books.sh).
+#   into the Books library (see bin/books/books_finalize.sh).
 #
 # -----------------------------------------------------------------------------
 # CONFIGURATION
@@ -44,7 +44,7 @@
 # -----------------------------------------------------------------------------
 # USAGE
 # -----------------------------------------------------------------------------
-#   ./bin/merge_books_into_skeleton.sh \
+#   ./bin/books/books_merge.sh \
 #       --source /mnt/c/Backup_Go7/ToLoad \
 #       --input-file data/fixtures/authors_list_from_db.txt \
 #       --output-root /mnt/c/Backup_Go7 \
@@ -76,7 +76,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../lib/merge_books_functions.sh
-source "$SCRIPT_DIR/../lib/merge_books_functions.sh"
+# shellcheck source=../../lib/books_functions.sh
+source "$SCRIPT_DIR/../../lib/books_functions.sh"
 
 merge_main "$@"
