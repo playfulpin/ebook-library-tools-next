@@ -569,7 +569,7 @@ Releases are tagged with a tool-prefixed name:
 | `bin/authors/authors_prefix_check.sh` | 1.2.1 | `prefix_table_integrity-1.2.1` |
 | `bin/authors/authors_prefix_tree.sh` | 2.8.1 | `v2.8.1` |
 | `bin/authors/authors_tree_build.sh` | 6.6.10 | `v6.6.10` |
-| `bin/books/books_merge.sh` | 0.2.0 | `books_merge-0.2.0` |
+| `bin/books/books_merge.sh` | 0.2.1 | `books_merge-0.2.1` |
 | `bin/books/books_finalize.sh` | 0.2.3 | `books_finalize-0.2.3` |
 | `bin/authors/authors_export.sh` | 1.0.2 | `export_authors_from_db-1.0.2` |
 | `bin/books/books_reconcile.sh` | 1.0.3 | `books_reconcile-1.0.3` |

@@ -3,7 +3,7 @@
 ###############################################################################
 # bin/books/books_merge.sh
 #
-# Version:       0.2.0
+# Version:       0.2.1
 # Last updated:  2026-09-12
 #
 # -----------------------------------------------------------------------------
@@ -36,7 +36,7 @@
 # CONFIGURATION
 # -----------------------------------------------------------------------------
 #   Every setting resolves flag > env var > config file > built-in default.
-#   The optional config file is config/merge_books.conf (keys:
+#   The optional config file is config/books_merge.conf (keys:
 #   MERGE_INPUT_FILE, MERGE_SOURCE_DIR, MERGE_OUTPUT_DIR, MERGE_REPORT_DIR,
 #   MERGE_RECURSIVE, MERGE_OVERWRITE, MERGE_MIN_AUTHORS, MERGE_MAX_PREFIX,
 #   MERGE_SKIP_NAMES).  --dry-run is intentionally not configurable.

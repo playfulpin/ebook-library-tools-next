@@ -14,13 +14,22 @@
 ```bash
 cd /c/git_root/ebook-library-tools-next
 git status             # expect: clean tree, on main, up to date with origin/main
-git log --oneline -3   # expect: the Phase 5 standards commit at the top; tags v1.7.0 + v1.7.1 on main
+git log --oneline -3   # expect: the docs/testing commits at the top; tags v1.7.0 + v1.7.1 on main
 bash tests/test_version_sync.sh          # 14/14 (fast, mock-only)
 bash tests/test_library_report.sh        # 71/71 (mock mysql, runs anywhere)
 bash tests/test_library_refresh.sh       # 20/20
 bash tests/test_library_populate.sh      # 35/35
 shellcheck --severity=warning bin/*.sh bin/*/*.sh lib/*.sh && echo clean   # Phase 5 gate
 ```
+
+### Manual life testing
+
+`docs/MANUAL_LIFE_TESTING.md` is the hands-on, real-data task list (§1 AUTHORS
+→ §6 loop-closer, safest first).  Its commands were contract-reviewed
+2026-09-12 and the review exposed one real defect now fixed: `books_merge`
+0.2.1 loads `config/books_merge.conf` again (the Phase 4 rename missed the
+lib's built-in default path), so `./bin/books/books_merge.sh --dry-run` works
+bare from the repo root.
 
 ### Reporting quickstart
 

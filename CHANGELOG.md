@@ -7,6 +7,38 @@ All notable changes to the author-toolchain scripts in this repository:
 `bin/merge_books_into_skeleton.sh`, and
 `bin/merge_skeleton_into_books.sh`.
 
+## [Unreleased]
+
+- **`bin/books/books_merge.sh` 0.2.1 — config default repaired.**  The Phase 4
+  rename of `config/merge_books.conf` → `config/books_merge.conf` was applied
+  everywhere except the lib's built-in default path (`lib/books_functions.sh`
+  line 152), so a bare invocation silently lost every config default — input
+  file, source, output root, reports — and died with "Error: no input file
+  given".  Now loads `config/books_merge.conf` again; the lib header comment
+  and the `--config=` usage line follow, the tool header comment matches, the
+  suite's isolation note names the real file, and the config's own header
+  carries the new name.  `config/books_merge.conf` `MERGE_INPUT_FILE` also
+  re-pointed from the retired MultiLib_Utilities path to this repo's fixture
+  (`/mnt/c/git_root/ebook-library-tools-next/data/fixtures/authors_list_from_db.txt`).
+  Version bumps per the 0.0.1 rule via `bin/version_bump.sh books_merge 0.2.1`
+  (bin + lib twin + README release table + RELEASE_NOTES).
+- **`docs/MANUAL_LIFE_TESTING.md` rewritten after a command-contract review**
+  (every command checked against the tool's usage text, config defaults and
+  arg parser).  Fixed: §1.2/§1.3 used stdin redirects into tools that take a
+  FILE argument (`--table=`/positional); §1.4 used a `--dry-run` flag that
+  does not exist on `authors_tree_build.sh` (the tool only *emits* the mkdir
+  script — plus it creates its root dir even without `-c`, so the probe now
+  targets `/tmp`); §2.2 dropped the required `--target` and wrongly promised
+  `pv` progress in dry-run (the `pv -l` bar is real-run only); §2.3/§2.4
+  expected the real output names (`books_reconcile_<ts>.tsv`,
+  `books_reconcile_to_collect_<ts>.txt`, `books_reconcile_beyond_books_<ts>.tsv`,
+  `books_estimate_<ts>.tsv`); §3.3/§5-rollback passed no FILE argument to
+  `backup verify`/`restore` (positional, mandatory); §3.4/§6 quoted the wrong
+  `--status` output shape; §5.3 ignored that refresh stops only the server it
+  started; the `taskkill.exe` hang remedy got its full `/mnt/c/Windows/…`
+  path; the header's `git log` expectation and the pre-flight tail hints were
+  aligned with real output.
+
 ## [v1.7.1] - 2026-09-12
 
 - **Phase 5 complete — function headers & coding standards.**

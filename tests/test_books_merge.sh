@@ -44,7 +44,7 @@
 # will mangle Cyrillic prefixes.
 #
 # IMPORTANT: every invocation passes --config pointing at an empty file so
-# the repository's config/merge_books.conf (real user paths) can never leak
+# the repository's config/books_merge.conf (real user paths) can never leak
 # into a test run.  The config group uses its own explicit config file.
 #
 # Exit status: 0 if every check passed, 1 otherwise.

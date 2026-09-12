@@ -3,7 +3,7 @@
 ###############################################################################
 # lib/books_functions.sh
 #
-# Version:       0.2.0
+# Version:       0.2.1
 # Last updated:  2026-09-12
 #
 # -----------------------------------------------------------------------------
@@ -52,7 +52,7 @@
 # CONFIGURATION (resolution order: flag > env var > config file > default)
 # -----------------------------------------------------------------------------
 #   Values can come from command-line flags, environment variables, the
-#   optional config file (config/merge_books.conf, see below), or built-in
+#   optional config file (config/books_merge.conf, see below), or built-in
 #   defaults:
 #
 #       INPUT_FILE          flat author list (one canonical name per line);
@@ -149,7 +149,7 @@ MATCH_DEST=""                  # resolved destination (relative to staging)
 MATCH_AMBIGUOUS=false
 
 # --- default config location (next to the repo's config/ directory) ----------
-DEFAULT_CONFIG_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/config/merge_books.conf"
+DEFAULT_CONFIG_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/config/books_merge.conf"
 
 # -----------------------------------------------------------------------------
 # merge_sanitize
@@ -191,7 +191,7 @@ merge_usage() {
     echo "  -m, --min-authors=NUM Minimum authors per prefix [default: 10]" >&2
     echo "  -x, --max-prefix=NUM  Deepest prefix level [default: 5]" >&2
     echo "  -r, --report-dir=DIR  Where the TSV reports are written" >&2
-    echo "      --config=FILE     Config file [default: config/merge_books.conf]" >&2
+    echo "      --config=FILE     Config file [default: config/books_merge.conf]" >&2
     echo "      --recursive       Copy book-series subfolders recursively [default]" >&2
     echo "      --no-recursive    Direct files only; subfolders are skipped" >&2
     echo "      --overwrite=POL   Destination exists: never|ask|force [default: never]" >&2
