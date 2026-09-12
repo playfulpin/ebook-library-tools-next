@@ -168,7 +168,7 @@ Book-series subfolders are copied recursively by default, preserving their
 relative layout. Windows metadata files (`desktop.ini`, `Thumbs.db` by
 default) are never copied. Existing destination files are never overwritten
 unless the user allows it. The source archive is never modified. See
-`docs/BOOK_LIBRARY_MERGE_PLAN.md` for the full design.
+`docs/archive/BOOK_LIBRARY_MERGE_PLAN.md` for the full design.
 
 ```bash
 ./bin/books/books_merge.sh \
@@ -366,7 +366,7 @@ Backup / restore of the **app-registered personal library database
 (`myprivatelib`)** — the sibling library the MultiLib desktop app created
 (same 17-table ml* schema as `flibusta`, empty, connectable from the app).
 This is the safety net that must exist BEFORE anything is populated into
-`myprivatelib` (see `docs/REPRESENTATION_PLAN.md`):
+`myprivatelib` (see `docs/archive/REPRESENTATION_PLAN.md`):
 
 ```bash
 ./bin/library/library_backup.sh                              # backup (default action)
@@ -450,7 +450,7 @@ decision).
 
 Rebuild the **app-registered personal library database (`myprivatelib`)**
 from the on-disk `Books` collection (Phase 1 of
-`docs/REPRESENTATION_PLAN.md`).  Every book file is md5-hashed
+`docs/archive/REPRESENTATION_PLAN.md`).  Every book file is md5-hashed
 (zip-wrapped FB2 by its **decompressed content**, loose `*.fb2` directly)
 and matched against `flibusta.mlbook.md5` — the dump pipeline populates
 that column for ALL 869,130 catalog rows, so md5 matching is exact and
@@ -466,14 +466,14 @@ unambiguous.  **Only books present in the `Books` folder are represented**
 **Source keys verbatim, AUTO_INCREMENT-free schema (v1.3.0).**  MultiLib.exe
 treats server-generated (AUTO_INCREMENT) primary-key columns differently
 from the original schema's plain PK columns and misbehaves with a
-populated library (see `docs/DO_IT.md`), so the tool first
+populated library (see `docs/archive/DO_IT_ongoing.md`), so the tool first
 **strips `AUTO_INCREMENT` from all 16 PK columns** of the target schema
 (schema-driven, attribute-preserving `ALTER TABLE ... MODIFY COLUMN` —
 the column definition is read from `SHOW CREATE TABLE` and only the
 `AUTO_INCREMENT` keyword is dropped; list in `PK_COLUMNS`, verified
 afterwards via `information_schema.COLUMNS.EXTRA`).  Keys themselves are
 **the flibusta source keys, copied verbatim — the tool generates NO
-synthetic keys** (per `docs/DO_IT_20260906_141511.md`): the md5 match
+synthetic keys** (per `docs/archive/DO_IT_ongoing.md`): the md5 match
 resolves a file to the catalog `bookid`, and that `bookid` (plus the
 source `authorid`/`genreid`/`seqid` and the child PKs
 `la_id`/`gn_id`/`sq_id`/`rt_id`/`ci_id`) is inserted unchanged — the
@@ -626,14 +626,15 @@ tests/                          fixtures and golden files
 
 .github/workflows/ci.yml        CI: syntax + version sync + all suites on push/PR
 
-docs/BOOK_LIBRARY_MERGE_PLAN.md        skeleton + merge design document
+docs/archive/BOOK_LIBRARY_MERGE_PLAN.md        skeleton + merge design document
 
 data/fixtures/authors_list_from_db.txt        flat author list (regenerated from the DB by bin/authors/authors_export.sh)
 data/sql/CTE_table.sql / data/sql/populate_tree.sql   nested-set dictionary table (schema + data)
 data/sql/qry_authors_4_and_5_all.sql           default author-list query (rated-4/5 authors) for the exporter
 
 CHANGELOG.md                    full release history
-_Old_Stuff/ , _Save_Stuff/      archived/scratch files (git-ignored)
+_Old_Stuff/                     archived/scratch files (git-ignored)
+data/commit_msg/                commit-message drafts (git-ignored)
 ```
 
 See `CHANGELOG.md` for the full release history and the step-by-step release

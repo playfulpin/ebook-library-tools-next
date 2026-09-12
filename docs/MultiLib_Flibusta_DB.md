@@ -13,10 +13,10 @@
 > **How verified:** every schema/row-count/index figure below was taken
 > read-only from the live server (`information_schema`, `SHOW INDEX`,
 > `SELECT COUNT(*)`) on 2026-09-04 unless a date is stated otherwise.
-> **Companion docs:** `docs/REPRESENTATION_PLAN.md` (the personal-library
+> **Companion docs:** `docs/archive/REPRESENTATION_PLAN.md` (the personal-library
 > plan this DB serves, rev 6), `docs/NEXT.md` (resume notes),
-> `docs/Flibusta_DB_findings.txt` (the original md5 idea that made exact
-> matching possible), `docs/BOOK_LIBRARY_MERGE_PLAN.md`. The catalog
+> `docs/archive/Flibusta_DB_findings.txt` (the original md5 idea that made exact
+> matching possible), `docs/archive/BOOK_LIBRARY_MERGE_PLAN.md`. The catalog
 > loader lives in the sibling project `BookTracker-import` (see §6.1).
 
 ---
@@ -443,13 +443,13 @@ counts (e.g. `mlseqname`: 80,744 rows but watermark 112,843) — the ids
 are sparse, inherited from the source catalog.
 
 **Consequence for `myprivatelib`:** **v1.3.0 (per
-`docs/DO_IT_20260906_141511.md`) is the current contract: keys are the
+`docs/archive/DO_IT_ongoing.md`) is the current contract: keys are the
 flibusta SOURCE keys, copied verbatim — the tool generates NO synthetic
 keys.**  The md5 match resolves an on-disk file to the catalog `bookid`,
 and that `bookid` (plus the source `authorid`/`genreid`/`seqid` and the
 child PKs `la_id`/`gn_id`/`sq_id`/`rt_id`/`ci_id`) is inserted unchanged,
 so every reference relationship in `myprivatelib` is identical to
-flibusta's.  The **v1.2.0 (per `docs/DO_IT.md`) AUTO_INCREMENT strip
+flibusta's.  The **v1.2.0 (per `docs/archive/DO_IT_ongoing.md`) AUTO_INCREMENT strip
 stays**: the app treats server-generated PK columns differently from the
 original schema's plain PK columns, so the populate tool first strips
 `AUTO_INCREMENT` from all 16 PK columns of the target schema

@@ -189,7 +189,7 @@ All notable changes to the author-toolchain scripts in this repository:
 
 - **`bin/refresh_myprivatelib.sh` v1.0.0 — new tool: the freshness
   orchestrator with a tree-fingerprint checkpoint.**  Closes the loop
-  proposed in `docs/Flibusta_DB_findings.txt` (a `stat` checkpoint +
+  proposed in `docs/archive/Flibusta_DB_findings.txt` (a `stat` checkpoint +
   `PROCESS_FLAG`) as a full pipeline: fingerprint the Books tree
   (recursive rel-path + size + mtime per file, C-sorted), compare against
   the checkpoint from the previous run, and on change run
@@ -376,7 +376,7 @@ tests after the v1.1.0 rebuild surfaced two issues, both fixed:
   sibling library the MultiLib desktop app created in-app (Flibusta
   plugin, empty, same 17-table ml* schema as `flibusta`, connectable from
   the app) — the target of the representation plan
-  (`docs/REPRESENTATION_PLAN.md`).  This tool is the safety net that must
+  (`docs/archive/REPRESENTATION_PLAN.md`).  This tool is the safety net that must
   exist BEFORE anything is populated into it: `backup` mysqldumps the DB
   into `BACKUP_DIR/<db>_<ts>.sql.gz` (gzip-integrity-checked, optional
   `BACKUP_KEEP` retention prune); `restore` is safe by design — it backs
@@ -830,7 +830,7 @@ runner.  Suites green under WSL and CI.
   everything; 0 empty dirs pruned; staging retained; report at
   `merge-reports/merge_skeleton_into_books_20260903-151230.tsv`.
 
-- **Docs:** `docs/BOOK_LIBRARY_MERGE_PLAN.md` rewritten for the two-step
+- **Docs:** `docs/archive/BOOK_LIBRARY_MERGE_PLAN.md` rewritten for the two-step
   pipeline (in-memory merge → rsync finalize); README tool sections, testing
   table, CI blurb, and repository layout updated; RELEASE_NOTES shipped
   tools and merge-tool prose updated.  Stale `bin/merge_skeleton_into_books.sh.bak`
@@ -911,7 +911,7 @@ finalize tools, with their suites green under WSL.
 
 - **Rename the backup root from `Backup_Nova3` to `Backup_Go7`** across the
   whole project: default directories, config files, usage examples,
-  documentation (`README.md`, `RELEASE_NOTES.md`, `docs/BOOK_LIBRARY_MERGE_PLAN.md`),
+  documentation (`README.md`, `RELEASE_NOTES.md`, `docs/archive/BOOK_LIBRARY_MERGE_PLAN.md`),
   and the nested-authors suite's root-dir substitution.  The old name no
   longer appears in any tracked file.  Version bumps per the 0.0.1 rule:
   `bin/build_shell_nested_authors.sh` 6.6.8 → **6.6.9**,
@@ -978,7 +978,7 @@ finalize tools, with their suites green under WSL.
 - **Merge tool v0.1.1.**  `bin/merge_books_into_skeleton.sh` plus
   `lib/merge_books_functions.sh` copy every top-level author folder of a
   legacy archive into the deepest matching prefix directory of a pre-built
-  skeleton, per `docs/BOOK_LIBRARY_MERGE_PLAN.md`:
+  skeleton, per `docs/archive/BOOK_LIBRARY_MERGE_PLAN.md`:
   - The skeleton is the source of truth: prefixes are matched byte-wise against
     the author name (exact for UTF-8 in Cygwin and WSL bash), the longest
     match wins, and distinct paths sharing it are reported as ambiguous.
@@ -1010,7 +1010,7 @@ finalize tools, with their suites green under WSL.
     CLI, version headers).  Unlike the UTF-8-slicing suites, it runs under
     both Cygwin/MSYS bash and WSL.
 
-- Added `docs/BOOK_LIBRARY_MERGE_PLAN.md`, documenting the approved next
+- Added `docs/archive/BOOK_LIBRARY_MERGE_PLAN.md`, documenting the approved next
   phase: build the author-prefix skeleton, resolve archive authors to the
   deepest valid prefix directory, and safely copy mixed-format books from
   `C:\\Backup_Go7\\ToLoad` without overwriting existing filenames. The first

@@ -14,7 +14,7 @@
 #   the sibling library the MultiLib desktop app created (same 17-table ml*
 #   schema as flibusta, empty, connectable from the app); this tool is the
 #   safety net that must exist BEFORE the population tool (Phase 1 of
-#   docs/REPRESENTATION_PLAN.md) writes the first row.
+#   docs/archive/REPRESENTATION_PLAN.md) writes the first row.
 #
 #   Actions:
 #       backup          logical dump (mysqldump) of the library DB, gzipped
@@ -309,7 +309,7 @@ Usage: library_backup.sh [options] [backup | restore FILE | verify FILE | list]
 
 Backup and restore the personal library database (myprivatelib) with
 mysqldump.  This is the safety net that must exist BEFORE anything is
-populated into myprivatelib (see docs/REPRESENTATION_PLAN.md).
+populated into myprivatelib (see docs/archive/REPRESENTATION_PLAN.md).
 
 Actions (positional; default: backup):
   backup               dump + gzip the library DB into BACKUP_DIR

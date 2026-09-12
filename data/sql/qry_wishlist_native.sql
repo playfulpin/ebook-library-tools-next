@@ -2,7 +2,7 @@
 -- |
 -- |  Native wishlist views against mllbr_main + myprivatelib
 -- |  (companion to bin/report_library.sh --native, v1.1;
--- |   doc: docs/NEXT.md, docs/DO_IT_20260906_201455.md).
+-- |   doc: docs/NEXT.md, docs/archive/DO_IT_ongoing.md).
 -- |
 -- |  MultiLib.exe stores reading lists natively:
 -- |      mllbr_main.mlgroupname  groupid, groupidparrent, groupname

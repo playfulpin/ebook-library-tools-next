@@ -10,7 +10,7 @@
 # PURPOSE
 # -----------------------------------------------------------------------------
 #   Rebuild the app-registered personal library database (myprivatelib) from
-#   the on-disk Books collection (Phase 1 of docs/REPRESENTATION_PLAN.md).
+#   the on-disk Books collection (Phase 1 of docs/archive/REPRESENTATION_PLAN.md).
 #   myprivatelib is the sibling library the MultiLib desktop app created with
 #   the Flibusta plugin: same 17-table ml* schema as flibusta, connectable
 #   from the app.  The population contract:
@@ -33,9 +33,9 @@
 #   (md5, bookid) map is pulled once and joined locally - no per-file
 #   queries.
 #
-#   KEY STRATEGY (v1.3.0, per docs/DO_IT_20260906_141511.md): keys are
+#   KEY STRATEGY (v1.3.0, per docs/archive/DO_IT_ongoing.md): keys are
 #   the SOURCE keys, copied verbatim from flibusta - the tool generates
-#   NO synthetic keys of any kind.  docs/DO_IT.md identified AUTO_INCREMENT
+#   NO synthetic keys of any kind.  docs/archive/DO_IT_ongoing.md identified AUTO_INCREMENT
 #   primary keys as the reason MultiLib.exe misbehaves with the populated
 #   library (the app treats server-generated PK columns differently from
 #   the original schema's plain PK columns), so the strip stays; but the
@@ -235,7 +235,7 @@ columns_of() { # db table -> comma-separated "name:type" list (or empty)
 
 managed_all=(mlauthorname mlgenrename mlseqname mlbook mlauthor mlgenre mlseq mlrating mlcustinfo)
 
-# --- AUTO_INCREMENT strip (v1.2.0, docs/DO_IT.md) --------------------------------
+# --- AUTO_INCREMENT strip (v1.2.0, docs/archive/DO_IT_ongoing.md) --------------------------------
 # MultiLib.exe treats server-generated (AUTO_INCREMENT) primary-key columns
 # differently from the original schema's plain PK columns and misbehaves
 # with a populated library.  Every PK column below must therefore be plain
@@ -503,7 +503,7 @@ check_parity_all() {
 # --- 5. generate the rebuild SQL script -----------------------------------------------
 # One script, one client session: managed tables are TRUNCATEd, then every
 # INSERT carries the flibusta SOURCE key VERBATIM (v1.3.0 - per
-# docs/DO_IT_20260906_141511.md, NO synthetic keys: the v1.2.0
+# docs/archive/DO_IT_ongoing.md, NO synthetic keys: the v1.2.0
 # tool-assigned 1..N ids are gone, AUTO_INCREMENT stays stripped, and every
 # PK and FK equals the source value.  Matching is md5-based: the on-disk
 # file resolves to a flibusta bookid, and that bookid is used as-is; the
@@ -735,9 +735,9 @@ the on-disk Books collection, md5-matching every book file against the
 flibusta catalog (mlbook.md5) and representing ONLY the resolved books
 in myprivatelib.  Keys are the flibusta SOURCE keys, copied verbatim -
 the tool generates NO synthetic keys (no 1..N counters, no id remaps, no
-session-variable bookkeeping; docs/DO_IT_20260906_141511.md).  AUTO_INCREMENT
+session-variable bookkeeping; docs/archive/DO_IT_ongoing.md).  AUTO_INCREMENT
 is still stripped from all 16 PK columns of the target schema first
-(schema-driven, attribute-preserving; see PK_COLUMNS and docs/DO_IT.md),
+(schema-driven, attribute-preserving; see PK_COLUMNS and docs/archive/DO_IT_ongoing.md),
 so the verbatim keys are plain PK values, not server-generated ones.
 mlbook.filename carries the catalog value (the app expects the
 transliterated name, not the on-disk path) while arcname/filesize come
@@ -746,7 +746,7 @@ series) are populated for the personal library's books only - genre
 ancestor categories are pulled in so the genre tree renders (genre ids
 and parentgenreid copied verbatim, so the tree is self-consistent).
 flibusta/mllbr_main are never written; the tool manages only the catalog
-tables it populates.  See docs/REPRESENTATION_PLAN.md (Phase 1).
+tables it populates.  See docs/archive/REPRESENTATION_PLAN.md (Phase 1).
 
 Options:
   -n, --dry-run        walk + resolve + summarize, change nothing
@@ -825,7 +825,7 @@ dupes="$(wc -l < "$tmp/dupes.txt" | tr -d ' ')"
 if (( ! DRY_RUN )); then
     generate_rebuild_sql
     if [[ -s "$tmp/rebuild.sql" ]]; then
-        # v1.2.0 (docs/DO_IT.md): AUTO_INCREMENT must be gone from ALL 16 PK
+        # v1.2.0 (docs/archive/DO_IT_ongoing.md): AUTO_INCREMENT must be gone from ALL 16 PK
         # columns BEFORE any data lands; the strip is schema-only, verified,
         # and runs before the first TRUNCATE/INSERT
         strip_auto_increment

@@ -5,9 +5,10 @@
 
 # Archived/scratch directories
 _Old_Stuff/
-_Save_Stuff/
-commit_msg/
 reports/
+
+# Commit-message drafts (user notes; live under data/ since 2026-09-12)
+data/commit_msg/
 
 # Raw flibusta dump archives (lib*.sql.gz and decompressed lib*.sql) —
 # never committed, they live on disk only

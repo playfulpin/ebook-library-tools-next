@@ -1,6 +1,6 @@
 # Phase 3 — Common Shell Infrastructure
 
-> **Deliverable of:** Phase 3 of `docs/ebook-library-tools — Updated Refactoring Plan.md` (§7)
+> **Deliverable of:** Phase 3 of `docs/archive/ebook-library-tools — Updated Refactoring Plan.md` (§7)
 > **Version:** 1.0.0
 > **Created:** 2026-09-12
 > **Based on:** `docs/PHASE_02_TARGET_ARCHITECTURE.md` v1.0.0 (§6 lib/ boundaries), Phase 1 inventory §11.1 (duplication survey), Phase 3 entry/exit criteria

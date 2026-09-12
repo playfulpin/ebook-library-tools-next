@@ -1657,9 +1657,9 @@ For deeper technical details, consult:
 
 ```text
 docs/MultiLib_Flibusta_DB.md
-docs/REPRESENTATION_PLAN.md
-docs/BOOK_LIBRARY_MERGE_PLAN.md
-docs/Flibusta_DB_findings.txt
+docs/archive/REPRESENTATION_PLAN.md
+docs/archive/BOOK_LIBRARY_MERGE_PLAN.md
+docs/archive/Flibusta_DB_findings.txt
 docs/NEXT.md
 CHANGELOG.md
 RELEASE_NOTES.md
@@ -1668,7 +1668,7 @@ RELEASE_NOTES.md
 The most important design document for the current archive-to-Books workflow is:
 
 ```text
-docs/BOOK_LIBRARY_MERGE_PLAN.md
+docs/archive/BOOK_LIBRARY_MERGE_PLAN.md
 ```
 
 It describes the in-memory prefix tree, timestamped `BooksInput_*` staging

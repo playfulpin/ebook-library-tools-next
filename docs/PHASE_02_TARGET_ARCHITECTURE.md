@@ -1,9 +1,9 @@
 # Phase 2 — Target Architecture
 
-> **Deliverable of:** Phase 2 of `docs/ebook-library-tools — Updated Refactoring Plan.md` (§6)
+> **Deliverable of:** Phase 2 of `docs/archive/ebook-library-tools — Updated Refactoring Plan.md` (§6)
 > **Version:** 1.0.0 — **RATIFIED** (all four open decisions resolved by Mike, 2026-09-07 — see §15 register and §17 approval)
 > **Created:** 2026-09-07
-> **Based on:** `docs/PHASE_01_INVENTORY.md` v1.0.0 (commit `6f73793`), `docs/REFACTORING_BLUEPRINT.md` (§1–23, §29–44), Phase 2 entry/exit criteria (`docs/ebook-library-tools — Refactoring Plan with Phase Entry & Exit Criteria.md` §5)
+> **Based on:** `docs/PHASE_01_INVENTORY.md` v1.0.0 (commit `6f73793`), `docs/archive/REFACTORING_BLUEPRINT.md` (§1–23, §29–44), Phase 2 entry/exit criteria (`docs/archive/ebook-library-tools — Refactoring Plan with Phase Entry & Exit Criteria.md` §5)
 > **Status of decisions:** all decisions are now **RATIFIED** (v1.0.0, 2026-09-07). `[PROPOSED]`/`[OPEN]` tags in the text are historical; the resolution of each is recorded in §15 (register) and §17 (approval).
 
 ---

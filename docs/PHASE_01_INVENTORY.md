@@ -1,11 +1,11 @@
 # Phase 1 — Repository Inventory & Dependency Map
 
-> **Deliverable of:** Phase 1 of `docs/ebook-library-tools — Updated Refactoring Plan.md` (§4–5)
+> **Deliverable of:** Phase 1 of `docs/archive/ebook-library-tools — Updated Refactoring Plan.md` (§4–5)
 > **Version:** 1.0.0
 > **Created:** 2026-09-07
 > **Audited commit:** `328bdd9` (rename `qry_Фантастика_4-and-5.sql` → `qry_Fantastika_4-and-5.sql`); docs-sync commit `8483292`
 > **Method:** read-only audit — tree walk, script headers, git log/tags, CI workflow, config and data cross-reference. No code was modified.
-> **Related:** `docs/REFACTORING_BLUEPRINT.md`, `docs/ebook-library-tools — Refactoring Plan with Phase Entry & Exit Criteria.md`, `docs/Measurable Phase Completion Criteria.md`
+> **Related:** `docs/archive/REFACTORING_BLUEPRINT.md`, `docs/archive/ebook-library-tools — Refactoring Plan with Phase Entry & Exit Criteria.md`, `docs/Measurable Phase Completion Criteria.md`
 
 ---
 
@@ -200,20 +200,20 @@ Notable config values: `BOOK_CATALOG_DIR=/mnt/c/Backup_Go7/Books`, `REPORT_DIR=/
 
 | Document | Size | Role / status |
 |---|---|---|
-| `docs/REFACTORING_BLUEPRINT.md` | 2,401 ln | Foundational blueprint: keep-repo decision, rename map, target `bin/` layout, data/ refactor. **Superseded in parts by the Updated Plan** |
-| `docs/ebook-library-tools — Updated Refactoring Plan.md` | 1,003 ln | **Active plan** — phase definitions; Phase 1 = this inventory |
-| `docs/ebook-library-tools — Refactoring Plan with Phase Entry & Exit Criteria.md` | 869 ln | Per-phase entry/exit gates |
+| `docs/archive/REFACTORING_BLUEPRINT.md` | 2,401 ln | Foundational blueprint: keep-repo decision, rename map, target `bin/` layout, data/ refactor. **Superseded in parts by the Updated Plan** |
+| `docs/archive/ebook-library-tools — Updated Refactoring Plan.md` | 1,003 ln | **Active plan** — phase definitions; Phase 1 = this inventory |
+| `docs/archive/ebook-library-tools — Refactoring Plan with Phase Entry & Exit Criteria.md` | 869 ln | Per-phase entry/exit gates |
 | `docs/Measurable Phase Completion Criteria.md` | 502 ln | Phase completion scorecard |
 | `docs/PHASE_01_INVENTORY.md` | this file | Phase 1 deliverable |
 | `docs/NEXT.md` | 161 ln | Living resume point (last: post v1.6.0 state) |
-| `docs/DO_IT_ongoing.md` | 255 ln | Folded assignment history (4 timestamped parts, all resolved) |
+| `docs/archive/DO_IT_ongoing.md` | 255 ln | Folded assignment history (4 timestamped parts, all resolved) |
 | `docs/MultiLib_Flibusta_DB.md` | ~52 KB | DB reference: flibusta/myprivatelib tables, keys, load order, data flow |
-| `docs/REPRESENTATION_PLAN.md` | — | Representation-layer plan (myprivatelib strategy) |
-| `docs/BOOK_LIBRARY_MERGE_PLAN.md` | — | Merge pipeline plan |
-| `docs/COVERS_PLAN.md` | — | **Closed** — covers/annotations render from FB2 payload |
+| `docs/archive/REPRESENTATION_PLAN.md` | — | Representation-layer plan (myprivatelib strategy) |
+| `docs/archive/BOOK_LIBRARY_MERGE_PLAN.md` | — | Merge pipeline plan |
+| `docs/archive/COVERS_PLAN.md` | — | **Closed** — covers/annotations render from FB2 payload |
 | `docs/MultiLib_Utilities — User Guide.md` | — | End-user guide (historical name) |
 | `docs/BookTracker Import — User Guide.md` | — | Guide for the sibling BookTracker-import pipeline |
-| `docs/NB_001-find-bookid-in-schema.md`, `docs/Flibusta_DB_findings.txt` | — | Working notes (candidates for archival) |
+| `docs/archive/NB_001-find-bookid-in-schema.md`, `docs/archive/Flibusta_DB_findings.txt` | — | Working notes (candidates for archival) |
 
 ---
 

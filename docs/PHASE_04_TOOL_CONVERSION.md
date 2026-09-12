@@ -1,6 +1,6 @@
 # Phase 4 — Tool Conversion & Rename (progress log)
 
-> **Deliverable of:** Phase 4 of `docs/ebook-library-tools — Updated Refactoring Plan.md` (§8)
+> **Deliverable of:** Phase 4 of `docs/archive/ebook-library-tools — Updated Refactoring Plan.md` (§8)
 > **Version:** 1.2.0
 > **Created:** 2026-09-12
 > **Based on:** ratified rename map D-02.5 (`docs/PHASE_02_TARGET_ARCHITECTURE.md` §4) and the Phase 3 infrastructure (`docs/PHASE_03_COMMON_INFRASTRUCTURE.md`)

@@ -47,12 +47,12 @@ note) + native `mllbr_main.mlgroup` rows (marked in-app).
 | `bin/library/library_report.sh` v1.2.0 | shipped; TSV wish list (`data/wishlist.tsv`), view + mutations + exports; `--native title\|author\|series\|all` views over the app-managed `mllbr_main` wishlists (read-only, library-scoped; companion SQL `data/sql/qry_wishlist_native.sql`); `--hybrid` merges both sources (native status wins, TSV keeps periods, ★ favorites, source tags); suite 71/71 |
 | Releases | v1.3.0 (`47f8ddc`, verbatim keys) + v1.4.0 (`708d963`, refresh + wish list) + v1.5.0 (`612b5e2`, native wishlist views) + v1.6.0 (`d648a67`, hybrid view) published on GitHub, v1.6.0 = Latest |
 | CI | green on `d648a67` |
-| Assignment history | `docs/DO_IT_ongoing.md` (Parts 1-4, folded + resolved) |
+| Assignment history | `docs/archive/DO_IT_ongoing.md` (Parts 1-4, folded + resolved) |
 | MariaDB | stopped (shut down gracefully 2026-09-07) |
 
 ## The discovery: native wishlist lives in `mllbr_main` (verified live 2026-09-07)
 
-From the assignment doc (folded into `docs/DO_IT_ongoing.md` Part 4)
+From the assignment doc (folded into `docs/archive/DO_IT_ongoing.md` Part 4)
 plus a read-only probe against the live server. **MultiLib.exe manages
 user reading lists natively** — no TSV,
 no `mluserkeyword`, no `di_history` probing needed:
@@ -129,9 +129,9 @@ joins both by bookid.
 6. **Docs pass**: add the `mllbr_main` wishlist findings (mlgroup /
    mlgroupname schema, library scoping, 3 built-in categories) to
    `docs/MultiLib_Flibusta_DB.md`; consider archiving
-   `docs/COVERS_PLAN.md` (superseded, see DO_IT_ongoing Part 3).
+   `docs/archive/COVERS_PLAN.md` (superseded, see DO_IT_ongoing Part 3).
 7. **Covers/annotations**: CLOSED — the app renders both from the FB2
-   payload; `docs/COVERS_PLAN.md` is superseded. Only revisit if
+   payload; `docs/archive/COVERS_PLAN.md` is superseded. Only revisit if
    DB-level thumbnail views are ever wanted.
 
 ## Environment quirks (carried forward — remember these)
@@ -157,7 +157,7 @@ joins both by bookid.
 - Full DB reference: `docs/MultiLib_Flibusta_DB.md` (rev 2); quick
   queries: `data/sql/qry_catalog_reference.sql`. Native-wishlist query
   bank: `data/sql/qry_wishlist_native.sql` (A-E, `@library` variable).
-  Assignment history lives in `docs/DO_IT_ongoing.md` — extend it with
+  Assignment history lives in `docs/archive/DO_IT_ongoing.md` — extend it with
   new timestamped parts rather than spawning new DO_IT* files.
 - `data/wishlist.tsv` currently empty; TSV + native groups coexist per
   the hybrid model (`--hybrid`).
