@@ -2,7 +2,7 @@
 # -----------------------------------------------------------------------------
 # lib/mariadb_lifecycle.sh
 #
-# Version:       1.0.2
+# Version:       1.0.3
 # Last updated:  2026-09-12
 #
 # -----------------------------------------------------------------------------
@@ -84,6 +84,10 @@ mariadb_running() {
 # enough: the elevated Start-Process can be slow or the UAC prompt can sit
 # unaccepted).  The probe is bounded by `timeout` - an unbound 127.0.0.1
 # port can hang instead of refusing under WSL2 mirrored networking.
+# Stdin is detached (</dev/null): the probe is a one-shot handshake and must
+# never inherit a possibly-blocking stdin (a TTY would stall any client that
+# reads input until the timeout kills it - seen as a 30s "did not become
+# ready" failure when tests run from an interactive terminal).
 mariadb_ready() {
     local probe_timeout="${MARIA_READY_TIMEOUT:-5}"
     local -a cmd=()
@@ -95,9 +99,9 @@ mariadb_ready() {
     [[ -n "${MYSQL_PORT:-}" ]] && cmd+=(-P "$MYSQL_PORT")
     [[ -n "${MYSQL_USER:-}" ]] && cmd+=(-u "$MYSQL_USER")
     if [[ -n "${MYSQL_PASSWORD:-}" ]]; then
-        MYSQL_PWD="${MYSQL_PASSWORD}" "${cmd[@]}" -e "SELECT 1" >/dev/null 2>&1
+        MYSQL_PWD="${MYSQL_PASSWORD}" "${cmd[@]}" -e "SELECT 1" </dev/null >/dev/null 2>&1
     else
-        "${cmd[@]}" -e "SELECT 1" >/dev/null 2>&1
+        "${cmd[@]}" -e "SELECT 1" </dev/null >/dev/null 2>&1
     fi
 }
 
@@ -170,9 +174,9 @@ mariadb_shutdown() {
     [[ -n "${MYSQL_PORT:-}" ]] && cmd+=(-P "$MYSQL_PORT")
     [[ -n "${MYSQL_USER:-}" ]] && cmd+=(-u "$MYSQL_USER")
     if [[ -n "${MYSQL_PASSWORD:-}" ]]; then
-        MYSQL_PWD="${MYSQL_PASSWORD}" "${cmd[@]}" -e "SHUTDOWN" >/dev/null 2>&1
+        MYSQL_PWD="${MYSQL_PASSWORD}" "${cmd[@]}" -e "SHUTDOWN" </dev/null >/dev/null 2>&1
     else
-        "${cmd[@]}" -e "SHUTDOWN" >/dev/null 2>&1
+        "${cmd[@]}" -e "SHUTDOWN" </dev/null >/dev/null 2>&1
     fi
 }
 

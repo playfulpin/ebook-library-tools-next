@@ -9,6 +9,18 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **`lib/mariadb_lifecycle.sh` 1.0.3 — readiness probe stdin detached.**  The
+  probe (`timeout 5 mysql -e "SELECT 1"`) inherited stdin; a client that
+  reads input (the test mock opens with `query="$(cat)"`) then blocked on an
+  interactive terminal until the timeout killed it.  Six 5-second probes
+  cannot fit the 30-second start window, so every suite run from a live
+  terminal failed `lifecycle_start_query_stop` while agent/CI runs (stdin
+  already /dev/null) passed — a textbook works-on-my-machine split.  Both
+  `mariadb_ready` and `mariadb_shutdown` now run with `</dev/null`; a
+  regression case (`lifecycle_held_stdin_does_not_stall_probe`) runs the
+  suite with a deliberately held-open stdin and fails if it takes longer
+  than 15s.
+
 - **`lib/mariadb_lifecycle.sh` 1.0.2 — zero-timeout readiness wait fixed.**  With
   `MARIA_START_TIMEOUT=0`, the start-wait loop computed `deadline == now` and
   skipped its body entirely: the mock server that answers instantly was never

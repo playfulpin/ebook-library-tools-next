@@ -348,6 +348,41 @@ else
     report "lifecycle_dryrun_reports_only" fail "rc=$RC stderr=$(head -4 "$ERR") pslog=$(cat "$MOCK_LOG")"
 fi
 
+# 5) held-open stdin must not stall the readiness probe.  The probe used to
+#    inherit stdin; from an interactive terminal the mock mysql's `cat` then
+#    blocked and every probe burned its full 5s timeout (6 probes < the 30s
+#    window -> "did not become ready").  A fifo held open by a 60s sleeper
+#    stands in for the never-closing TTY; the tool must still finish on its
+#    own within 20s.
+rm -f "$OUT_FILE" "$MOCK_LOG"
+mkfifo "$TMPDIR/stdin_stall.fifo"
+sleep 60 > "$TMPDIR/stdin_stall.fifo" &
+STALL_PID=$!
+# run_estimate hardcodes ERR="$TMPDIR/stderr.txt"; in a background subshell
+# its OUT/ERR/RC globals do not reach us, so reference the paths directly.
+MARIA_TASKLIST_OVERRIDE="$MOCK_BIN/tasklist" MARIA_MOCK_RUNNING=0 MOCK_RC=0 \
+    run_estimate -o "$OUT_FILE" < "$TMPDIR/stdin_stall.fifo" &
+TOOL_PID=$!
+for _ in $(seq 1 20); do
+    kill -0 "$TOOL_PID" 2>/dev/null || break
+    sleep 1
+done
+if kill -0 "$TOOL_PID" 2>/dev/null; then
+    report "lifecycle_held_stdin_does_not_stall_probe" fail \
+        "tool still running after 20s (readiness probe stalled on stdin)"
+    kill "$TOOL_PID" 2>/dev/null
+else
+    wait "$TOOL_PID"; TOOL_RC=$?
+    if (( TOOL_RC == 0 )) && grep -q "MariaDB ready" "$TMPDIR/stderr.txt"; then
+        report "lifecycle_held_stdin_does_not_stall_probe" ok
+    else
+        report "lifecycle_held_stdin_does_not_stall_probe" fail \
+            "rc=$TOOL_RC stderr=$(head -4 "$TMPDIR/stderr.txt")"
+    fi
+fi
+kill "$STALL_PID" 2>/dev/null
+wait "$STALL_PID" 2>/dev/null
+
 echo ""
 echo "=============================="
 echo "PASS: $PASS_COUNT   FAIL: $FAIL_COUNT"
