@@ -1,13 +1,15 @@
 # NEXT — where to resume
 
-> Updated: 2026-09-13 — **tests split day.**  The D-02.11 tests split is
-> LANDED: suites now live in `tests/unit/`, `tests/integration/`, and
-> `tests/e2e/`, fixtures in `tests/fixtures/`, goldens in
-> `tests/integration/golden/`, and `tests/run_all.sh` replaces the old
-> flat `for t in tests/test_*.sh` loop.  Mike fixed the last infra-suite
-> failure on his side and committed the result; the battery is 16/16 in
-> the new layout.  Refactoring Phases 1–5 remain COMPLETE and signed
-> off; optional phases 6–13 are the remaining plan items.
+> Updated: 2026-09-13 (later) — **Follow-It §4 layer boundaries started.**
+> Work moved from `docs/PHASE_04_TOOL_CONVERSION.md` to
+> `docs/FollowIt_ebook-library-tools-next.md`.  §4 step 1 LANDED:
+> `lib/books_functions.sh` inlined into `bin/books/books_merge.sh`
+> (self-contained tool, lib twin retired, registries updated, version
+> deliberately stays 0.2.1 per D-02.15); every `lib/*.sh` is now
+> domain-free.  **Next: ask-confirmed step 2** (database.sh error-string
+> cleanup), then step 3 (layer-boundary check in CI), step 4 (docs
+> as-built).  See the Follow-It doc; every step waits for explicit
+> confirmation before work starts.
 
 ## Resume checklist
 

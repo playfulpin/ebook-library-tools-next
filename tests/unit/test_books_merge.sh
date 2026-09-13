@@ -63,10 +63,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT="$SCRIPT_DIR/../../bin/books/books_merge.sh"
-LIB="$SCRIPT_DIR/../../lib/books_functions.sh"
 
 [[ -f "$SCRIPT" ]] || { echo "ERROR: $SCRIPT not found" >&2; exit 2; }
-[[ -f "$LIB" ]] || { echo "ERROR: $LIB not found" >&2; exit 2; }
 
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
@@ -648,28 +646,17 @@ run_cli_tests() {
 }
 
 ###############################################################################
-# version header: bin and lib share the same 0.2.x version
+# version header: the self-contained tool carries its 0.2.x version
 ###############################################################################
 run_release_tests() {
     echo "== version header =="
-    local vbin vlib
+    local vbin
     vbin="$(sed -n 's/^# Version:[[:space:]]*//p' "$SCRIPT" | head -n 1)"
-    vlib="$(sed -n 's/^# Version:[[:space:]]*//p' "$LIB" | head -n 1)"
 
     if [[ "$vbin" =~ ^0\.2\.[0-9]+$ ]]; then
         report "version_bin" ok
     else
         report "version_bin" fail "got '$vbin', expected ^0\\.2\\.[0-9]+$"
-    fi
-    if [[ "$vlib" =~ ^0\.2\.[0-9]+$ ]]; then
-        report "version_lib" ok
-    else
-        report "version_lib" fail "got '$vlib', expected ^0\\.2\\.[0-9]+$"
-    fi
-    if [[ "$vbin" == "$vlib" ]]; then
-        report "version_in_sync" ok
-    else
-        report "version_in_sync" fail "bin '$vbin' != lib '$vlib'"
     fi
 }
 

@@ -13,8 +13,7 @@
 #   tracked location that carries that version in a single shot:
 #
 #       1. the tool's header comment ("# Version:")
-#       2. its lib twin header, when it has one (e.g. books_merge
-#          <-> lib/books_functions.sh)
+#       2. its lib twin header, when it has one
 #       3. the tool's row in the README release table (version and tag
 #          columns — the tag embeds the version, so one substitution covers
 #          both)
@@ -35,7 +34,7 @@
 #       build_prefix_table            (1.0.x) -> authors_prefix_build
 #       prefix_table_integrity        (1.2.x) -> authors_prefix_check
 #       prefix_tree_visualizer        (2.8.x) -> authors_prefix_tree
-#       books_merge                   (0.1.x, bin + lib twin) [was merge_books_into_skeleton]
+#       books_merge                   (0.1.x) [was merge_books_into_skeleton]
 #       books_finalize                (0.1.x) [was merge_skeleton_into_books]
 #       utf8_prefix_generator         (1.x, two-part versions only)
 #       export_authors_from_db        (1.0.x)  -> authors_export
@@ -158,7 +157,7 @@ usage() {
     echo "  authors_prefix_build          (1.0.x)  [was build_prefix_table]"
     echo "  authors_prefix_check          (1.2.x)  [was prefix_table_integrity]"
     echo "  authors_prefix_tree           (2.8.x)  [was prefix_tree_visualizer]"
-    echo "  books_merge                   (0.1.x, bin + lib twin)  [was merge_books_into_skeleton]"
+    echo "  books_merge                   (0.1.x)  [was merge_books_into_skeleton]"
     echo "  books_finalize                (0.1.x)  [was merge_skeleton_into_books]"
     echo "  utf8_prefix_generator         (1.x, two-part versions only)"
     echo "  authors_export                (1.0.x)"
@@ -209,7 +208,7 @@ main() {
             ;;
         books_merge)
             primary="bin/books/books_merge.sh"
-            twin="lib/books_functions.sh"
+            twin=""
             marker="bin/books/books_merge.sh"
             ;;
         books_finalize)

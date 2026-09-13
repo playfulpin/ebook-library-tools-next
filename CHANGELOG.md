@@ -9,7 +9,27 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
-(none)
+- **Layer boundary (Follow-It §4, step 1): `books_merge` is now
+  self-contained — domain logic leaves `lib/`.**  The guide's core rule
+  is *"lib/ should not know what a book or author is"*; the one file
+  violating it was `lib/books_functions.sh` (813 code lines of
+  author/prefix/staging domain logic).  Per the ratified decision it is
+  **inlined into its only runtime consumer**, `bin/books/books_merge.sh`
+  (81 → ~1175 lines; the lib's ALGORITHM section spliced into the tool
+  header, no content lost), and the lib file is deleted.  With that,
+  every `lib/*.sh` file is domain-free — verified by a code-line grep
+  (0 hits outside comments).
+
+  Ripple updates, all registry-verified: `bin/version_bump.sh` and
+  `tests/unit/test_version_sync.sh` drop the `books_merge` lib-twin
+  entry (no twin exists any more); `tests/unit/test_books_merge.sh`
+  drops its `LIB` checks (44 → 42 assertions, the two version-lib
+  checks are gone with the twin); `lib/filesystem.sh`'s pointer comment
+  now names the tool; ARCHITECTURE.md §5 library table and §12 component
+  table updated (`books_merge` marked self-contained); README project
+  layout drops the lib line.  `DEFAULT_CONFIG_FILE` depth fixed for the
+  new location (`../..` from `bin/books/`).  Version deliberately stays
+  **0.2.1** — a pure move/rename never bumps (D-02.15).
 
 ## [v1.8.0] - 2026-09-13 — tests split (D-02.11)
 

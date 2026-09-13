@@ -17,7 +17,7 @@
 #   fs_prune_empty_dirs - the house prune one-liner with dry-run support;
 #                         verbatim from bin/books/books_finalize.sh
 #
-# Archive/merge-specific logic stays in lib/books_functions.sh and the
+# Archive/merge-specific logic stays in the merge tool itself (bin/books/books_merge.sh)
 # future lib/books.sh (Blueprint §18: "Keep archive-specific logic in
 # books.sh").
 #

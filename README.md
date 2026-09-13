@@ -637,7 +637,6 @@ bin/                            user-facing commands, grouped by function
   library/                      library_backup.sh, library_populate.sh,
                                 library_refresh.sh, library_report.sh
 bin/version_bump.sh                 bump one tool's version across header + docs (flat in bin/, not a group)
-lib/books_functions.sh        shared functions for the merge tool
 lib/mariadb_lifecycle.sh            shared MariaDB lifecycle (start/stop/readiness)
 lib/utf8_prefix_generator.awk       original AWK generator (parity reference)
 config/books_merge.conf             defaults for the merge tool (input file, paths, tree knobs)

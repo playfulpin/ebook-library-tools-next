@@ -15,8 +15,7 @@ unset SHELLOPTS BASHOPTS 2>/dev/null || true
 #
 # Every tool carries its version in up to four places, and they must agree:
 #   1. the tool's "# Version:" header comment (source of truth)
-#   2. its lib twin header, when it has one (books_merge
-#      <-> lib/books_functions.sh)
+#   2. its lib twin header, when it has one
 #   3. its row in the README release table (both the version column and the
 #      tag column, which embeds the version)
 #   4. its line in the RELEASE_NOTES "Shipped tools" list
@@ -149,7 +148,7 @@ check_tool prefix_tree_visualizer \
     "bin/authors/authors_prefix_tree.sh" "" "bin/authors/authors_prefix_tree.sh"
 
 check_tool books_merge \
-    "bin/books/books_merge.sh" "lib/books_functions.sh" \
+    "bin/books/books_merge.sh" "" \
     "bin/books/books_merge.sh"
 
 check_tool books_finalize \

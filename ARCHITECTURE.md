@@ -141,7 +141,6 @@ Boundary rules:
 | `lib/filesystem.sh` | `fs_tree_fingerprint` (recursive size+mtime fingerprint), `fs_prune_empty_dirs`, guards, `fs_mktmp` | refresh, finalize |
 | `lib/database.sh` | `db_mysql_argv` / `db_run_query` / `db_run_sql` / `db_require_server` — opt-in, composes with the lifecycle | DB-backed commands as they adopt it |
 | `lib/mariadb_lifecycle.sh` | start (UAC PowerShell) / readiness wait / graceful stop / `mysql_upgrade` — **unchanged boundary since before the refactor** (C4) | all 6+ DB tools |
-| `lib/books_functions.sh` | merge internals (prefix logic, collision handling) — renamed from `merge_books_functions.sh` in Phase 4 | `books_merge` (lib twin, version-synced) |
 | `lib/utf8_prefix_generator.awk` | the AWK reference implementation of UTF-8 prefix chopping (C7) | `authors_prefix_build`, parity tests |
 
 Library-creation rule: a new library is extracted **when the second
@@ -273,7 +272,7 @@ on / what it modifies / where its tests live.
 | `authors_prefix_check` | user, e2e | table validation (0-critical gate) | — | nothing (read-only) | e2e validate stage + golden paths |
 | `authors_prefix_tree` | user, e2e | tree rendering / `mkdir -p` script | table file | nothing (read-only) | `test_authors_prefix_tree.sh`, e2e |
 | `authors_tree_build` | user | nested skeleton generation | table/list input | target skeleton dir | `test_authors_tree_build.sh` |
-| `books_merge` | user | archive → staging merge + report | `lib/books_functions.sh` | staging tree, report TSV | `test_books_merge.sh` |
+| `books_merge` | user | archive → staging merge + report | self-contained (domain logic inlined, Follow-It §4) | staging tree, report TSV | `test_books_merge.sh` |
 | `books_finalize` | user | staging → Books (rsync+pv, no overwrite, prune) | rsync, pv | Books tree, report TSV | `test_books_finalize.sh` |
 | `books_estimate` | user | round sizing from catalog | `mariadb_lifecycle` | estimate report only | `test_books_estimate.sh` |
 | `books_reconcile` | user | disk-vs-catalog stats + to-collect/beyond exports | `mariadb_lifecycle` | reports | `test_books_reconcile.sh` |
