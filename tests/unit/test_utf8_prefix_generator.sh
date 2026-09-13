@@ -46,7 +46,7 @@ unset SHELLOPTS BASHOPTS 2>/dev/null || true
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-AWK_SCRIPT="$SCRIPT_DIR/../lib/utf8_prefix_generator.awk"
+AWK_SCRIPT="$SCRIPT_DIR/../../lib/utf8_prefix_generator.awk"
 
 # --- environment sanity -------------------------------------------------------
 if ! command -v gawk >/dev/null 2>&1; then

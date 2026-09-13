@@ -9,6 +9,32 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **Tests split into unit / integration / e2e (D-02.11 option (b), closed).**
+  The flat `tests/` layout is reorganized:
+  `tests/unit/` (12 suites — one per tool or lib, fully mocked, run
+  anywhere, including `test_version_sync.sh` and
+  `test_lib_infrastructure.sh`), `tests/integration/` (3 golden-file
+  suites — `test_authors_prefix_build`, `test_authors_prefix_tree`,
+  `test_authors_tree_build`), and `tests/e2e/`
+  (`test_e2e_pipeline.sh`, the cross-tool chain on real data).  Shared
+  input fixtures moved to `tests/fixtures/` (`case_*.txt`, `viz_*.txt`),
+  golden baselines to `tests/integration/golden/`.  All suites re-pointed
+  at the new depths via `SCRIPT_DIR`; fixture/golden variables re-derived.
+- **New `tests/run_all.sh` battery runner.**  Replaces the old flat
+  `for t in tests/test_*.sh` loop (which would have matched nothing
+  after the split).  Runs the groups in canonical order (unit →
+  integration → e2e), supports group filters (`tests/run_all.sh unit`),
+  `-q` for one-line-per-suite output, and carries the same traced-caller
+  re-exec guard as the suites.  Verified: 16/16 suites green in the new
+  layout; unknown group exits 2; shellcheck clean.
+- **CI workflow rewritten for the grouped layout.**  Syntax check now
+  also covers `tests/run_all.sh`; the version-sync step uses the new
+  `tests/unit/` path; the two monolithic suite steps became three
+  group steps driven by the runner (unit / integration / e2e).  Docs
+  updated in lockstep: README testing section, ARCHITECTURE §11/§13/§14
+  (D-02.11 marked **closed**), `bin/version_bump.sh` hints,
+  `docs/MANUAL_LIFE_TESTING.md`, `docs/NEXT.md`.
+
 - **All 16 test suites — immune to a traced caller shell (`set -x`).**  A
   session with `set -x`/`set -v` active auto-exports `SHELLOPTS`, and every
   child `bash` re-applies it (it is imported readonly), so xtrace noise was

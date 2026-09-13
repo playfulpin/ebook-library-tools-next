@@ -1,40 +1,37 @@
 # NEXT — where to resume
 
-> Updated: 2026-09-12 (late) — **test-hermeticity day.**  Three distinct
-> session-poisoning mechanisms were hunted down and fixed (see quirk 6
-> below): leaked exports, inherited stdin in the MariaDB readiness probe
-> (lib 1.0.3), and a traced caller shell (`SHELLOPTS=xtrace`).  The full
-> battery is green from every environment I can drive (agent WSL, Git
-> Bash, poison variants).  **One open item:** `test_lib_infrastructure.sh`
-> still FAILs in Mike's interactive terminal — resume there first (see
-> "OPEN: infra suite in Mike's session").  Refactoring Phases 1–5 remain
-> COMPLETE and signed off; remaining plan items are the D-02.11 tests
-> split and optional phases 6–13.
+> Updated: 2026-09-13 — **tests split day.**  The D-02.11 tests split is
+> LANDED: suites now live in `tests/unit/`, `tests/integration/`, and
+> `tests/e2e/`, fixtures in `tests/fixtures/`, goldens in
+> `tests/integration/golden/`, and `tests/run_all.sh` replaces the old
+> flat `for t in tests/test_*.sh` loop.  Mike fixed the last infra-suite
+> failure on his side and committed the result; the battery is 16/16 in
+> the new layout.  Refactoring Phases 1–5 remain COMPLETE and signed
+> off; optional phases 6–13 are the remaining plan items.
 
 ## Resume checklist
 
 ```bash
 cd /c/git_root/ebook-library-tools-next
 git status             # expect: clean tree, on main, up to date with origin/main
-git log --oneline -3   # expect: 582c3a6 docs / 5a8335b test guards / 0b2e7d5 infra hermetic
-git pull               # HEAD is 582c3a6; tags v1.7.0 + v1.7.1 on main
-bash tests/test_version_sync.sh          # 14/14 (fast, mock-only)
-bash tests/test_library_report.sh        # 71/71 (mock mysql, runs anywhere)
+git log --oneline -3   # expect: 8d5f14f roadmap / 24a9fea phase-3 libs / ad66bb7 handoff
+git pull
+bash tests/unit/test_version_sync.sh       # 14/14 (fast, mock-only)
+bash tests/unit/test_library_report.sh     # 71/71 (mock mysql, runs anywhere)
 shellcheck --severity=warning bin/*.sh bin/*/*.sh lib/*.sh && echo clean   # Phase 5 gate
-for t in tests/test_*.sh; do bash "$t" >/dev/null 2>&1 && echo "ok   $t" || echo "FAIL $t"; done
+tests/run_all.sh -q    # 16 suites: 12 unit + 3 integration + 1 e2e
 ```
 
-### OPEN: infra suite in Mike's session (top priority next time)
+### RESOLVED: infra suite in Mike's session
 
-`test_lib_infrastructure.sh` is the only suite still failing in Mike's
-interactive terminal (as of 2026-09-12 EOD) while passing 42/42 in every
-agent-side environment, including `SHELLOPTS=xtrace`/`verbose` poison runs.
-Diagnostics live in Mike's session only — next session step 1 is capturing
-the failing assertion, not guessing:
+Mike fixed the last `test_lib_infrastructure.sh` failure on his side and
+committed the fix (2026-09-13, `24a9fea` follow-up work).  The OPEN
+diagnostic block below is kept only for archaeology — do not chase it
+further unless a new environmental failure appears.
 
 ```bash
 cd /mnt/c/git_root/ebook-library-tools-next
-bash tests/test_lib_infrastructure.sh > /tmp/infra.log 2>&1; echo "exit=$?"
+bash tests/unit/test_lib_infrastructure.sh > /tmp/infra.log 2>&1; echo "exit=$?"
 grep -B2 -A6 '^  FAIL' /tmp/infra.log          # the real failing assertion + stderr
 env | sort > /tmp/infra_env.txt                 # attach both to the session
 set +x; set +v; echo "trace flags now: $-"     # rule the known culprits out for good

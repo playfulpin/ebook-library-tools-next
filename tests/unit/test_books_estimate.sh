@@ -48,7 +48,7 @@ unset SHELLOPTS BASHOPTS 2>/dev/null || true
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ESTIMATOR="$REPO_ROOT/bin/books/books_estimate.sh"
 
 PASS_COUNT=0

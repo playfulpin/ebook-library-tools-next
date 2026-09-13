@@ -18,7 +18,7 @@ jobs:
       - name: Shell syntax check
         run: |
           set -e
-          for f in bin/*.sh bin/*/*.sh lib/*.sh lib/*.awk; do
+          for f in bin/*.sh bin/*/*.sh lib/*.sh lib/*.awk tests/run_all.sh; do
             [[ -f "$f" ]] || continue
             case "$f" in
               *.sh) bash -n "$f" ;;
@@ -28,25 +28,13 @@ jobs:
           done
 
       - name: Version sync check
-        run: bash tests/test_version_sync.sh
+        run: bash tests/unit/test_version_sync.sh
 
-      - name: Unit suites (run anywhere)
-        run: |
-          bash tests/test_books_merge.sh
-          bash tests/test_books_finalize.sh
-          bash tests/test_authors_export.sh
-          bash tests/test_books_reconcile.sh
-          bash tests/test_books_estimate.sh
-          bash tests/test_library_backup.sh
-          bash tests/test_library_populate.sh
-          bash tests/test_library_refresh.sh
-          bash tests/test_library_report.sh
-          bash tests/test_lib_infrastructure.sh
+      - name: Unit suites
+        run: tests/run_all.sh unit
 
-      - name: UTF-8 suites (WSL-style, multibyte bash)
-        run: |
-          bash tests/test_authors_tree_build.sh
-          bash tests/test_authors_prefix_build.sh
-          bash tests/test_authors_prefix_tree.sh
-          bash tests/test_utf8_prefix_generator.sh
-          bash tests/test_e2e_pipeline.sh
+      - name: Integration suites (UTF-8, multibyte bash)
+        run: tests/run_all.sh integration
+
+      - name: E2E suite (real fixture data)
+        run: tests/run_all.sh e2e

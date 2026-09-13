@@ -513,30 +513,45 @@ Defaults live in `config/library_populate.conf` (`POP_LIBRARY_ROOT`,
 Each tool has a self-contained regression suite, plus one end-to-end suite that
 chains the whole pipeline. All suites must run from WSL:
 
+Suites are grouped by level and run in order (unit → integration → e2e)
+with the battery runner:
+
 ```bash
-wsl.exe bash tests/test_authors_prefix_build.sh        # generator: goldens, invariants, parity, CLI
-wsl.exe bash tests/test_authors_tree_build.sh
-wsl.exe bash tests/test_authors_prefix_tree.sh    # renderer: goldens, descent, filters, depth, CLI
-wsl.exe bash tests/test_utf8_prefix_generator.sh     # AWK generator: direct edge-case tests
-wsl.exe bash tests/test_e2e_pipeline.sh              # generator -> validator -> renderer on real data
-wsl.exe bash tests/test_books_merge.sh # archive -> in-memory prefix hierarchy (WSL)
-wsl.exe bash tests/test_books_finalize.sh # BooksInput_* -> Books rsync finalize (WSL/Linux + rsync)
-bash tests/test_authors_export.sh            # exporter: argv, rows, lifecycle mocks (runs anywhere)
-bash tests/test_books_reconcile.sh                 # recon: classification + collection-progress summary (mock mysql)
-bash tests/test_books_estimate.sh            # estimator: sums, top-rated-first breakdown, lifecycle mocks (runs anywhere)
-bash tests/test_lib_infrastructure.sh                # Phase 3 libs: init, root detection, logging, cli, fs, db (runs anywhere)
-bash tests/test_library_backup.sh                 # backup/restore: argv, gz artifact, restore guards, lifecycle mocks (runs anywhere)
-bash tests/test_library_populate.sh               # populate: md5 map, walk/hash, resolve, AUTO_INCREMENT strip + source-key-verbatim rebuild, parity abort, lifecycle mocks (runs anywhere)
-bash tests/test_library_refresh.sh              # refresh: checkpoint decisions (unchanged/changed/forced), child invocation, failure isolation (runs anywhere)
-bash tests/test_library_report.sh                    # report: wish-file format, mutations, view grouping, exports, tolerance, password hygiene (runs anywhere)
-bash tests/test_version_sync.sh                      # version locations agree (runs anywhere)
+tests/run_all.sh -q        # everything, one line per suite
+tests/run_all.sh unit      # one group: unit | integration | e2e
+```
+
+Or run a single suite directly:
+
+```bash
+# unit — one tool or lib, fully mocked, runs anywhere
+tests/unit/test_authors_export.sh            # exporter: argv, rows, lifecycle mocks
+tests/unit/test_books_merge.sh               # archive -> in-memory prefix hierarchy
+tests/unit/test_books_finalize.sh            # BooksInput_* -> Books rsync finalize (+ rsync)
+tests/unit/test_books_reconcile.sh           # recon: classification + collection-progress summary (mock mysql)
+tests/unit/test_books_estimate.sh            # estimator: sums, top-rated-first breakdown, lifecycle mocks
+tests/unit/test_library_backup.sh            # backup/restore: argv, gz artifact, restore guards, lifecycle mocks
+tests/unit/test_library_populate.sh          # populate: md5 map, walk/hash, resolve, source-key-verbatim rebuild, parity abort
+tests/unit/test_library_refresh.sh           # refresh: checkpoint decisions, child invocation, failure isolation
+tests/unit/test_library_report.sh            # report: wish-file format, mutations, view grouping, exports, password hygiene
+tests/unit/test_lib_infrastructure.sh        # Phase 3 libs: init, root detection, logging, cli, fs, db
+tests/unit/test_utf8_prefix_generator.sh     # AWK generator: direct edge-case tests
+tests/unit/test_version_sync.sh              # version locations agree
+
+# integration — multi-component suites with golden-file baselines (WSL-class)
+wsl.exe tests/integration/test_authors_prefix_build.sh   # generator: goldens, invariants, parity, CLI
+wsl.exe tests/integration/test_authors_tree_build.sh
+wsl.exe tests/integration/test_authors_prefix_tree.sh    # renderer: goldens, descent, filters, depth, CLI
+
+# e2e — the cross-tool chain on real data (WSL-class)
+wsl.exe tests/e2e/test_e2e_pipeline.sh       # export -> prefix build -> check -> tree
 ```
 
 Suites write nothing to the repository; each builds its scratch files in a
 temporary directory. The golden-based suites accept `--regen` to refresh their
 golden files.
 
-A new `tests/test_version_sync.sh` suite (runs anywhere) verifies that every
+A new `tests/unit/test_version_sync.sh` suite (runs anywhere) verifies that every
 tool's version is identical across all four tracked locations — header, lib
 twin, README release-table row, and RELEASE_NOTES shipped line. `bin/version_bump.sh`
 edits all four in one shot, so use it for every bump:
@@ -632,8 +647,11 @@ config/books_estimate.conf  defaults for the estimator (input list, report dir)
 config/library_backup.conf   defaults for the backup tool (backup dir, db, retention)
 config/library_populate.conf defaults for the population tool (library root, report dir, db pair, chunk)
 
-tests/test_*.sh                 regression suites (one per tool + e2e + version sync)
-tests/                          fixtures and golden files
+tests/run_all.sh                # battery runner: unit -> integration -> e2e
+tests/unit/                     # one suite per tool/lib, fully mocked (runs anywhere)
+tests/integration/              # multi-component suites + golden/ baselines
+tests/e2e/                      # cross-tool chain on real data
+tests/fixtures/                 # shared input fixtures (case_*.txt, viz_*.txt)
 
 .github/workflows/ci.yml        CI: syntax + version sync + all suites on push/PR
 

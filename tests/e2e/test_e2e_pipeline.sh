@@ -58,10 +58,10 @@ unset SHELLOPTS BASHOPTS 2>/dev/null || true
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-GENERATOR="$SCRIPT_DIR/../bin/authors/authors_prefix_build.sh"
-VALIDATOR="$SCRIPT_DIR/../bin/authors/authors_prefix_check.sh"
-VISUALIZER="$SCRIPT_DIR/../bin/authors/authors_prefix_tree.sh"
-REAL_LIST="$SCRIPT_DIR/../data/fixtures/authors_list_from_db.txt"
+GENERATOR="$SCRIPT_DIR/../../bin/authors/authors_prefix_build.sh"
+VALIDATOR="$SCRIPT_DIR/../../bin/authors/authors_prefix_check.sh"
+VISUALIZER="$SCRIPT_DIR/../../bin/authors/authors_prefix_tree.sh"
+REAL_LIST="$SCRIPT_DIR/../../data/fixtures/authors_list_from_db.txt"
 
 # --- environment sanity -------------------------------------------------------
 # The scripts slice UTF-8 by character; this probe fails on byte-based shells

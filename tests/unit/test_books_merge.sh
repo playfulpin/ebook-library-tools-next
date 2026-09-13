@@ -62,8 +62,8 @@ unset SHELLOPTS BASHOPTS 2>/dev/null || true
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT="$SCRIPT_DIR/../bin/books/books_merge.sh"
-LIB="$SCRIPT_DIR/../lib/books_functions.sh"
+SCRIPT="$SCRIPT_DIR/../../bin/books/books_merge.sh"
+LIB="$SCRIPT_DIR/../../lib/books_functions.sh"
 
 [[ -f "$SCRIPT" ]] || { echo "ERROR: $SCRIPT not found" >&2; exit 2; }
 [[ -f "$LIB" ]] || { echo "ERROR: $LIB not found" >&2; exit 2; }

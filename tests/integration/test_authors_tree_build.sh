@@ -71,10 +71,10 @@ if [[ "${1:-}" == "--regen" ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# The suite lives in tests/ together with its fixtures and goldens; the
-# tool under test is one level up in bin/.
-TESTS_DIR="$SCRIPT_DIR"
-GOLDEN_DIR="$TESTS_DIR/golden"
+# Fixtures live in tests/fixtures/, goldens beside this suite; the
+# tool under test is two levels up in bin/.
+TESTS_DIR="$SCRIPT_DIR/../fixtures"
+GOLDEN_DIR="$SCRIPT_DIR/golden"
 mkdir -p "$GOLDEN_DIR"
 
 # --- environment sanity -------------------------------------------------------
@@ -91,7 +91,7 @@ declare -a SCRIPTS=(
     "bin/authors/authors_tree_build.sh"
 )
 for s in "${SCRIPTS[@]}"; do
-    [[ -f "$SCRIPT_DIR/../$s" ]] || { echo "ERROR: $SCRIPT_DIR/../$s not found" >&2; exit 2; }
+    [[ -f "$SCRIPT_DIR/../../$s" ]] || { echo "ERROR: $SCRIPT_DIR/../../$s not found" >&2; exit 2; }
 done
 
 PASS_COUNT=0
@@ -173,7 +173,7 @@ for s in "${SCRIPTS[@]}"; do
     base="$(basename "${s%.sh}")"
     SB[$s]="$tmp_root/sandbox_$base"
     mkdir -p "${SB[$s]}"
-    sed "s|/mnt/c/Backup_Go7/Empty_Skeleton|${SB[$s]}|g" "$SCRIPT_DIR/../$s" > "$tmp_root/copy_$base.sh"
+    sed "s|/mnt/c/Backup_Go7/Empty_Skeleton|${SB[$s]}|g" "$SCRIPT_DIR/../../$s" > "$tmp_root/copy_$base.sh"
     COPY[$s]="$tmp_root/copy_$base.sh"
 done
 
@@ -438,7 +438,7 @@ fi
 # script uses to print "v<version>" in its usage text.
 echo "== version headers =="
 for s in "${SCRIPTS[@]}"; do
-    version="$(sed -n 's/^# Version:[[:space:]]*//p' "$SCRIPT_DIR/../$s" | head -n 1)"
+    version="$(sed -n 's/^# Version:[[:space:]]*//p' "$SCRIPT_DIR/../../$s" | head -n 1)"
     if [[ "$version" =~ ^6\.6\.[0-9]+$ ]]; then
         report "version_${s%.sh}" ok
     else

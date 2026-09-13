@@ -22,8 +22,8 @@ Pre-flight (no DB, no side effects):
 
 ```bash
 shellcheck --severity=warning bin/*.sh bin/*/*.sh lib/*.sh && echo "shellcheck clean"
-bash tests/test_version_sync.sh | tail -1        # expect: All versions in sync. (14 checks)
-bash tests/test_lib_infrastructure.sh | tail -1  # expect: 42 passed, 0 failed
+bash tests/unit/test_version_sync.sh | tail -1        # expect: All versions in sync. (14 checks)
+bash tests/unit/test_lib_infrastructure.sh | tail -1  # expect: 42 passed, 0 failed
 ```
 
 ---
@@ -142,5 +142,5 @@ Rollback if anything looks wrong:
 ## Regression suites between manual steps (optional, fast)
 
 ```bash
-for t in tests/test_*.sh; do bash "$t" >/dev/null 2>&1 && echo "ok   $t" || echo "FAIL $t"; done
+tests/run_all.sh -q   # unit -> integration -> e2e, one line per suite
 ```

@@ -54,10 +54,10 @@ if [[ "${1:-}" == "--regen" ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT="$SCRIPT_DIR/../bin/authors/authors_prefix_tree.sh"
-# The suite lives in tests/ together with its fixtures and goldens.
-TESTS_DIR="$SCRIPT_DIR"
-GOLDEN_DIR="$TESTS_DIR/golden"
+SCRIPT="$SCRIPT_DIR/../../bin/authors/authors_prefix_tree.sh"
+# Fixtures live in tests/fixtures/, goldens beside this suite.
+TESTS_DIR="$SCRIPT_DIR/../fixtures"
+GOLDEN_DIR="$SCRIPT_DIR/golden"
 
 [[ -f "$SCRIPT" ]] || { echo "ERROR: $SCRIPT not found" >&2; exit 2; }
 if ! command -v gawk >/dev/null 2>&1; then

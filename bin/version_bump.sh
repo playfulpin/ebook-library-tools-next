@@ -21,7 +21,7 @@
 #       4. the tool's line in the RELEASE_NOTES "Shipped tools" list
 #
 #   This is the tool that enforces the project's 0.0.1 bump rule without
-#   hand-editing five files.  tests/test_version_sync.sh then verifies that
+#   hand-editing five files.  tests/unit/test_version_sync.sh then verifies that
 #   all four locations agree, so a missed bump becomes a test failure instead
 #   of silent version drift.
 #
@@ -298,12 +298,12 @@ main() {
     cat <<EOF
 
 Done. Verify with:
-  bash tests/test_version_sync.sh
+  bash tests/unit/test_version_sync.sh
 
 Then finish the release manually:
   1. Add a CHANGELOG.md entry for $tool $new.
   2. Run the relevant suite(s) under WSL:
-       wsl.exe bash tests/test_authors_tree_build.sh   # or the tool's suite
+       wsl.exe tests/integration/test_authors_tree_build.sh   # or the tool's suite
   3. Commit, then tag (tool-prefixed or v-prefixed per convention).
 EOF
 }

@@ -86,7 +86,7 @@ ebook-library-tools/
 │   ├── commit_msg/             #   gitignored: commit-message drafts
 │   ├── archives/               #   gitignored: workspace-local flibusta dumps
 │   └── wishlist.tsv            #   tracked, user-owned reading plan (C3)
-├── tests/                      # one suite per tool + e2e + version sync + lib suite
+├── tests/                      # run_all.sh + unit/ + integration/ + e2e/ + fixtures/
 ├── docs/                       # living docs + phase records + docs/archive/
 │   └── archive/                #   consumed/superseded documents (kept for provenance)
 ├── .gitignore
@@ -237,25 +237,29 @@ lib/database.sh ──wraps──►     lib/mariadb_lifecycle.sh   (one-way, no
 
 ## 11. Testing structure
 
-Flat `tests/` (ratified option (b), D-02.11 — the unit/integration/
-fixtures/golden split is a deliberate later change set; see §13):
+Grouped `tests/` (unit / integration / e2e, D-02.11 option (b), landed
+2026-09-13):
 
-- **One suite per command** (`tests/test_<command>.sh`), each running
-  **anywhere** against mocked seams (mock `mysql`, `rsync`, `pv`,
-  lifecycle) — CI executes them directly.
-- **UTF-8/WSL-class suites** (`test_authors_tree_build`,
-  `test_authors_prefix_*`, `test_utf8_prefix_generator`, e2e) need
-  gawk/multibyte behavior — CI runs them in the WSL-style job.
-- `tests/test_e2e_pipeline.sh` — the cross-tool chain (export →
-  prefix build → check → tree) on the real fixture.
-- `tests/test_version_sync.sh` — proves every tool's version agrees
-  across header / lib twin / README release-table row / RELEASE_NOTES
-  shipped line (the registry mirrors `version_bump`).
-- `tests/test_lib_infrastructure.sh` — the Phase 3 library suite
+- **`tests/run_all.sh`** — battery runner; executes the groups in order
+  (unit → integration → e2e), accepts group filters and `-q`; replaces
+  the old flat `for t in tests/test_*.sh` loop.
+- **`tests/unit/`** — one suite per command or lib
+  (`test_<command>.sh`), each running **anywhere** against mocked seams
+  (mock `mysql`, `rsync`, `pv`, lifecycle) — CI executes them directly.
+- **`tests/integration/`** — multi-component suites with golden-file
+  baselines (`test_authors_prefix_build`, `test_authors_prefix_tree`,
+  `test_authors_tree_build`); UTF-8/WSL-class — need gawk/multibyte.
+- **`tests/e2e/`** — `test_e2e_pipeline.sh`, the cross-tool chain
+  (export → prefix build → check → tree) on the real fixture.
+- **`tests/fixtures/`** — shared input fixtures (`case_*.txt`,
+  `viz_*.txt`); **`tests/integration/golden/`** — byte-exact regression
+  baselines, never regenerated casually.
+- `tests/unit/test_version_sync.sh` — proves every tool's version
+  agrees across header / lib twin / README release-table row /
+  RELEASE_NOTES shipped line (the registry mirrors `version_bump`).
+- `tests/unit/test_lib_infrastructure.sh` — the Phase 3 library suite
   (init modes, both bin/ depths, logging, CLI scan, fingerprint
   byte-equality, prune, db argv).
-- **Golden files** are byte-exact regression baselines and are never
-  regenerated casually.
 
 ## 12. Component responsibility table
 
@@ -304,9 +308,10 @@ Kept here so nobody "fixes" them back by accident:
 5. **Docs archive is `docs/archive/`** (flat, with a README mapping each
    file to where its content lives now) rather than the blueprint's
    `planning/` + `reference/` split — simpler, same guarantees.
-6. **`tests/` is still flat** — the unit/integration/fixtures/golden
-   split (D-02.11 option (b)) remains a pending, separate change set so
-   CI paths are touched only once. **Open item.**
+6. **`tests/` is grouped** — the unit/integration/e2e/fixtures split
+   (D-02.11 option (b)) landed 2026-09-13 together with the
+   `tests/run_all.sh` battery runner; CI paths were updated in the same
+   change set. **Closed.**
 
 ## 14. Release & versioning workflow
 
@@ -315,7 +320,7 @@ Kept here so nobody "fixes" them back by accident:
    line in one shot. Shape must match (`X.Y.Z` shell, `X.Y` AWK) and
    strictly increase.
 2. Add a `CHANGELOG.md` entry (the script prints the reminder).
-3. `bash tests/test_version_sync.sh` → **14/14** must pass.
+3. `bash tests/unit/test_version_sync.sh` → **14/14** must pass.
 4. Push; CI must be green (syntax over `bin/*.sh bin/*/*.sh lib/*.sh`,
    version sync, all suites).
 5. Tag the repo release (`vMAJOR.MINOR.PATCH`), publish on GitHub with

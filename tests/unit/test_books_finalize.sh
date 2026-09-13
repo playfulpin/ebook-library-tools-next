@@ -46,7 +46,7 @@ unset SHELLOPTS BASHOPTS 2>/dev/null || true
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT="$SCRIPT_DIR/../bin/books/books_finalize.sh"
+SCRIPT="$SCRIPT_DIR/../../bin/books/books_finalize.sh"
 
 [[ -f "$SCRIPT" ]] || { echo "ERROR: $SCRIPT not found" >&2; exit 2; }
 

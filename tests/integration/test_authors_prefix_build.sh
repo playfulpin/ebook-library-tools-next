@@ -62,11 +62,11 @@ if [[ "${1:-}" == "--regen" ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT="$SCRIPT_DIR/../bin/authors/authors_prefix_build.sh"
-# The suite lives in tests/ together with its fixtures and goldens.
-TESTS_DIR="$SCRIPT_DIR"
-GOLDEN_DIR="$TESTS_DIR/golden"
-AWK_SCRIPT="$SCRIPT_DIR/../lib/utf8_prefix_generator.awk"
+SCRIPT="$SCRIPT_DIR/../../bin/authors/authors_prefix_build.sh"
+# Fixtures live in tests/fixtures/, goldens beside this suite.
+TESTS_DIR="$SCRIPT_DIR/../fixtures"
+GOLDEN_DIR="$SCRIPT_DIR/golden"
+AWK_SCRIPT="$SCRIPT_DIR/../../lib/utf8_prefix_generator.awk"
 
 [[ -f "$SCRIPT" ]] || { echo "ERROR: $SCRIPT not found" >&2; exit 2; }
 mkdir -p "$GOLDEN_DIR"
@@ -433,8 +433,8 @@ run_integration_tests() {
     echo "== integration (real data) =="
     # The real DB list and the integrity checker live next to this suite at
     # the repository root.  When absent, this group skips instead of failing.
-    local real_list="$SCRIPT_DIR/../data/fixtures/authors_list_from_db.txt"
-    local integrity_checker="$SCRIPT_DIR/../bin/authors/authors_prefix_check.sh"
+    local real_list="$SCRIPT_DIR/../../data/fixtures/authors_list_from_db.txt"
+    local integrity_checker="$SCRIPT_DIR/../../bin/authors/authors_prefix_check.sh"
     if [[ ! -f "$real_list" || ! -f "$integrity_checker" ]]; then
         echo "  SKIP  (data/fixtures/authors_list_from_db.txt or bin/authors/authors_prefix_check.sh not found)"
         return
@@ -479,7 +479,7 @@ run_release_tests() {
     # the header itself -- the same single source of truth the script uses to
     # print "v<version>" in its usage text.
     for s in "bin/authors/authors_prefix_build.sh"; do
-        version="$(sed -n 's/^# Version:[[:space:]]*//p' "$SCRIPT_DIR/../$s" | head -n 1)"
+        version="$(sed -n 's/^# Version:[[:space:]]*//p' "$SCRIPT_DIR/../../$s" | head -n 1)"
         if [[ "$version" =~ ^1\.0\.[0-9]+$ ]]; then
             report "version_${s%.sh}" ok
         else
