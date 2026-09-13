@@ -1,26 +1,54 @@
 # NEXT — where to resume
 
-> Updated: 2026-09-12 — **refactoring Phases 1–5 COMPLETE and signed
-> off.**  `ARCHITECTURE.md` is the permanent, as-built architecture
-> reference (D-02.12 delivered); Phase 1–5 completion records are
-> signed in `docs/Measurable Phase Completion Criteria.md`; consumed
-> docs live in `docs/archive/`.  ShellCheck is warning-clean across all
-> production files.  Remaining from the original plan: the
-> D-02.11 tests split and optional later phases (6–13) — see "Open
-> items" below.
+> Updated: 2026-09-12 (late) — **test-hermeticity day.**  Three distinct
+> session-poisoning mechanisms were hunted down and fixed (see quirk 6
+> below): leaked exports, inherited stdin in the MariaDB readiness probe
+> (lib 1.0.3), and a traced caller shell (`SHELLOPTS=xtrace`).  The full
+> battery is green from every environment I can drive (agent WSL, Git
+> Bash, poison variants).  **One open item:** `test_lib_infrastructure.sh`
+> still FAILs in Mike's interactive terminal — resume there first (see
+> "OPEN: infra suite in Mike's session").  Refactoring Phases 1–5 remain
+> COMPLETE and signed off; remaining plan items are the D-02.11 tests
+> split and optional phases 6–13.
 
 ## Resume checklist
 
 ```bash
 cd /c/git_root/ebook-library-tools-next
 git status             # expect: clean tree, on main, up to date with origin/main
-git log --oneline -3   # expect: the docs/testing commits at the top; tags v1.7.0 + v1.7.1 on main
+git log --oneline -3   # expect: 582c3a6 docs / 5a8335b test guards / 0b2e7d5 infra hermetic
+git pull               # HEAD is 582c3a6; tags v1.7.0 + v1.7.1 on main
 bash tests/test_version_sync.sh          # 14/14 (fast, mock-only)
 bash tests/test_library_report.sh        # 71/71 (mock mysql, runs anywhere)
-bash tests/test_library_refresh.sh       # 20/20
-bash tests/test_library_populate.sh      # 35/35
 shellcheck --severity=warning bin/*.sh bin/*/*.sh lib/*.sh && echo clean   # Phase 5 gate
+for t in tests/test_*.sh; do bash "$t" >/dev/null 2>&1 && echo "ok   $t" || echo "FAIL $t"; done
 ```
+
+### OPEN: infra suite in Mike's session (top priority next time)
+
+`test_lib_infrastructure.sh` is the only suite still failing in Mike's
+interactive terminal (as of 2026-09-12 EOD) while passing 42/42 in every
+agent-side environment, including `SHELLOPTS=xtrace`/`verbose` poison runs.
+Diagnostics live in Mike's session only — next session step 1 is capturing
+the failing assertion, not guessing:
+
+```bash
+cd /mnt/c/git_root/ebook-library-tools-next
+bash tests/test_lib_infrastructure.sh > /tmp/infra.log 2>&1; echo "exit=$?"
+grep -B2 -A6 '^  FAIL' /tmp/infra.log          # the real failing assertion + stderr
+env | sort > /tmp/infra_env.txt                 # attach both to the session
+set +x; set +v; echo "trace flags now: $-"     # rule the known culprits out for good
+```
+
+With the `FAIL` block visible, the fix should be mechanical.  Candidate
+mechanisms already covered: leaked exports (unset guards in place), stdin
+inheritance (lib 1.0.3), traced caller (re-exec guard in all 16 suites).
+What is NOT yet excluded: exported functions (`declare -Fx` output was
+empty in the last diag, but that was a fresh shell), `BASH_ENV` pointing
+somewhere other than the stock `/etc/bash.bashrc` (WSLENV passes it through,
+current copy is inert — re-verify in-session), a wedged `/tmp` sandbox
+(stale `estimate_test.*` dirs; `rm -rf /tmp/estimate_test.* /tmp/sb.*`), or
+ antivirus/file-locking on the DrvFs checkout breaking `mktemp`+`chmod`.
 
 ### Manual life testing
 
