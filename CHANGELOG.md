@@ -10,6 +10,11 @@ All notable changes to the author-toolchain scripts in this repository:
 ## [Unreleased]
 
 ### Follow-It §8 — database access as a hard boundary (in progress)
+- **bin/library/library_report.sh + bin/library/library_populate.sh** migrated:
+  report's `db_query` now delegates to `db_run_sql` (picks up canonical
+  charset resolution — previously hardcoded `SET NAMES utf8`), populate's
+  22-line builder replaced by `db_mysql_argv` + caller-side
+  `--connect-timeout` per the documented lib contract; suites 71/71 + 35/35
 - **bin/books/books_estimate.sh + bin/books/books_reconcile.sh** migrated to
   `db_mysql_argv` (inline argv builders removed; reconcile keeps its
   `--no-db` offline path untouched); suites 22/22 + 23/23 with byte-identical

@@ -109,6 +109,11 @@ SCRIPT_VERSION="1.2.0"
 # shellcheck source=../lib/mariadb_lifecycle.sh
 source "$PROJECT_ROOT/lib/mariadb_lifecycle.sh"
 
+# Shared mysql argv assembly (lib/database.sh — Follow-It §8: the DB client
+# command line is a hard boundary owned by the lib, not by tools).
+# shellcheck source=../lib/database.sh
+source "$PROJECT_ROOT/lib/database.sh"
+
 # --- defaults (config file may override; env wins over config) -----------------
 CONF_FILE="${REPORT_CONF_FILE:-$PROJECT_ROOT/config/library_report.conf}"
 # shellcheck source=../../config/library_report.conf
@@ -341,20 +346,10 @@ write_wishlist() { # clean_file
 # DB helpers (read-only; lifecycle only when a query actually needs it)
 # -----------------------------------------------------------------------------
 db_query() { # sql -> stdout   (caller must have called db_start when needed)
-    local sql="$1"
-    local args=("${MYSQL_CLIENT:-mysql}")
-    [[ -n "${MYSQL_HOST:-}" ]] && args+=(-h "$MYSQL_HOST" --protocol=TCP)
-    [[ -n "${MYSQL_PORT:-}" ]] && args+=(-P "$MYSQL_PORT")
-    [[ -n "${MYSQL_USER:-}" ]] && args+=(-u "$MYSQL_USER")
-    [[ -n "${MYSQL_EXTRA_ARGS:-}" ]] && args+=("$MYSQL_EXTRA_ARGS")
-    args+=(--init-command="SET NAMES utf8")
-    args+=("$TARGET_DB")
-    args+=(-B --skip-column-names --raw)
-    if [[ -n "${MYSQL_PASSWORD:-}" ]]; then
-        MYSQL_PWD="$MYSQL_PASSWORD" "${args[@]}" -e "$sql"
-    else
-        "${args[@]}" -e "$sql"
-    fi
+    # Canonical argv from lib/database.sh: db_run_sql assembles the client
+    # argv, pins the session charset (EXTRA_ARGS --default-character-set is
+    # honored, falling back to utf8) and appends `-e "$sql"`.
+    db_run_sql "$1" "$TARGET_DB"
 }
 
 db_start() {

@@ -188,6 +188,11 @@ DRY_RUN=0
 # shellcheck source=../lib/mariadb_lifecycle.sh
 source "$PROJECT_ROOT/lib/mariadb_lifecycle.sh"
 
+# Shared mysql argv assembly (lib/database.sh — Follow-It §8: the DB client
+# command line is a hard boundary owned by the lib, not by tools).
+# shellcheck source=../lib/database.sh
+source "$PROJECT_ROOT/lib/database.sh"
+
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/populate.XXXXXX")"
 cleanup() {
     rm -rf "$tmp"
@@ -196,22 +201,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# --- build client argv (password never included) --------------------------------
-mysql_args=("$MYSQL_CLIENT")
-[[ -n "${MYSQL_HOST:-}" ]] && mysql_args+=(-h "$MYSQL_HOST" --protocol=TCP)
-[[ -n "${MYSQL_PORT:-}" ]] && mysql_args+=(-P "$MYSQL_PORT")
-[[ -n "${MYSQL_USER:-}" ]] && mysql_args+=(-u "$MYSQL_USER")
-[[ -n "${MYSQL_EXTRA_ARGS:-}" ]] && mysql_args+=("$MYSQL_EXTRA_ARGS")
+# --- build client argv via lib/database.sh (password never included) ------------
+# db_mysql_argv owns host/port/user/charset/EXTRA_ARGS passthrough; this tool
+# adds the WSL2 hung-connect guard (--connect-timeout) caller-side, per the
+# documented lib contract (the flag is mysql-only; mysqldump rejects it).
+mysql_args=()
+while IFS= read -r arg; do mysql_args+=("$arg"); done < <(db_mysql_argv "")
 mysql_args+=(--connect-timeout="$MYSQL_CONNECT_TIMEOUT")
-# Pin the session charset: the server may transcode to its own default
-# (cp1251) otherwise, corrupting UTF-8 payloads.
-charset="utf8"
-case " ${MYSQL_EXTRA_ARGS:-} " in
-    *" --default-character-set="*)
-        charset="${MYSQL_EXTRA_ARGS##*--default-character-set=}"
-        charset="${charset%% *}" ;;
-esac
-mysql_args+=(--init-command="SET NAMES $charset")
 
 # Run the mysql client argv; stdin passes through.
 run_mysql() { # [args...]
