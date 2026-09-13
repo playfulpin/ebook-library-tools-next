@@ -9,6 +9,10 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+(none)
+
+## [v1.8.0] - 2026-09-13 — tests split (D-02.11)
+
 - **Tests split into unit / integration / e2e (D-02.11 option (b), closed).**
   The flat `tests/` layout is reorganized:
   `tests/unit/` (12 suites — one per tool or lib, fully mocked, run
