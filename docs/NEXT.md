@@ -173,6 +173,15 @@ joins both by bookid.
 5. Tool file-writes from the Git-Bash side can silently fail (observed
    twice: release-note temp files, docs/NEXT.md rewrite) — verify
    content landed, or write via WSL/heredoc.
+6. **Session exports poison test suites**: variables left in an
+   interactive shell (`MYSQL_CLIENT`, `MYSQL_DATABASE`, `ETL_DEBUG`,
+   `MARIA_*`) leak into every `bash "$t"` child.  All env-sensitive
+   `bash -c` blocks in `test_lib_infrastructure.sh` now unset them
+   first; the tool suites (authors_export, books_estimate,
+   books_reconcile, library_backup, library_populate, library_report)
+   still assume a mostly-clean shell — run the regression loop from a
+   fresh terminal, or `unset` the DB/DEBUG exports first (2026-09-12,
+   6-suite poison sweep).
 
 ## Open notes carried forward
 

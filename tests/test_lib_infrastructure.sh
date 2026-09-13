@@ -102,7 +102,7 @@ out="$(bash -c "source '$sb/lib/common.sh' && common_init --no-errexit && [[ \$-
 [[ "$out" == "errexit-off" ]] && report "common_init --no-errexit is the documented exception mode" ok \
     || report "common_init --no-errexit is the documented exception mode" fail "$out"
 
-out="$(bash -c "source '$sb/lib/common.sh' && common_init && echo \"\$DEBUG\"" 2>&1)"
+out="$(bash -c "unset ETL_DEBUG; source '$sb/lib/common.sh' && common_init && echo \"\$DEBUG\"" 2>&1)"
 [[ "$out" == "0" ]] && report "common_init defaults DEBUG=0" ok \
     || report "common_init defaults DEBUG=0" fail "$out"
 
@@ -152,7 +152,7 @@ else
     report "log() preserves the house format '[ts] msg'" fail "$out"
 fi
 
-out="$(bash -c "source '$sb/lib/common.sh' && common_init && debug gated" 2>&1)"
+out="$(bash -c "unset ETL_DEBUG; source '$sb/lib/common.sh' && common_init && debug gated" 2>&1)"
 [[ -z "$out" ]] && report "debug() silent at DEBUG=0" ok \
     || report "debug() silent at DEBUG=0" fail "$out"
 
@@ -190,6 +190,7 @@ rc=$?
 # Direct call (the tool pattern): DEBUG and CLI_REMAINING_COUNT must be set
 # in the CURRENT shell, not a subshell.
 out="$(bash -c "
+unset ETL_DEBUG
 source '$sb/lib/common.sh' && common_init
 cli_try_global --debug -- --tool-flag value
 echo \"\$CLI_REMAINING_COUNT|debug=\$DEBUG\"
@@ -199,6 +200,7 @@ echo \"\$CLI_REMAINING_COUNT|debug=\$DEBUG\"
 
 # Scan stops at the first tool-specific flag: later --debug stays untouched.
 out="$(bash -c "
+unset ETL_DEBUG
 source '$sb/lib/common.sh' && common_init
 cli_try_global positional --tool-flag --debug
 echo \"\$CLI_REMAINING_COUNT|debug=\$DEBUG\"
@@ -260,7 +262,11 @@ out="$(bash -c "source '$sb/lib/common.sh' && common_init && d=\$(fs_mktmp probe
 
 # --- 8. database ----------------------------------------------------------------------
 out="$(bash -c "
-unset MYSQL_HOST MYSQL_PORT MYSQL_USER MYSQL_EXTRA_ARGS MYSQL_DATABASE
+# The suite may itself be run from a shell with MYSQL_* / ETL_DEBUG exported
+# (the manual-testing walkthrough does exactly that); every env-sensitive
+# bash -c block below starts from a known-clean slate.
+unset MYSQL_CLIENT MYSQL_HOST MYSQL_PORT MYSQL_USER MYSQL_PASSWORD \
+      MYSQL_EXTRA_ARGS MYSQL_DATABASE MYSQL_CHARSET ETL_DEBUG
 source '$sb/lib/common.sh' && source '$sb/lib/database.sh'
 db_mysql_argv booksdb | tr '\n' '|'
 " 2>&1)"
@@ -271,6 +277,7 @@ else
 fi
 
 out="$(bash -c "
+unset MYSQL_PASSWORD MYSQL_EXTRA_ARGS MYSQL_DATABASE MYSQL_CHARSET
 export MYSQL_HOST=127.0.0.1 MYSQL_PORT=3307 MYSQL_USER=mike MYSQL_CLIENT=mariadb
 source '$sb/lib/common.sh' && source '$sb/lib/database.sh'
 db_mysql_argv | tr '\n' '|'
@@ -286,6 +293,7 @@ mockdir="$sb/mockbin"; mkdir -p "$mockdir"
 printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$@"\n' > "$mockdir/mockmysql"
 chmod +x "$mockdir/mockmysql"
 out="$(bash -c "
+unset MYSQL_PASSWORD MYSQL_EXTRA_ARGS MYSQL_DATABASE MYSQL_CHARSET
 export MYSQL_CLIENT='$mockdir/mockmysql' MYSQL_HOST=mockhost MYSQL_USER=u MYSQL_PORT=1
 source '$sb/lib/common.sh' && source '$sb/lib/database.sh'
 db_run_sql 'SELECT 42;' mydb | tr '\n' '|'
@@ -295,6 +303,8 @@ db_run_sql 'SELECT 42;' mydb | tr '\n' '|'
     || report "db_run_sql invokes the client argv (mock client)" fail "$out"
 
 out="$(bash -c "
+unset MYSQL_CLIENT MYSQL_HOST MYSQL_PORT MYSQL_USER MYSQL_PASSWORD \
+      MYSQL_EXTRA_ARGS MYSQL_DATABASE MYSQL_CHARSET
 source '$sb/lib/common.sh' && source '$sb/lib/database.sh'
 db_run_query '$sb/lib/nope.sql' 2>&1
 " 2>&1)"

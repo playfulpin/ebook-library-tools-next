@@ -9,6 +9,17 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **`tests/test_lib_infrastructure.sh` — hermetic against a dirty shell.**  The
+  env-sensitive `bash -c` blocks assumed a clean session: a leaked
+  `MYSQL_CLIENT`, `MYSQL_DATABASE`, `MYSQL_CHARSET`, `MYSQL_EXTRA_ARGS`,
+  `MYSQL_PASSWORD`, or `ETL_DEBUG` from the caller (the manual-testing
+  walkthrough exports exactly such variables) flipped four assertions
+  (db argv shapes, DEBUG gating, cli_try_global's debug=0).  Every
+  env-sensitive block now unsets the leak-prone variables first, so the
+  suite passes identically from a pristine CI run and from a working
+  terminal that still carries DB exports.  Verified under six-poison
+  environment and clean.
+
 - **`lib/mariadb_lifecycle.sh` 1.0.3 — readiness probe stdin detached.**  The
   probe (`timeout 5 mysql -e "SELECT 1"`) inherited stdin; a client that
   reads input (the test mock opens with `query="$(cat)"`) then blocked on an
