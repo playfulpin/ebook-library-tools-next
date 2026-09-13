@@ -141,7 +141,7 @@ Boundary rules:
 | `lib/logging.sh` | house `log`/`debug` triplet (byte-preserved) + tagged `log_info/warn/error` | infra-consumer commands |
 | `lib/cli.sh` | `cli_try_global` (`-h/-v/--debug` scan, stops at tool flags), `CLI_REMAINING_COUNT` global (subshell-safe), 0/1/2 exit contract | optional for every command |
 | `lib/filesystem.sh` | `fs_tree_fingerprint` (recursive size+mtime fingerprint), `fs_prune_empty_dirs`, guards, `fs_mktmp` | refresh, finalize |
-| `lib/database.sh` | `db_mysql_argv` / `db_run_query` / `db_run_sql` / `db_require_server` — opt-in, composes with the lifecycle | DB-backed commands as they adopt it |
+| `lib/database.sh` | `db_mysql_argv` / `db_mysqldump_argv` / `db_run_query` / `db_run_sql` / `db_session_charset` / `db_require_server` — the sole owner of client argv assembly (charset from `MYSQL_EXTRA_ARGS --default-character-set` → `MYSQL_CHARSET` → utf8, pinned via `--init-command`; password via `MYSQL_PWD` env only, never argv; explicit `""` DB omits the position) | all 6 DB-backed commands (Follow-It §8, as-built) |
 | `lib/mariadb_lifecycle.sh` | start (UAC PowerShell) / readiness wait / graceful stop / `mysql_upgrade` — **unchanged boundary since before the refactor** (C4) | all 6+ DB tools |
 | `lib/utf8_prefix_generator.awk` | the AWK reference implementation of UTF-8 prefix chopping (C7) | `authors_prefix_build`, parity tests |
 
@@ -159,6 +159,16 @@ data, not dependency).  CI runs it after the syntax check; a violation
 fails the build before tests run.  `lib/utf8_prefix_generator.awk` is a
 documented exemption — as the C7 parity reference its variable
 vocabulary is the domain by design.
+
+**Database boundary (Follow-It §8, as-built):** client argv assembly is a
+hard boundary owned by `lib/database.sh`.  Every DB-backed command
+(authors_export, books_estimate, books_reconcile, library_report,
+library_populate, library_backup) sources the lib and never builds its own
+mysql/mysqldump command line.  Tool-side additions are limited to
+per-call flags the lib deliberately does not emit (`--connect-timeout` —
+mysql-only, mysqldump rejects it; mysqldump calls are bounded with
+`timeout` instead).  Server start/stop stays in
+`lib/mariadb_lifecycle.sh`; `database.sh` deliberately does not source it.
 
 ## 6. Configuration ownership
 

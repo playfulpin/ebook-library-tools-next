@@ -1,22 +1,24 @@
 # NEXT — where to resume
 
-> Updated: 2026-09-13 (EOD) — **Follow-It §4 COMPLETE, released as
-> v1.9.0.**  All four steps landed (96cd0b5 / f76d9ae / 868c42b /
-> 8163499): domain logic left `lib/` (books_merge self-contained), the
-> database.sh tool-name leak is gone, `bin/check_layers.sh` 1.0.0
-> enforces both boundary rules in CI (version sync now 15 checks), and
-> the as-built docs are reconciled.  **Next session: §5 audit already
-> probed — findings below; every fix waits for explicit confirmation.**
+> Updated: 2026-09-13 (session 2) — **Follow-It §8 COMPLETE: database
+> access as a hard boundary.**  All six steps landed (f86ca2b / 7bde7e3 /
+> 6013067 / ee48795 / abe488c + this docs pass): lib/database.sh 1.2.0
+> owns client argv assembly for BOTH clients (db_mysql_argv,
+> db_mysqldump_argv, db_run_query, db_run_sql, db_session_charset,
+> db_require_server), all 6 DB-backed tools migrated with byte-identical
+> argv, strict positional-DB semantics regression-locked.  **Next
+> session: §5 audit findings below remain open; every fix waits for
+> explicit confirmation.**
 
 ## Resume checklist
 
 ```bash
 cd /c/git_root/ebook-library-tools-next
 git status             # expect: clean tree, on main, up to date with origin/main
-git log --oneline -3   # expect: 8163499 §4 docs / cef41a5 / 868c42b layer gate; tag v1.9.0 on main
+git log --oneline -3   # §8 docs pass on top of abe488c / ee48795 / 6013067
 git pull
 bash tests/unit/test_version_sync.sh       # 15/15 (fast, mock-only)
-bash tests/unit/test_library_report.sh     # 71/71 (mock mysql, runs anywhere)
+bash tests/unit/test_lib_infrastructure.sh # 46/46 (db contract incl. positional-DB)
 shellcheck --severity=warning bin/*.sh bin/*/*.sh lib/*.sh && echo clean
 bin/check_layers.sh                        # layer gate: boundaries hold
 tests/run_all.sh -q    # 16 suites: 12 unit + 3 integration + 1 e2e
