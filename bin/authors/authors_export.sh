@@ -109,6 +109,11 @@ DRY_RUN=0
 # shellcheck source=../../lib/mariadb_lifecycle.sh
 source "$PROJECT_ROOT/lib/mariadb_lifecycle.sh"
 
+# Shared mysql argv assembly (lib/database.sh — Follow-It §8: the DB client
+# command line is a hard boundary owned by the lib, not by tools).
+# shellcheck source=../../lib/database.sh
+source "$PROJECT_ROOT/lib/database.sh"
+
 # EXIT trap: remove temp files and stop MariaDB only if this script started it.
 cleanup() {
     [[ -n "${tmp_out:-}" ]] && rm -f "$tmp_out"
@@ -177,32 +182,11 @@ fi
 mariadb_maybe_start \
     || die "cannot start MariaDB (accept the UAC prompt or run WSL2 elevated, or start the server manually)"
 
-# --- build the client argv (password never included) --------------------------
-mysql_args=("${MYSQL_CLIENT:-mysql}")
-[[ -n "${MYSQL_HOST:-}" ]] && mysql_args+=(-h "$MYSQL_HOST" --protocol=TCP)
-[[ -n "${MYSQL_PORT:-}" ]] && mysql_args+=(-P "$MYSQL_PORT")
-[[ -n "${MYSQL_USER:-}" ]] && mysql_args+=(-u "$MYSQL_USER")
-[[ -n "${MYSQL_EXTRA_ARGS:-}" ]] && mysql_args+=("$MYSQL_EXTRA_ARGS")
+# --- build the client argv via lib/database.sh (password never included) ------
+mapfile -t mysql_args < <(db_mysql_argv "$MYSQL_DATABASE")
 
-# The server may ignore the client's handshake charset (e.g. configured with
-# skip-character-set-client-handshake) and transcode results to its own
-# default (cp1251), which would corrupt the UTF-8 list.  Pin the session
-# charset explicitly: honor --default-character-set from MYSQL_EXTRA_ARGS
-# (default: utf8) via --init-command, which the server always applies.
-charset="utf8"
-case " ${MYSQL_EXTRA_ARGS:-} " in
-    *" --default-character-set="*)
-        charset="${MYSQL_EXTRA_ARGS##*--default-character-set=}"
-        charset="${charset%% *}"
-        ;;
-esac
-mysql_args+=(--init-command="SET NAMES $charset")
-
-[[ -n "${MYSQL_DATABASE:-}" ]] && mysql_args+=("$MYSQL_DATABASE")
-
-# Batch mode: -B tab-separated rows, --skip-column-names, --raw = no escaping.
-mysql_args+=(-B --skip-column-names --raw)
-
+# Charset pinning rationale (why only --init-command, never only the handshake
+# flag) is documented in lib/database.sh; db_mysql_argv owns the resolution.
 debug "mysql argv (password omitted): ${mysql_args[*]}"
 debug "query file: $QUERY_FILE"
 

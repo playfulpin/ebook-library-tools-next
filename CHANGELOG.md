@@ -10,6 +10,9 @@ All notable changes to the author-toolchain scripts in this repository:
 ## [Unreleased]
 
 ### Follow-It §8 — database access as a hard boundary (in progress)
+- **bin/authors/authors_export.sh** migrated to the shared mysql argv via
+  `db_mysql_argv` (first tool off inline argv assembly); mock suite 18/18
+  with byte-identical `argv_contract` — zero behavior change
 - **lib/database.sh 1.1.0** — adopted the five DB tools' canonical mysql argv
   as the library contract: charset now resolves from `MYSQL_EXTRA_ARGS
   --default-character-set=<c>` (falling back to `MYSQL_CHARSET`, then utf8)
