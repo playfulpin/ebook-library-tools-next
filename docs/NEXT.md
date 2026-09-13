@@ -173,15 +173,19 @@ joins both by bookid.
 5. Tool file-writes from the Git-Bash side can silently fail (observed
    twice: release-note temp files, docs/NEXT.md rewrite) — verify
    content landed, or write via WSL/heredoc.
-6. **Session exports poison test suites**: variables left in an
-   interactive shell (`MYSQL_CLIENT`, `MYSQL_DATABASE`, `ETL_DEBUG`,
-   `MARIA_*`) leak into every `bash "$t"` child.  All env-sensitive
-   `bash -c` blocks in `test_lib_infrastructure.sh` now unset them
-   first; the tool suites (authors_export, books_estimate,
-   books_reconcile, library_backup, library_populate, library_report)
-   still assume a mostly-clean shell — run the regression loop from a
-   fresh terminal, or `unset` the DB/DEBUG exports first (2026-09-12,
-   6-suite poison sweep).
+6. **Session state poisons test suites** (three distinct mechanisms,
+   all identified 2026-09-12):
+   a. leaked exports (`MYSQL_CLIENT`, `MYSQL_DATABASE`, `ETL_DEBUG`, …)
+      flip env-sensitive assertions — `test_lib_infrastructure.sh` now
+      unsets them per block; six tool suites still assume a mostly-
+      clean shell, so run the loop from a fresh terminal when unsure;
+   b. **inherited stdin**: the lib's readiness probe used to inherit
+      the TTY and stall (fixed in lib 1.0.3 — `</dev/null`);
+   c. **traced caller (`set -x`/`set -v`)**: `SHELLOPTS` is auto-
+      exported and imported readonly by every child bash, corrupting
+      output captures — all 16 suites now re-exec themselves without
+      `SHELLOPTS`/`BASHOPTS` when xtrace/verbose is detected
+      (`__ETL_TEST_ENV_GUARD__` header).
 
 ## Open notes carried forward
 

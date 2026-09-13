@@ -9,6 +9,15 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **All 16 test suites — immune to a traced caller shell (`set -x`).**  A
+  session with `set -x`/`set -v` active auto-exports `SHELLOPTS`, and every
+  child `bash` re-applies it (it is imported readonly), so xtrace noise was
+  merged into the suites' output captures and corrupted the exact-match
+  assertions.  Each suite now re-execs itself without `SHELLOPTS`/`BASHOPTS`
+  when xtrace/verbose is detected, and unsets both otherwise.  Verified:
+  full battery green clean AND under `SHELLOPTS=xtrace`, `=verbose`,
+  `=xtrace:errexit`, and `BASHOPTS=xtrace`.
+
 - **`tests/test_lib_infrastructure.sh` — hermetic against a dirty shell.**  The
   env-sensitive `bash -c` blocks assumed a clean session: a leaked
   `MYSQL_CLIENT`, `MYSQL_DATABASE`, `MYSQL_CHARSET`, `MYSQL_EXTRA_ARGS`,
