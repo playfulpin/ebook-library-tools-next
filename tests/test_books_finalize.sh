@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 
+# __ETL_TEST_ENV_GUARD__: a caller with set -x/set -v auto-exports SHELLOPTS;
+# every child bash re-applies it (it is readonly when imported), so xtrace
+# noise corrupts the suites output captures.  Re-exec clean instead.
+if [[ ${SHELLOPTS-} == *xtrace* || ${SHELLOPTS-} == *verbose* ]]; then
+    exec env -u SHELLOPTS -u BASHOPTS bash "$0" "$@"
+fi
+unset SHELLOPTS BASHOPTS 2>/dev/null || true
+
+
 ###############################################################################
 # tests/test_books_finalize.sh
 #
