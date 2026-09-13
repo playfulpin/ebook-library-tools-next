@@ -322,10 +322,16 @@ rc=$?
     && report "db_run_query dies on a missing query file" ok \
     || report "db_run_query dies on a missing query file" fail "rc=$rc out=$out"
 
-# --- 9. real-repo load test (clean checkout criterion) --------------------------------
-out="$(bash -c "source '$REPO_ROOT/lib/common.sh' && common_init && echo \"\$PROJECT_ROOT\"" 2>&1)"
-[[ "$out" == "$REPO_ROOT" ]] && report "clean load works against the real repo" ok \
-    || report "clean load works against the real repo" fail "$out"
+# --- 9. real-repo load test (clean checkout criterion) -------------------------
+out="$(bash -c "source '$REPO_ROOT/lib/common.sh' && common_init && printf '%s' \"\$PROJECT_ROOT\"" 2>&1)"
+expected_root="$(realpath "$REPO_ROOT")"
+
+if [[ "$out" == "$expected_root" ]]; then
+    report "clean load works against the real repo" ok
+else
+    report "clean load works against the real repo" fail \
+        "expected=$expected_root actual=$out"
+fi
 
 rm -rf "$sb"
 
