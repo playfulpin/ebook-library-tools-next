@@ -1,14 +1,12 @@
 # NEXT — where to resume
 
-> Updated: 2026-09-13 (later) — **Follow-It §4 layer boundaries started.**
-> Work moved from `docs/PHASE_04_TOOL_CONVERSION.md` to
-> `docs/FollowIt_ebook-library-tools-next.md`.  §4 step 1 LANDED:
-> `lib/books_functions.sh` inlined into `bin/books/books_merge.sh`
-> (self-contained tool, lib twin retired, registries updated, version
-> deliberately stays 0.2.1 per D-02.15); every `lib/*.sh` is now
-> domain-free.  **Next: ask-confirmed step 2** (database.sh error-string
-> cleanup), then step 3 (layer-boundary check in CI), step 4 (docs
-> as-built).  See the Follow-It doc; every step waits for explicit
+> Updated: 2026-09-13 (latest) — **Follow-It §4 steps 1–3 LANDED**
+> (commits 96cd0b5 / f76d9ae / 868c42b): domain logic left lib/
+> (books_merge self-contained), the database.sh tool-name leak is gone,
+> and `bin/check_layers.sh` 1.0.0 enforces both boundary rules in CI
+> (registered: version sync now 15 checks).  **Next: ask-confirmed
+> step 4** (as-built docs pass: ARCHITECTURE §4 layering diagram vs
+> reality, Follow-It doc status notes).  Every step waits for explicit
 > confirmation before work starts.
 
 ## Resume checklist
