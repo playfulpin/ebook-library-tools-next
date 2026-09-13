@@ -9,6 +9,10 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+(none)
+
+## [v1.9.0] - 2026-09-13 — Follow-It §4: strict layer boundaries
+
 - **Layer boundary (Follow-It §4, step 3): `bin/check_layers.sh` 1.0.0 —
   the dependency rule becomes a CI gate.**  Two checks: (1) every
   `lib/*.sh` code line is domain-free (comment-stripped grep for the

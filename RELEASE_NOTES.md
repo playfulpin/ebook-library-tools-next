@@ -1,12 +1,21 @@
 # Author Toolchain — current milestone
 
-**Latest release: v1.8.0 (2026-09-13)** — tests split (D-02.11): the
-flat `tests/` layout is reorganized into **unit / integration / e2e**
-groups with a battery runner (`tests/run_all.sh`), shared fixtures in
-`tests/fixtures/`, goldens in `tests/integration/golden/`, CI rewritten
-around the runner, and the layout documented in the new
-`tests/README.md`.  No production code changes; all 16 suites green in
-the new layout.
+**Latest release: v1.9.0 (2026-09-13)** — Follow-It §4, strict layer
+boundaries: the domain logic that lived in `lib/books_functions.sh`
+left the infrastructure layer (inlined into its only consumer
+`bin/books/books_merge.sh`, which is now self-contained),
+`lib/database.sh` no longer names application tools, and the dependency
+rule — *lib/ is domain-free, bin/ sources only from lib/* — is enforced
+mechanically by the new `bin/check_layers.sh` gate wired into CI.
+Every step confirmed before work started; battery 16/16, version sync
+15/15, shellcheck clean, layer gate green throughout.
+
+The previous release, **v1.8.0 (2026-09-13)**, was the tests split
+(D-02.11): the flat `tests/` layout reorganized into
+**unit / integration / e2e** groups with a battery runner
+(`tests/run_all.sh`), shared fixtures in `tests/fixtures/`, goldens in
+`tests/integration/golden/`, CI rewritten around the runner, and the
+layout documented in `tests/README.md`.
 
 The previous release, **v1.7.1 (2026-09-12)**, was Phase 5, function
 headers & coding standards: all 21 production shell files standardized,

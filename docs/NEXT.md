@@ -1,26 +1,66 @@
 # NEXT — where to resume
 
-> Updated: 2026-09-13 (latest) — **Follow-It §4 steps 1–3 LANDED**
-> (commits 96cd0b5 / f76d9ae / 868c42b): domain logic left lib/
-> (books_merge self-contained), the database.sh tool-name leak is gone,
-> and `bin/check_layers.sh` 1.0.0 enforces both boundary rules in CI
-> (registered: version sync now 15 checks).  **Next: ask-confirmed
-> step 4** (as-built docs pass: ARCHITECTURE §4 layering diagram vs
-> reality, Follow-It doc status notes).  Every step waits for explicit
-> confirmation before work starts.
+> Updated: 2026-09-13 (EOD) — **Follow-It §4 COMPLETE, released as
+> v1.9.0.**  All four steps landed (96cd0b5 / f76d9ae / 868c42b /
+> 8163499): domain logic left `lib/` (books_merge self-contained), the
+> database.sh tool-name leak is gone, `bin/check_layers.sh` 1.0.0
+> enforces both boundary rules in CI (version sync now 15 checks), and
+> the as-built docs are reconciled.  **Next session: §5 audit already
+> probed — findings below; every fix waits for explicit confirmation.**
 
 ## Resume checklist
 
 ```bash
 cd /c/git_root/ebook-library-tools-next
 git status             # expect: clean tree, on main, up to date with origin/main
-git log --oneline -3   # expect: 8d5f14f roadmap / 24a9fea phase-3 libs / ad66bb7 handoff
+git log --oneline -3   # expect: 8163499 §4 docs / cef41a5 / 868c42b layer gate; tag v1.9.0 on main
 git pull
-bash tests/unit/test_version_sync.sh       # 14/14 (fast, mock-only)
+bash tests/unit/test_version_sync.sh       # 15/15 (fast, mock-only)
 bash tests/unit/test_library_report.sh     # 71/71 (mock mysql, runs anywhere)
-shellcheck --severity=warning bin/*.sh bin/*/*.sh lib/*.sh && echo clean   # Phase 5 gate
+shellcheck --severity=warning bin/*.sh bin/*/*.sh lib/*.sh && echo clean
+bin/check_layers.sh                        # layer gate: boundaries hold
 tests/run_all.sh -q    # 16 suites: 12 unit + 3 integration + 1 e2e
 ```
+
+### Follow-It §5 audit — probed 2026-09-13, fixes NOT yet applied
+
+The §5 checklist (clear input/output, predictable exits, no hidden side
+effects, --help, --version, --debug, documented deps) was probed
+behaviorally on all 15 tools.  Findings to confirm-and-fix next session,
+**each requiring explicit user confirmation before work starts**:
+
+1. **`--version` missing on 4 tools** (returns rc=1, "Unexpected
+   option"): `authors_prefix_build`, `authors_prefix_check`,
+   `authors_tree_build`, `version_bump` (its `--version` prints the
+   usage header but exits 1 — decide the contract).  Note the AUTHORS
+   trio are the pre-refactor-era tools whose `-h` also exits 1 (repo
+   convention "usage() always exits non-zero, including -h") — decide
+   whether §5 supersedes that convention or these tools keep it.
+2. **`check_layers.sh --version/--help` semantics wrong**: it has no
+   argument parser at all — `--version` runs the check; `--help`
+   prints the PURPOSE block (4 lines) and STILL runs the check.  Needs
+   a real CLI (it is now a registered, version-synced tool).
+3. **`--debug` missing on 5 tools**: `authors_prefix_check`,
+   `authors_prefix_tree`, `books_finalize`, `books_merge`,
+   `version_bump` (guide says debug is *optional*, so confirm with
+   Mike which of these want it — merge/finalize are the strongest
+   candidates).
+4. **`--dry-run` is genuinely absent only where expected** (read-only
+   tools: prefix_build/check/tree, check_layers, version_bump,
+   report mutations aside) — no action needed; recorded so the §5
+   pass does not "fix" correct tools.
+5. **Documented-dependencies headers missing on ~13 of 15 tools** —
+   only books_finalize and library_populate carry a DEPENDENCIES
+   section.  A uniform `# DEPENDENCIES:` header block (rsync/pv/mysql/
+   gawk etc.) is the main §5 gap-fill.
+6. **`authors_prefix_tree -h` prints only 4 lines** — thinnest help in
+   the repo; worth expanding when touched.
+
+Suggested §5 execution order (pending confirmation): (a) check_layers
+CLI, (b) --version across the four, (c) DEPENDENCIES headers, (d)
+--debug where wanted.  Every behavioral change bumps the touched tool's
+version via version_bump; the -h exit-code convention question goes to
+Mike BEFORE any edit.
 
 ### RESOLVED: infra suite in Mike's session
 
