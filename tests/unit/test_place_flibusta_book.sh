@@ -28,16 +28,18 @@ unset SHELLOPTS BASHOPTS 2>/dev/null || true
 #   - sanitization: Windows-unsafe characters in title/FullName/seqname
 #     become "_"; trailing dots/spaces trimmed
 #   - the target zip is a real zip of the source file (content round-trips)
-#   - skip-existing unless --force; --rm-source removes the source
-#   - --dry-run resolves and writes nothing
+#   - source trashing: the stage-1 source is REMOVED after a successful
+#     placement (v0.2.0 default); --keep-source retains it; a failed
+#     placement never removes it
+#   - per-run TSV report: one row per attempted number in --report-dir
+#   - skip-existing unless --force
+#   - --dry-run resolves and writes nothing (report still written)
 #   - batch: from-file list (CRLF/BOM/comments), summary line, exit 1 when
 #     any number failed (unknown number, missing source), partial delivery
 #   - CLI contract: --help exits 0, --version prints the header version,
 #     unknown option exits 2, no numbers exits 2, bad numbers are failures
-#   - single-number success exits 0 even when a later failure occurs in
-#     batch mode (independent items)
 #
-# Version header stays in sync with --version (0.1.x).
+# Version header stays in sync with --version (0.2.x).
 #
 # Usage:  bash tests/unit/test_place_flibusta_book.sh
 # -----------------------------------------------------------------------------
@@ -105,7 +107,8 @@ chmod +x "$MOCK_BIN/mysql"
 # --- stage-1 style input fixtures ---------------------------------------------------
 INPUT_DIR="$TMPDIR/input"
 ROOT_LOAD="$TMPDIR/root"
-mkdir -p "$INPUT_DIR" "$ROOT_LOAD"
+REPORT_DIR="$TMPDIR/reports"
+mkdir -p "$INPUT_DIR" "$ROOT_LOAD" "$REPORT_DIR"
 printf 'fb2 payload of 100001\n' > "$INPUT_DIR/100001.fb2"
 printf 'pdf payload of 100002\n' > "$INPUT_DIR/100002.pdf"
 printf 'djvu payload of 100003\n' > "$INPUT_DIR/100003.djvu"
@@ -118,11 +121,20 @@ printf 'payload of 100999\n'      > "$INPUT_DIR/100999.fb2"
 run_tool() { # [args...]; stdout->$OUT, stderr->$ERR; rc->$RC
     OUT="$TMPDIR/stdout.txt" ERR="$TMPDIR/stderr.txt"
     : > "$MOCK_LOG"
+    rm -f "$REPORT_DIR"/*.tsv
     MYSQL_CLIENT="$MOCK_BIN/mysql" \
     PLACE_INPUT_DIR="$INPUT_DIR" ROOT_LOAD="$ROOT_LOAD" FLIBUSTA_DB=flibusta \
+    PLACE_REPORT_DIR="$REPORT_DIR" \
     MARIA_TASKLIST="$TMPDIR/no-such-tasklist" \
         bash "$TOOL" "$@" >"$OUT" 2>"$ERR"
     RC=$?
+}
+
+last_report_rows() { # -> the data rows of the newest report in $REPORT_DIR
+    local f
+    f="$(ls -1t "$REPORT_DIR"/place_flibusta_*.tsv 2>/dev/null | head -n 1)"
+    [[ -n "$f" ]] || return 1
+    tail -n +2 "$f"
 }
 
 zipped_content() { # $1 = zip path -> inner file content on stdout
@@ -133,10 +145,10 @@ echo "== place_flibusta_book =="
 
 # --- version / usage --------------------------------------------------------------
 version="$(sed -n 's/^# Version:[[:space:]]*//p' "$TOOL" | head -n 1)"
-if [[ "$version" =~ ^0\.1\.[0-9]+$ ]]; then
+if [[ "$version" =~ ^0\.2\.[0-9]+$ ]]; then
     report "version_header" ok "header $version"
 else
-    report "version_header" fail "got '$version', expected ^0.1.[0-9]+$"
+    report "version_header" fail "got '$version', expected ^0.2.[0-9]+$"
 fi
 
 bash "$TOOL" --version >"$TMPDIR/v.txt" 2>&1
@@ -185,14 +197,42 @@ else
     report "sql_literal_number" fail "number literal not in SQL: $(tail -1 "$MOCK_LOG")"
 fi
 
-# --- single placement, no series ------------------------------------------------------
+# --- single placement, no series; source trashed by default (v0.2.0) ---------
 rm -rf "${ROOT_LOAD:?}"/*; mkdir -p "$ROOT_LOAD"
 run_tool 100001
 if (( RC == 0 )) \
-   && [[ "$(zipped_content "$ROOT_LOAD/Kafka Franz/The Trial.zip" 2>/dev/null)" == "fb2 payload of 100001" ]]; then
+   && [[ "$(zipped_content "$ROOT_LOAD/Kafka Franz/The Trial.zip" 2>/dev/null)" == "fb2 payload of 100001" ]] \
+   && [[ ! -e "$INPUT_DIR/100001.fb2" ]]; then
     report "place_no_series" ok
 else
     report "place_no_series" fail "rc=$RC err=$(tail -2 "$ERR")"
+fi
+
+# --- report: one placed row for the run above ---------------------------------
+rows="$(last_report_rows)"
+if [[ "$rows" == *$'\t100001\t100001\tplaced\t'* ]] \
+   && [[ "$rows" == *"$ROOT_LOAD/Kafka Franz/The Trial.zip"* ]]; then
+    report "report_placed_row" ok
+else
+    report "report_placed_row" fail "rows: $rows"
+fi
+
+# --- --keep-source retains the stage-1 file -------------------------------------
+printf 'fb2 payload of 100001\n' > "$INPUT_DIR/100001.fb2"   # restore (was trashed)
+run_tool --force --keep-source 100001
+if (( RC == 0 )) && [[ -f "$INPUT_DIR/100001.fb2" ]]; then
+    report "keep_source" ok
+else
+    report "keep_source" fail "rc=$RC err=$(tail -2 "$ERR")"
+fi
+
+# --- a failed placement never removes the source ---------------------------------
+mkdir -p "$TMPDIR/empty-input"          # valid dir, no source inside
+run_tool --force --keep-source --input-dir "$TMPDIR/empty-input" 100001
+if (( RC == 1 )) && grep -q "extracted file not found" "$ERR" && [[ -f "$INPUT_DIR/100001.fb2" ]]; then
+    report "failed_keeps_source" ok
+else
+    report "failed_keeps_source" fail "rc=$RC err=$(tail -2 "$ERR")"
 fi
 
 # --- series naming: "01 - Title" and "15 - Title" ---------------------------------------
@@ -239,8 +279,10 @@ else
 fi
 
 # --- skip-existing / force ----------------------------------------------------------------------
-# (each earlier test wipes $ROOT_LOAD; place first, then re-run to see the skip)
-run_tool 100001
+# (each earlier test wipes $ROOT_LOAD; the trash-default removed the source,
+# so restore the fixture first, place, then re-run to see the skip)
+printf 'fb2 payload of 100001\n' > "$INPUT_DIR/100001.fb2"
+run_tool --keep-source 100001
 run_tool 100001
 if grep -q "target exists, skipping" "$ERR"; then
     report "skip_existing" ok
@@ -248,41 +290,41 @@ else
     report "skip_existing" fail "rc=$RC err=$(tail -2 "$ERR")"
 fi
 
-run_tool --force 100001
+run_tool --force --keep-source 100001
 if grep -qE "bookid : 100001" "$ERR" && ! grep -q "target exists, skipping" "$ERR"; then
     report "force_replaces" ok
 else
     report "force_replaces" fail "rc=$RC err=$(tail -2 "$ERR")"
 fi
 
-# --- --rm-source ----------------------------------------------------------------------------------
-# fresh input dir with a copy of the fixture, so nothing else is disturbed
-RMS_DIR="$TMPDIR/rmsrc"
-mkdir -p "$RMS_DIR"
-cp "$INPUT_DIR/100001.fb2" "$RMS_DIR/100001.fb2"
-run_tool --force --rm-source --input-dir "$RMS_DIR" 100001
-if (( RC == 0 )) && [[ ! -f "$RMS_DIR/100001.fb2" ]] && [[ -f "$ROOT_LOAD/Kafka Franz/The Trial.zip" ]]; then
-    report "rm_source" ok
+# --- --rm-source is a documented no-op; removal is the default ------------------------------------
+run_tool --force 100001
+if (( RC == 0 )) && [[ ! -f "$INPUT_DIR/100001.fb2" ]]; then
+    report "rm_source_noop" ok
 else
-    report "rm_source" fail "rc=$RC"
+    report "rm_source_noop" fail "rc=$RC"
 fi
 
-# --- dry-run writes nothing ------------------------------------------------------------------------
+# --- dry-run writes nothing (report rows use would-* statuses) ----------------------
 rm -rf "${ROOT_LOAD:?}"/*; mkdir -p "$ROOT_LOAD"
+printf 'pdf payload of 100002\n' > "$INPUT_DIR/100002.pdf"   # restore (trashed earlier)
 run_tool --dry-run 100002
 if (( RC == 0 )) && (( $(find "$ROOT_LOAD" -type f | wc -l) == 0 )) \
-   && grep -q "dry-run: 1 number(s) resolvable" "$ERR"; then
+   && grep -q "dry-run: 1 number(s) resolvable" "$ERR" \
+   && [[ "$(last_report_rows)" == *$'\twould-place\t'* ]]; then
     report "dryrun_writes_nothing" ok
 else
     report "dryrun_writes_nothing" fail "rc=$RC err=$(tail -2 "$ERR")"
 fi
 
-# --- batch: from-file + failures + summary -----------------------------------------------------------
+# --- batch: from-file + failures + summary -------------------------------------------
 rm -rf "${ROOT_LOAD:?}"/*; mkdir -p "$ROOT_LOAD"
-printf '\xEF\xBB\xBF100001\r\n\r\n# comment\r\n100002\r\n' > "$TMPDIR/list.txt"
+printf 'djvu payload of 100003\n' > "$INPUT_DIR/100003.djvu"  # restore (trashed earlier)
+printf '\xEF\xBB\xBF100002\r\n\r\n# comment\r\n100003\r\n' > "$TMPDIR/list.txt"
 run_tool --from-file "$TMPDIR/list.txt"
-if (( RC == 0 )) && [[ -f "$ROOT_LOAD/Kafka Franz/The Trial.zip" ]] \
+if (( RC == 0 )) \
    && [[ -f "$ROOT_LOAD/Tolkien John/The Lord of the Rings/01 - Fellowship of the Ring.zip" ]] \
+   && [[ -f "$ROOT_LOAD/Tolkien John/The Lord of the Rings/15 - The Two Towers.zip" ]] \
    && grep -q "summary: 2 placed" "$ERR"; then
     report "from_file_batch" ok
 else
@@ -291,6 +333,7 @@ fi
 
 # unknown number in a batch: others delivered, exit 1, failure listed
 rm -rf "${ROOT_LOAD:?}"/*; mkdir -p "$ROOT_LOAD"
+printf 'fb2 payload of 100001\n' > "$INPUT_DIR/100001.fb2"   # restore (trashed earlier)
 run_tool 100001 999999
 if (( RC == 1 )) && [[ -f "$ROOT_LOAD/Kafka Franz/The Trial.zip" ]] \
    && grep -q "999999: not found in the catalog" "$ERR"; then
@@ -311,6 +354,7 @@ fi
 printf 'djvu payload of 100003\n' > "$INPUT_DIR/100003.djvu"
 
 # invalid number is a failure, not an abort
+printf 'fb2 payload of 100001\n' > "$INPUT_DIR/100001.fb2"   # restore (trashed above)
 run_tool notanumber 100001
 if (( RC == 1 )) && grep -q "invalid FileNumber" "$ERR"; then
     report "invalid_number_failure" ok

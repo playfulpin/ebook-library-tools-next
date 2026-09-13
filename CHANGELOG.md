@@ -9,6 +9,22 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+### `feature/flibusta-fb2-extract` — stage 2 v0.2.0 (trash-default + TSV report)
+- **bin/flibusta/place_flibusta_book.sh 0.1.0 → 0.2.0** — live-test feedback
+  applied:
+  - **Source trashed by default** — after a successful placement the stage-1
+    extracted file is removed; `--keep-source` retains it; `--rm-source` is
+    a documented no-op kept for pipeline symmetry.  A failed placement never
+    removes the source.
+  - **Per-run TSV report** — one row per attempted number
+    (`processed_at, file_number, bookid, status, target_zip, reason`) written
+    to `--report-dir` (default `/mnt/c/Backup_Go7/merge-reports`); dry-run
+    rows use `would-place`/`would-skip`.  Persistent error/retry log the
+    stderr-only house logging did not provide.
+- Suite grown to **23 assertions** (trash default, keep-source, failed-run
+  source retention, placed/would-place report rows); config gains the
+  `PLACE_REPORT_DIR` default.
+
 ### Follow-It §8 — database access as a hard boundary (in progress)
 - **lib/database.sh 1.2.0** — new `db_mysqldump_argv` (mysqldump argv: no batch
   flags, no --init-command, no --connect-timeout — mysqldump rejects them; the

@@ -2,7 +2,7 @@
 #
 # bin/flibusta/place_flibusta_book.sh
 #
-# Version:       0.1.0
+# Version:       0.2.0
 # Last updated:  2026-09-13
 #
 # -----------------------------------------------------------------------------
@@ -34,8 +34,15 @@
 #
 #   Final step: the extracted file is compressed to "<name>.zip" IN the
 #   target folder (zip stream written to a temp name, then atomic mv).
-#   The stage-1 source file is kept by default; --rm-source removes it
-#   after a successful placement.
+#   The stage-1 source file is TRASHED by default after a successful
+#   placement (v0.2.0, live-test feedback); --keep-source retains it.
+#   A failed placement never removes the source.
+#
+#   Every run writes a timestamped TSV report (one row per number:
+#   processed_at, file_number, bookid, status, target_zip, reason) into
+#   PLACE_REPORT_DIR - the persistent error/retry log the stderr-only
+#   house logging does not provide.  Statuses: placed / skipped / failed;
+#   in --dry-run: would-place / would-skip / failed.
 #
 #   Database access goes through lib/database.sh exclusively (Follow-It §8
 #   hard boundary): no mysql command lines are built in this tool.  The
@@ -63,16 +70,21 @@
 #                               [default: /mnt/c/Backup_Go7/ToLoad]
 #           --db NAME           catalog database [default: flibusta]
 #           --force             re-place even when the target zip exists
-#           --rm-source         remove the extracted source file after a
-#                               successful placement
+#           --keep-source       keep the extracted source file after a
+#                               successful placement (default: trashed)
+#           --rm-source         accepted for compatibility; removal is
+#                               now the default (no-op)
+#           --report-dir DIR    per-run TSV report directory
+#                               [default: /mnt/c/Backup_Go7/merge-reports]
 #       -n, --dry-run           resolve and print targets; write nothing
 #       -d, --debug             verbose diagnostics on stderr
 #       -h, --help              show this help
 #       -v, --version           print version and exit
 #
 #   Environment (all optional; also settable in config/flibusta_place.conf):
-#       ROOT_LOAD, PLACE_INPUT_DIR, FLIBUSTA_DB, plus the MYSQL_* /
-#       MARIA_* contract of lib/database.sh + lib/mariadb_lifecycle.sh.
+#       ROOT_LOAD, PLACE_INPUT_DIR, FLIBUSTA_DB, PLACE_REPORT_DIR, plus
+#       the MYSQL_* / MARIA_* contract of lib/database.sh +
+#       lib/mariadb_lifecycle.sh.
 #
 #   Exit codes: 0 all numbers placed, 1 at least one failed, 2 usage error.
 #
@@ -130,9 +142,10 @@ source "$PROJECT_ROOT/lib/database.sh"
 ROOT_LOAD="${ROOT_LOAD:-}"
 PLACE_INPUT_DIR="${PLACE_INPUT_DIR:-}"
 FLIBUSTA_DB="${FLIBUSTA_DB:-}"
+PLACE_REPORT_DIR="${PLACE_REPORT_DIR:-}"
 FROM_FILE=""
 FORCE=0
-RM_SOURCE=0
+KEEP_SOURCE=0
 DRY_RUN=0
 
 CONF_FILE="${FLIBUSTA_PLACE_CONF_FILE:-$PROJECT_ROOT/config/flibusta_place.conf}"
@@ -165,7 +178,12 @@ Options:
   -r, --root-load DIR     library root [default: /mnt/c/Backup_Go7/ToLoad]
       --db NAME           catalog database [default: flibusta]
       --force             re-place even if the target zip exists
-      --rm-source         delete the extracted source after placement
+      --keep-source       keep the extracted source after placement
+                          (default: it is trashed on success)
+      --rm-source         accepted for compatibility; removal is now
+                          the default (no-op)
+      --report-dir DIR    per-run TSV report directory
+                          [default: /mnt/c/Backup_Go7/merge-reports]
   -n, --dry-run           resolve and print targets; write nothing
                           (the lookups still hit the database)
   -d, --debug             verbose diagnostics on stderr
@@ -178,6 +196,7 @@ Environment (also settable in config/flibusta_place.conf):
   ROOT_LOAD               library root
   PLACE_INPUT_DIR         stage-1 extraction output
   FLIBUSTA_DB             catalog database
+  PLACE_REPORT_DIR        per-run TSV report directory
   MYSQL_* / MARIA_*       database connection + lifecycle contract
 EOF
 }
@@ -207,7 +226,12 @@ while (( $# > 0 )); do
             FLIBUSTA_DB="$2"; shift 2 ;;
         --db=*) FLIBUSTA_DB="${1#*=}"; shift ;;
         --force) FORCE=1; shift ;;
-        --rm-source) RM_SOURCE=1; shift ;;
+        --keep-source) KEEP_SOURCE=1; shift ;;
+        --rm-source) : ;;   # compat: removal is the default since v0.2.0
+        --report-dir)
+            [[ $# -ge 2 ]] || { echo "Error: $1 needs a DIR argument" >&2; exit 2; }
+            PLACE_REPORT_DIR="$2"; shift 2 ;;
+        --report-dir=*) PLACE_REPORT_DIR="${1#*=}"; shift ;;
         -n|--dry-run) DRY_RUN=1; shift ;;
         -d|--debug)
             # shellcheck disable=SC2034  # read by lib/logging.sh at runtime
@@ -219,6 +243,15 @@ while (( $# > 0 )); do
             positional+=("$1"); shift ;;
     esac
 done
+
+# --- report infra: one TSV row per attempted number, written at run end ----
+REPORT_TS="$(date +%Y%m%d-%H%M%S)"
+declare -a report_rows=()
+
+push_report() { # $1=file_number $2=bookid $3=status $4=target $5=reason
+    report_rows+=("$(printf '%s\t%s\t%s\t%s\t%s\t%s' \
+        "$(timestamp_now)" "$1" "$2" "$3" "$4" "$5")")
+}
 
 # --- lib: placement primitives (inlined; lib/ stays domain-free per §4) ---------
 # House rule (Follow-It §4, books_merge precedent): domain logic lives with
@@ -334,6 +367,7 @@ fi
 [[ -n "$ROOT_LOAD" ]] || die "ROOT_LOAD is empty (set it or use --root-load)"
 [[ -n "$PLACE_INPUT_DIR" ]] || die "PLACE_INPUT_DIR is empty (set it or use --input-dir)"
 [[ -n "$FLIBUSTA_DB" ]] || die "FLIBUSTA_DB is empty (set it or use --db)"
+[[ -n "$PLACE_REPORT_DIR" ]] || die "PLACE_REPORT_DIR is empty (set it or use --report-dir)"
 fs_require_dir "$PLACE_INPUT_DIR" "input directory (stage-1 output)"
 require_command zip
 if ! command -v "${MYSQL_CLIENT:-mysql}" >/dev/null 2>&1; then
@@ -365,6 +399,7 @@ for file_number in "${numbers[@]}"; do
     if ! place_validate_number "$file_number"; then
         failures+=("$file_number: invalid FileNumber (expected digits, greater than zero)")
         log_warn "$file_number: invalid FileNumber (expected digits, greater than zero)"
+        push_report "$file_number" "-" "failed" "-" "invalid FileNumber (expected digits, greater than zero)"
         fail_count=$((fail_count + 1))
         continue
     fi
@@ -373,6 +408,7 @@ for file_number in "${numbers[@]}"; do
     row="$(place_lookup "$file_number")" || {
         failures+=("$file_number: not found in the catalog (mlbook.filename)")
         log_warn "$file_number: not found in the catalog"
+        push_report "$file_number" "-" "failed" "-" "not found in the catalog (mlbook.filename)"
         fail_count=$((fail_count + 1))
         continue
     }
@@ -381,6 +417,7 @@ for file_number in "${numbers[@]}"; do
     if [[ -z "$fullname" ]]; then
         failures+=("$file_number: bookid $bookid has no author (mlauthor/mlauthorname)")
         log_warn "$file_number: bookid $bookid has no author"
+        push_report "$file_number" "$bookid" "failed" "-" "bookid $bookid has no author (mlauthor/mlauthorname)"
         fail_count=$((fail_count + 1))
         continue
     fi
@@ -401,6 +438,7 @@ for file_number in "${numbers[@]}"; do
     source_file="$(place_find_source "$file_number" "$PLACE_INPUT_DIR")" || {
         failures+=("$file_number: extracted file not found in $PLACE_INPUT_DIR (run stage 1 first)")
         log_warn "$file_number: extracted file not found in $PLACE_INPUT_DIR"
+        push_report "$file_number" "$bookid" "failed" "$target_zip" "extracted file not found in $PLACE_INPUT_DIR (run stage 1 first)"
         fail_count=$((fail_count + 1))
         continue
     }
@@ -418,12 +456,18 @@ for file_number in "${numbers[@]}"; do
 
     if [[ -s "$target_zip" ]] && (( ! FORCE )); then
         log_info "$file_number: target exists, skipping ($target_zip)"
+        if (( DRY_RUN )); then
+            push_report "$file_number" "$bookid" "would-skip" "$target_zip" "target exists (dry run: nothing was written)"
+        else
+            push_report "$file_number" "$bookid" "skipped" "$target_zip" "target exists"
+        fi
         ok_count=$((ok_count + 1))
         skip_count=$((skip_count + 1))
         continue
     fi
 
     if (( DRY_RUN )); then
+        push_report "$file_number" "$bookid" "would-place" "$target_zip" "dry run: nothing was written"
         ok_count=$((ok_count + 1))
         continue
     fi
@@ -433,16 +477,26 @@ for file_number in "${numbers[@]}"; do
     if place_zip "$source_file" "$target_zip"; then
         ok_count=$((ok_count + 1))
         (( is_batch )) && log_info "$file_number: placed -> $target_zip"
-        if (( RM_SOURCE )); then
+        push_report "$file_number" "$bookid" "placed" "$target_zip" "-"
+        if (( ! KEEP_SOURCE )); then
             rm -f -- "$source_file"
-            debug "$file_number: source removed (--rm-source)"
+            debug "$file_number: source trashed (default; --keep-source retains)"
         fi
     else
         failures+=("$file_number: zip failed for $source_file -> $target_zip")
         log_warn "$file_number: zip failed"
+        push_report "$file_number" "$bookid" "failed" "$target_zip" "zip failed (source kept)"
         fail_count=$((fail_count + 1))
     fi
 done
+
+# --- report file (the persistent error/retry log) --------------------------------
+mkdir -p "$PLACE_REPORT_DIR"
+report_file="$PLACE_REPORT_DIR/place_flibusta_$REPORT_TS.tsv"
+{
+    printf 'processed_at\tfile_number\tbookid\tstatus\ttarget_zip\treason\n'
+    printf '%s\n' "${report_rows[@]}"
+} > "$report_file"
 
 # --- summary ---------------------------------------------------------------------
 if (( DRY_RUN )); then
@@ -450,6 +504,7 @@ if (( DRY_RUN )); then
 else
     log_info "summary: $ok_count placed, $skip_count of them skipped (exist), $fail_count failed"
 fi
+log_info "report: $report_file"
 
 if (( fail_count > 0 )); then
     if (( is_batch )); then

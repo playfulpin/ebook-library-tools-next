@@ -138,7 +138,7 @@ violation the layer gate and review will reject.
 
 ```bash
 bash tests/unit/test_extract_flibusta_fb2.sh    # 24 assertions
-bash tests/unit/test_place_flibusta_book.sh     # 20 assertions
+bash tests/unit/test_place_flibusta_book.sh     # 23 assertions
 tests/run_all.sh unit                           # part of the standard battery
 ```
 
@@ -148,7 +148,7 @@ MariaDB.
 
 ---
 
-# Stage 2 — placement (`bin/flibusta/place_flibusta_book.sh` v0.1.0)
+# Stage 2 — placement (`bin/flibusta/place_flibusta_book.sh` v0.2.0)
 
 > Last updated: 2026-09-13
 
@@ -182,6 +182,16 @@ ROOT_LOAD
   the target tree lives on NTFS).
 - The extracted file is compressed IN PLACE: the zip is written to a temp
   name next to the target, then moved (atomic).
+- **Source handling (v0.2.0):** the stage-1 extracted file is **trashed
+  by default** after a successful placement (`--keep-source` retains it;
+  `--rm-source` is a documented no-op kept for pipeline symmetry).  A
+  failed placement never removes the source.
+- **Per-run TSV report (v0.2.0):** every run writes one row per attempted
+  number — `processed_at, file_number, bookid, status, target_zip, reason`
+  — into the report dir (`--report-dir`, default
+  `/mnt/c/Backup_Go7/merge-reports`).  Statuses: `placed` / `skipped` /
+  `failed` (dry-run rows use `would-place` / `would-skip`).  This is the
+  persistent error/retry log: re-run failed numbers from the report.
 
 ## Usage
 
@@ -192,14 +202,18 @@ ROOT_LOAD
 # place one (zip appears under ROOT_LOAD/<FullName>/...)
 ./bin/flibusta/place_flibusta_book.sh 100001
 
-# batch from a stage-1 round, deleting sources as they are consumed
-./bin/flibusta/place_flibusta_book.sh --from-file numbers.txt --rm-source
+# batch from a stage-1 round; sources are consumed on success (default)
+./bin/flibusta/place_flibusta_book.sh --from-file numbers.txt
+
+# keep the extracted sources instead of trashing them
+./bin/flibusta/place_flibusta_book.sh --from-file numbers.txt --keep-source
 ```
 
 Options: `-i/--input-dir` (stage-1 output, default `/mnt/c/Backup_Go7/ToLoad`),
 `-r/--root-load` (default `/mnt/c/Backup_Go7/ToLoad`), `--db` (default
-`flibusta`), `--force`, `--rm-source`, `-n/--dry-run`, `-d/--debug`,
-`-h/-v`.  Exit codes: 0 all placed, 1 any failed, 2 usage error.
+`flibusta`), `--force`, `--keep-source`, `--rm-source` (no-op),
+`--report-dir`, `-n/--dry-run`, `-d/--debug`, `-h/-v`.  Exit codes:
+0 all placed, 1 any failed, 2 usage error.
 
 ## Database boundary
 
