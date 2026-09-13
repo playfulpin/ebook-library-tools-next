@@ -9,6 +9,19 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **Layer boundary (Follow-It §4, step 3): `bin/check_layers.sh` 1.0.0 —
+  the dependency rule becomes a CI gate.**  Two checks: (1) every
+  `lib/*.sh` code line is domain-free (comment-stripped grep for the
+  domain vocabulary that once lived in `lib/books_functions.sh`);
+  (2) every `bin/**.sh` sources only from `lib/` (config sources
+  exempt — data, not dependency).  Verified both ways: passes on the
+  clean tree, exits 1 with file:line on seeded violations of each rule.
+  The AWK parity reference is a documented exemption (its variable
+  vocabulary is the domain by design, C7).  Wired into CI between the
+  syntax check and version sync; registered with version sync
+  (now 15 checks) and version_bump.  ARCHITECTURE §5/§12 document the
+  gate and the as-built boundary.
+
 - **Layer boundary (Follow-It §4, step 2): `lib/database.sh` no longer
   names an application tool.**  `db_require_server`'s failure message
   pointed users at `bin/library/library_backup.sh` — infrastructure

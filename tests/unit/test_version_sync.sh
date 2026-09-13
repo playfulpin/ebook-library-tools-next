@@ -178,6 +178,9 @@ check_tool library_refresh \
 check_tool library_report \
     "bin/library/library_report.sh" "" "bin/library/library_report.sh"
 
+check_tool check_layers \
+    "bin/check_layers.sh" "" "bin/check_layers.sh"
+
 # --- summary --------------------------------------------------------------------
 echo
 echo "=============================="

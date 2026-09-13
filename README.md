@@ -593,6 +593,7 @@ Releases are tagged with a tool-prefixed name:
 | `bin/library/library_populate.sh` | 1.3.0 | `library_populate-1.3.0` |
 | `bin/library/library_refresh.sh` | 1.0.0 | `library_refresh-1.0.0` |
 | `bin/library/library_report.sh` | 1.2.0 | `library_report-1.2.0` |
+| `bin/check_layers.sh` | 1.0.0 | `check_layers-1.0.0` |
 | `lib/utf8_prefix_generator.awk` | 1.1 | `utf8_prefix_generator-1.1` |
 
 `v2.8.1` and `v6.6.8` predate the tool-prefixed convention.
@@ -652,7 +653,7 @@ tests/integration/              # multi-component suites + golden/ baselines
 tests/e2e/                      # cross-tool chain on real data
 tests/fixtures/                 # shared input fixtures (case_*.txt, viz_*.txt)
 
-.github/workflows/ci.yml        CI: syntax + version sync + all suites on push/PR
+.github/workflows/ci.yml        CI: syntax + layer check + version sync + all suites on push/PR
 
 docs/archive/BOOK_LIBRARY_MERGE_PLAN.md        skeleton + merge design document
 

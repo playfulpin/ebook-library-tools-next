@@ -27,6 +27,9 @@ jobs:
             echo "ok: $f"
           done
 
+      - name: Layer boundary check (Follow-It §4)
+        run: bin/check_layers.sh
+
       - name: Version sync check
         run: bash tests/unit/test_version_sync.sh
 

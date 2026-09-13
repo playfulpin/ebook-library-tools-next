@@ -148,6 +148,16 @@ consumer appears**, not speculatively. The originally planned
 `authors.sh` / `books.sh` / `library.sh` / `reporting.sh` components do
 not exist yet for exactly this reason (see §13).
 
+**Layer-boundary gate (Follow-It §4):** `bin/check_layers.sh`
+enforces the dependency rule mechanically — (1) `lib/*.sh` code lines
+must be domain-free (the domain vocabulary that once lived in
+`lib/books_functions.sh`, retired 2026-09-13, is the denylist seed);
+(2) `bin/**.sh` may source only from `lib/` (config sources exempt:
+data, not dependency).  CI runs it after the syntax check; a violation
+fails the build before tests run.  `lib/utf8_prefix_generator.awk` is a
+documented exemption — as the C7 parity reference its variable
+vocabulary is the domain by design.
+
 ## 6. Configuration ownership
 
 Per-tool config files are **kept separate** (no group-level merging —
@@ -321,6 +331,7 @@ Kept here so nobody "fixes" them back by accident:
 2. Add a `CHANGELOG.md` entry (the script prints the reminder).
 3. `bash tests/unit/test_version_sync.sh` → **14/14** must pass.
 4. Push; CI must be green (syntax over `bin/*.sh bin/*/*.sh lib/*.sh`,
+   layer-boundary gate `bin/check_layers.sh`,
    version sync, all suites).
 5. Tag the repo release (`vMAJOR.MINOR.PATCH`), publish on GitHub with
    `RELEASE_NOTES.md` as the body.

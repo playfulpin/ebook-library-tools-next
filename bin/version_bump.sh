@@ -167,6 +167,7 @@ usage() {
     echo "  library_populate              (1.3.x)  [was populate_myprivatelib]"
     echo "  library_refresh               (1.0.x)  [was refresh_myprivatelib]"
     echo "  library_report                (1.2.x)  [was report_library]"
+    echo "  check_layers                  (1.0.x)"
     echo ""
     echo "Example: $0 build_shell_nested_authors 6.6.11"
     exit 1
@@ -247,6 +248,10 @@ main() {
         library_report)
             primary="bin/library/library_report.sh"
             marker="bin/library/library_report.sh"
+            ;;
+        check_layers)
+            primary="bin/check_layers.sh"
+            marker="bin/check_layers.sh"
             ;;
         *)
             echo "Error: unknown tool '$tool'." >&2
