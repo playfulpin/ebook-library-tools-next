@@ -637,7 +637,11 @@ bin/                            user-facing commands, grouped by function
                                 books_estimate.sh, books_reconcile.sh
   library/                      library_backup.sh, library_populate.sh,
                                 library_refresh.sh, library_report.sh
+bin/check_layers.sh                 layer-boundary gate: lib/ domain-free, bin/ -> lib/ only (flat in bin/)
 bin/version_bump.sh                 bump one tool's version across header + docs (flat in bin/, not a group)
+lib/common.sh                       common_init: strict mode, root detection at any bin/ depth, die/require_command
+lib/logging.sh, lib/cli.sh, lib/filesystem.sh, lib/database.sh
+                                    logging / CLI scan / fs guards+fingerprint / opt-in MySQL wrapper (via common_init)
 lib/mariadb_lifecycle.sh            shared MariaDB lifecycle (start/stop/readiness)
 lib/utf8_prefix_generator.awk       original AWK generator (parity reference)
 config/books_merge.conf             defaults for the merge tool (input file, paths, tree knobs)

@@ -78,6 +78,21 @@ ebook-library-tools-next/
 
 # 4. Establish Strict Layer Boundaries
 
+> **Status (2026-09-13): LANDED.**  Steps taken, each confirmed before
+> work started:
+> 1. Domain logic left `lib/` — `lib/books_functions.sh` inlined into
+>    its only consumer `bin/books/books_merge.sh` (commit `96cd0b5`);
+>    every `lib/*.sh` is domain-free.
+> 2. Infrastructure no longer names application tools —
+>    `lib/database.sh`'s `db_require_server` message reworded
+>    (`f76d9ae`).
+> 3. The dependency rule is a CI gate — `bin/check_layers.sh` 1.0.0
+>    enforces "lib/ domain-free, bin/ → lib/ only" and fails the build
+>    on violation (`868c42b`); documented exemption: the AWK parity
+>    reference (C7).
+> 4. As-built docs reconciled — ARCHITECTURE §4/§5, README layout,
+>    this note.
+
 This is the most important architectural recommendation.
 
 Use a dependency direction like:

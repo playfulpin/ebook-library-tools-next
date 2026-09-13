@@ -15,7 +15,7 @@
 1. [What this toolchain is](#1-what-this-toolchain-is)
 2. [Hard constraints](#2-hard-constraints)
 3. [Repository layout (as built)](#3-repository-layout-as-built)
-4. [Command surface: 14 commands in 4 groups](#4-command-surface-14-commands-in-4-groups)
+4. [Command surface: 15 commands in 4 groups](#4-command-surface-15-commands-in-4-groups)
 5. [Shared libraries (lib/)](#5-shared-libraries-lib)
 6. [Configuration ownership](#6-configuration-ownership)
 7. [Data ownership & classification](#7-data-ownership--classification)
@@ -72,11 +72,12 @@ the `flibusta` schema, which this toolchain reads.
 
 ```text
 ebook-library-tools/
-├── .github/workflows/ci.yml    # syntax + version sync + all suites, on push/PR
+├── .github/workflows/ci.yml    # syntax + layer gate + version sync + all suites, on push/PR
 ├── bin/                        # user-facing commands, grouped by function
 │   ├── authors/                #   AUTHORS: export, prefix build/check/tree, tree build
 │   ├── books/                  #   BOOKS:   merge, finalize, estimate, reconcile
 │   ├── library/                #   LIBRARY: backup, populate, refresh, report
+│   ├── check_layers.sh         #   MAINTENANCE (flat — the §5 layer-boundary gate)
 │   └── version_bump.sh         #   MAINTENANCE (flat — cross-group tool)
 ├── lib/                        # reusable components (§5)
 ├── config/                     # per-tool config files, renamed with their tools (§6)
@@ -97,7 +98,7 @@ ebook-library-tools/
 └── RELEASE_NOTES.md            # per-release shipped lines (version-synced)
 ```
 
-## 4. Command surface: 14 commands in 4 groups
+## 4. Command surface: 15 commands in 4 groups
 
 Naming convention: `<object>_<operation>.sh` — what it operates on, what
 it does. Final names (ratified D-02.5, all landed in Phase 4):
@@ -117,6 +118,7 @@ it does. Final names (ratified D-02.5, all landed in Phase 4):
 | LIBRARY | `bin/library/library_populate.sh` | rebuild myprivatelib from Books (md5-exact, verbatim keys) |
 | LIBRARY | `bin/library/library_refresh.sh` | tree-fingerprint checkpoint; backup→populate when changed |
 | LIBRARY | `bin/library/library_report.sh` | wish-list views, mutations, exports (TSV × native × hybrid) |
+| MAINTENANCE | `bin/check_layers.sh` | enforce §5 layer boundaries (lib/ domain-free, bin/ → lib/ only) |
 | MAINTENANCE | `bin/version_bump.sh` | bump one tool's version across header + docs |
 
 Boundary rules:
