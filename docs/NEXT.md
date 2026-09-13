@@ -24,6 +24,23 @@ bin/check_layers.sh                        # layer gate: boundaries hold
 tests/run_all.sh -q    # 16 suites: 12 unit + 3 integration + 1 e2e
 ```
 
+### Pending release — decided 2026-09-13, NOT yet executed
+
+The user approved cutting a release for the §8 work, then deferred it to
+next session.  First action next session:
+
+1. **Fold CHANGELOG `[Unreleased]` (§8 entries) into a version section —
+   proposed `v1.10.0`** (continues v1.9.0; no tool headers bumped this
+   cycle, so this is a changelog-level release only — `lib/database.sh`
+   1.1.0→1.2.0 is its own header and is NOT registry-tracked).
+2. **Rewrite RELEASE_NOTES.md headline** to §8 (keep the v1.9.0 paragraph
+   as the "previous release" block, matching the house pattern).
+   CAREFUL: the version-sync suite reads RELEASE_NOTES shipped lines for
+   every registered tool — leave the per-tool lines untouched, edit only
+   the headline; then re-run `test_version_sync.sh` to confirm.
+3. Tag + push, publish with RELEASE_NOTES as the body (house pattern),
+   verify CI green.
+
 ### Follow-It §5 audit — probed 2026-09-13, fixes NOT yet applied
 
 The §5 checklist (clear input/output, predictable exits, no hidden side
