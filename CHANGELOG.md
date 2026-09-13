@@ -9,6 +9,14 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **Layer boundary (Follow-It §4, step 2): `lib/database.sh` no longer
+  names an application tool.**  `db_require_server`'s failure message
+  pointed users at `bin/library/library_backup.sh` — infrastructure
+  referencing a domain command.  Reworded to the generic remedy
+  ("check the MYSQL_* connection settings").  No assertions touched
+  (the infra suite asserts argv shapes, not this message); no version
+  bump (message-only change).
+
 - **Layer boundary (Follow-It §4, step 1): `books_merge` is now
   self-contained — domain logic leaves `lib/`.**  The guide's core rule
   is *"lib/ should not know what a book or author is"*; the one file

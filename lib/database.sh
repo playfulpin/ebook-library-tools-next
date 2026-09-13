@@ -73,7 +73,7 @@ db_require_server() { # [$2 = database] -> dies unless 'SELECT 1' answers
     local db="${1:-}"
     local out
     out="$(db_run_sql 'SELECT 1;' "$db" 2>/dev/null)" || \
-        die "cannot reach MariaDB (is the server running? see bin/library/library_backup.sh)"
+        die "cannot reach MariaDB (is the server running? check the MYSQL_* connection settings)"
     [[ "$out" == *"1"* ]] || die "MariaDB answered unexpectedly: $out"
     return 0
 }
