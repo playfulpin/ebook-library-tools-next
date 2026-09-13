@@ -121,6 +121,11 @@ FORCE=0
 # shellcheck source=../lib/mariadb_lifecycle.sh
 source "$PROJECT_ROOT/lib/mariadb_lifecycle.sh"
 
+# Shared client argv assembly, both clients (lib/database.sh — Follow-It §8:
+# the DB client command line is a hard boundary owned by the lib).
+# shellcheck source=../lib/database.sh
+source "$PROJECT_ROOT/lib/database.sh"
+
 cleanup() {
     [[ -n "${tmp_gz:-}" ]] && rm -f "$tmp_gz"
     [[ -n "${tmp_dump:-}" ]] && rm -f "$tmp_dump"
@@ -130,42 +135,19 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# --- build client argv (password never included) --------------------------------
-# Array construction mirrors bin/authors/authors_export.sh: host/port/user as
-# flags, password via MYSQL_PWD only, session charset pinned with --init-command.
+# --- build client argv via lib/database.sh (password never included) ------------
+# Both client argvs come from the shared lib (Follow-It §8); this tool adds
+# the mysql-only WSL2 hung-connect guard (--connect-timeout) caller-side —
+# mysqldump rejects the flag, so its calls are bounded with `timeout` instead.
 build_client_args() { # name mysql|mysqldump -> sets $mysql_args / $mysqldump_args
-    local which="$1" bin
+    local which="$1"
     if [[ "$which" == mysqldump ]]; then
-        bin="$MYSQLDUMP_CLIENT"
+        mysqldump_args=()
+        while IFS= read -r arg; do mysqldump_args+=("$arg"); done < <(db_mysqldump_argv "")
     else
-        bin="$MYSQL_CLIENT"
-    fi
-    local -a a=("$bin")
-    [[ -n "${MYSQL_HOST:-}" ]] && a+=(-h "$MYSQL_HOST" --protocol=TCP)
-    [[ -n "${MYSQL_PORT:-}" ]] && a+=(-P "$MYSQL_PORT")
-    [[ -n "${MYSQL_USER:-}" ]] && a+=(-u "$MYSQL_USER")
-    [[ -n "${MYSQL_EXTRA_ARGS:-}" ]] && a+=("$MYSQL_EXTRA_ARGS")
-    if [[ "$which" == mysql ]]; then
-        # Bound the TCP connect (WSL2 mirrored networking: a hung 127.0.0.1
-        # connect can block indefinitely instead of failing fast).  This
-        # MariaDB's mysqldump does NOT accept --connect-timeout, so the flag
-        # is mysql-only; mysqldump calls are bounded with `timeout` instead.
-        a+=(--connect-timeout="$MYSQL_CONNECT_TIMEOUT")
-        # Pin the session charset: the server may transcode to its own default
-        # (cp1251) otherwise, corrupting UTF-8 payloads on restore.
-        local charset="utf8"
-        case " ${MYSQL_EXTRA_ARGS:-} " in
-            *" --default-character-set="*)
-                charset="${MYSQL_EXTRA_ARGS##*--default-character-set=}"
-                charset="${charset%% *}"
-                ;;
-        esac
-        a+=(--init-command="SET NAMES $charset")
-    fi
-    if [[ "$which" == mysqldump ]]; then
-        mysqldump_args=("${a[@]}")
-    else
-        mysql_args=("${a[@]}")
+        mysql_args=()
+        while IFS= read -r arg; do mysql_args+=("$arg"); done < <(db_mysql_argv "")
+        mysql_args+=(--connect-timeout="$MYSQL_CONNECT_TIMEOUT")
     fi
 }
 

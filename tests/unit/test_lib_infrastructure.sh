@@ -285,6 +285,24 @@ else
     report "db_mysql_argv minimal shape (no env)" fail "$out"
 fi
 
+# Strict positional semantics (Follow-It §8): an explicit "" database must
+# omit the DB position even when MYSQL_DATABASE is set — callers that append
+# the DB per-call would otherwise emit it twice and real mysql errors out on
+# two positional arguments.
+out="$(bash -c "
+unset MYSQL_CLIENT MYSQL_HOST MYSQL_PORT MYSQL_USER MYSQL_PASSWORD \
+      MYSQL_EXTRA_ARGS MYSQL_CHARSET ETL_DEBUG
+export MYSQL_DATABASE=booksdb
+source '$sb/lib/common.sh' && source '$sb/lib/database.sh'
+db_mysql_argv '' | tr '\n' '|'; echo
+db_mysqldump_argv '' | tr '\n' '|'
+" 2>&1)"
+if [[ "$out" == $'mysql|--init-command=SET NAMES utf8|-B|--skip-column-names|--raw|\nmysqldump|' ]]; then
+    report "db_*_argv '' omits the DB despite MYSQL_DATABASE" ok
+else
+    report "db_*_argv '' omits the DB despite MYSQL_DATABASE" fail "$out"
+fi
+
 out="$(bash -c "
 unset MYSQL_PASSWORD MYSQL_EXTRA_ARGS MYSQL_DATABASE MYSQL_CHARSET
 export MYSQL_HOST=127.0.0.1 MYSQL_PORT=3307 MYSQL_USER=mike MYSQL_CLIENT=mariadb

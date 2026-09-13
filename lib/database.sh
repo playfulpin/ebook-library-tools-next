@@ -5,12 +5,13 @@
 # Thin MySQL client helpers for the ebook-library-tools toolchain
 # (Phase 3, plan §7 + Blueprint §22; Follow-It §8 canonical contract).
 #
-# Version:       1.1.0
+# Version:       1.2.0
 # Last updated:  2026-09-13
 #
 # Provides (seeded verbatim from the argv block repeated in
 # books_reconcile.sh / library_report.sh / authors_export.sh):
 #   db_mysql_argv      - assemble the shared mysql argv from MYSQL_* env
+#   db_mysqldump_argv  - assemble the mysqldump argv (library_backup)
 #   db_run_query       - execute a query file, stdout only
 #   db_run_sql         - execute an inline SQL string, stdout only
 #   db_require_server  - probe 'SELECT 1' (start/readiness gate used by ingest)
@@ -41,6 +42,12 @@
 #   currently library_populate and library_backup; it is mysql-only and
 #   its mysqldump sibling does not accept the flag).
 #
+#   mysqldump (db_mysqldump_argv, v1.2.0): same host/port/user/EXTRA_ARGS
+#   handling, but NO batch flags (-B/--skip-column-names/--raw), NO
+#   --init-command and NO --connect-timeout — mysqldump rejects them; the
+#   dump call is bounded with `timeout` by the caller instead.  Database
+#   name is appended last (mysqldump takes it positionally).
+#
 # Environment consumed (all optional):
 #   MYSQL_CLIENT (default mysql), MYSQL_HOST, MYSQL_PORT, MYSQL_USER,
 #   MYSQL_PASSWORD (passed via MYSQL_PWD), MYSQL_DATABASE, MYSQL_EXTRA_ARGS,
@@ -70,7 +77,10 @@ db_session_charset() {
 }
 
 db_mysql_argv() { # [$1 = database] -> argv on stdout (space-safe: array)
-    local db="${1:-${MYSQL_DATABASE:-}}"
+    # Callers pass "" explicitly to omit the DB (they append it per-call);
+    # an omitted argument falls back to MYSQL_DATABASE.
+    local db="${MYSQL_DATABASE:-}"
+    (( $# )) && db="$1"
     local charset
     charset="$(db_session_charset)"
     local args=("${MYSQL_CLIENT:-mysql}")
@@ -84,8 +94,23 @@ db_mysql_argv() { # [$1 = database] -> argv on stdout (space-safe: array)
     printf '%s\n' "${args[@]}"
 }
 
+db_mysqldump_argv() { # [$1 = database] -> argv on stdout (space-safe: array)
+    # Callers pass "" explicitly to omit the DB (it is appended positionally
+    # by the caller, e.g. before the dump file argument); "" is distinct from
+    # an omitted argument, which falls back to MYSQL_DATABASE.
+    local db="${MYSQL_DATABASE:-}"
+    (( $# )) && db="$1"
+    local args=("${MYSQLDUMP_CLIENT:-mysqldump}")
+    [[ -n "${MYSQL_HOST:-}"     ]] && args+=(-h "$MYSQL_HOST" --protocol=TCP)
+    [[ -n "${MYSQL_PORT:-}"     ]] && args+=(-P "$MYSQL_PORT")
+    [[ -n "${MYSQL_USER:-}"     ]] && args+=(-u "$MYSQL_USER")
+    [[ -n "${MYSQL_EXTRA_ARGS:-}" ]] && args+=("$MYSQL_EXTRA_ARGS")
+    [[ -n "$db" ]] && args+=("$db")
+    printf '%s\n' "${args[@]}"
+}
+
 db_run_query() { # $1 = query-file, [$2 = database] -> query result on stdout
-    local qfile="$1" db="${2:-}"
+    local qfile="$1" db="${2:-${MYSQL_DATABASE:-}}"
     [[ -f "$qfile" ]] || die "query file not found: $qfile"
     local -a argv
     mapfile -t argv < <(db_mysql_argv "$db")
@@ -97,7 +122,7 @@ db_run_query() { # $1 = query-file, [$2 = database] -> query result on stdout
 }
 
 db_run_sql() { # $1 = sql-string, [$2 = database] -> result on stdout
-    local sql="$1" db="${2:-}"
+    local sql="$1" db="${2:-${MYSQL_DATABASE:-}}"
     local -a argv
     mapfile -t argv < <(db_mysql_argv "$db")
     if [[ -n "${MYSQL_PASSWORD:-}" ]]; then

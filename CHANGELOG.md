@@ -10,6 +10,16 @@ All notable changes to the author-toolchain scripts in this repository:
 ## [Unreleased]
 
 ### Follow-It §8 — database access as a hard boundary (in progress)
+- **lib/database.sh 1.2.0** — new `db_mysqldump_argv` (mysqldump argv: no batch
+  flags, no --init-command, no --connect-timeout — mysqldump rejects them; the
+  caller bounds the dump with `timeout`).  Both argv builders moved to strict
+  positional semantics: an explicit `""` database omits the DB position even
+  when MYSQL_DATABASE is set (prevents a latent double-DB hazard for callers
+  that append the DB per-call); `db_run_query`/`db_run_sql` own the env
+  fallback.  Infra suite 46 assertions (was 45).
+- **bin/library/library_backup.sh** migrated: dual-client `build_client_args`
+  now delegates to `db_mysql_argv` + `db_mysqldump_argv`, keeping only the
+  mysql-side `--connect-timeout` caller-side; suite 23/23 byte-identical
 - **bin/library/library_report.sh + bin/library/library_populate.sh** migrated:
   report's `db_query` now delegates to `db_run_sql` (picks up canonical
   charset resolution — previously hardcoded `SET NAMES utf8`), populate's
