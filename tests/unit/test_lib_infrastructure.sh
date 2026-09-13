@@ -279,7 +279,7 @@ unset MYSQL_CLIENT MYSQL_HOST MYSQL_PORT MYSQL_USER MYSQL_PASSWORD \
 source '$sb/lib/common.sh' && source '$sb/lib/database.sh'
 db_mysql_argv booksdb | tr '\n' '|'
 " 2>&1)"
-if [[ "$out" == "mysql|--default-character-set=utf8|--init-command=SET NAMES utf8|booksdb|-B|--skip-column-names|--raw|" ]]; then
+if [[ "$out" == "mysql|--init-command=SET NAMES utf8|booksdb|-B|--skip-column-names|--raw|" ]]; then
     report "db_mysql_argv minimal shape (no env)" ok
 else
     report "db_mysql_argv minimal shape (no env)" fail "$out"
@@ -291,10 +291,49 @@ export MYSQL_HOST=127.0.0.1 MYSQL_PORT=3307 MYSQL_USER=mike MYSQL_CLIENT=mariadb
 source '$sb/lib/common.sh' && source '$sb/lib/database.sh'
 db_mysql_argv | tr '\n' '|'
 " 2>&1)"
-if [[ "$out" == "mariadb|-h|127.0.0.1|--protocol=TCP|-P|3307|-u|mike|--default-character-set=utf8|--init-command=SET NAMES utf8|-B|--skip-column-names|--raw|" ]]; then
+if [[ "$out" == "mariadb|-h|127.0.0.1|--protocol=TCP|-P|3307|-u|mike|--init-command=SET NAMES utf8|-B|--skip-column-names|--raw|" ]]; then
     report "db_mysql_argv honors MYSQL_* env overrides" ok
 else
     report "db_mysql_argv honors MYSQL_* env overrides" fail "$out"
+fi
+
+# Canonical contract (Follow-It §8): the session charset resolves from
+# MYSQL_EXTRA_ARGS --default-character-set=<c> first (highest precedence —
+# the operator's explicit client flag; only --init-command is reliably
+# honored by the server), then MYSQL_CHARSET, then utf8.
+out="$(bash -c "
+unset MYSQL_CLIENT MYSQL_HOST MYSQL_PORT MYSQL_USER MYSQL_PASSWORD \
+      MYSQL_EXTRA_ARGS MYSQL_DATABASE MYSQL_CHARSET ETL_DEBUG
+source '$sb/lib/common.sh' && source '$sb/lib/database.sh'
+db_session_charset
+" 2>&1)"
+[[ "$out" == "utf8" ]] \
+    && report "db_session_charset defaults to utf8" ok \
+    || report "db_session_charset defaults to utf8" fail "$out"
+
+out="$(bash -c "
+unset MYSQL_CLIENT MYSQL_HOST MYSQL_PORT MYSQL_USER MYSQL_PASSWORD \
+      MYSQL_EXTRA_ARGS MYSQL_DATABASE MYSQL_CHARSET ETL_DEBUG
+export MYSQL_CHARSET=cp1251
+source '$sb/lib/common.sh' && source '$sb/lib/database.sh'
+db_session_charset
+" 2>&1)"
+[[ "$out" == "cp1251" ]] \
+    && report "db_session_charset honors MYSQL_CHARSET fallback" ok \
+    || report "db_session_charset honors MYSQL_CHARSET fallback" fail "$out"
+
+out="$(bash -c "
+unset MYSQL_CLIENT MYSQL_HOST MYSQL_PORT MYSQL_USER MYSQL_PASSWORD \
+      MYSQL_EXTRA_ARGS MYSQL_DATABASE MYSQL_CHARSET ETL_DEBUG
+export MYSQL_EXTRA_ARGS='--default-character-set=utf8mb4 --max-allowed-packet=1G'
+source '$sb/lib/common.sh' && source '$sb/lib/database.sh'
+db_session_charset; echo
+db_mysql_argv booksdb | tr '\n' '|'
+" 2>&1)"
+if [[ "$out" == $'utf8mb4\nmysql|--default-character-set=utf8mb4 --max-allowed-packet=1G|--init-command=SET NAMES utf8mb4|booksdb|-B|--skip-column-names|--raw|' ]]; then
+    report "db_session_charset resolves from MYSQL_EXTRA_ARGS; argv passes extras through" ok
+else
+    report "db_session_charset resolves from MYSQL_EXTRA_ARGS; argv passes extras through" fail "$out"
 fi
 
 # mock client via a real executable: argv arrives as separate arguments
@@ -307,7 +346,7 @@ export MYSQL_CLIENT='$mockdir/mockmysql' MYSQL_HOST=mockhost MYSQL_USER=u MYSQL_
 source '$sb/lib/common.sh' && source '$sb/lib/database.sh'
 db_run_sql 'SELECT 42;' mydb | tr '\n' '|'
 " 2>&1)"
-[[ "$out" == "-h|mockhost|--protocol=TCP|-P|1|-u|u|--default-character-set=utf8|--init-command=SET NAMES utf8|mydb|-B|--skip-column-names|--raw|-e|SELECT 42;|" ]] \
+[[ "$out" == "-h|mockhost|--protocol=TCP|-P|1|-u|u|--init-command=SET NAMES utf8|mydb|-B|--skip-column-names|--raw|-e|SELECT 42;|" ]] \
     && report "db_run_sql invokes the client argv (mock client)" ok \
     || report "db_run_sql invokes the client argv (mock client)" fail "$out"
 

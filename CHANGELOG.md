@@ -9,7 +9,16 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
-(none)
+### Follow-It §8 — database access as a hard boundary (in progress)
+- **lib/database.sh 1.1.0** — adopted the five DB tools' canonical mysql argv
+  as the library contract: charset now resolves from `MYSQL_EXTRA_ARGS
+  --default-character-set=<c>` (falling back to `MYSQL_CHARSET`, then utf8)
+  and is applied via `--init-command=SET NAMES <c>` only; `MYSQL_EXTRA_ARGS`
+  is passed through verbatim; `--connect-timeout` remains the caller's
+  concern.  New helper `db_session_charset`.  Migration of the tools to
+  `db_mysql_argv`/`db_run_query`/`db_run_sql` follows in confirmed steps.
+- test_lib_infrastructure 45 assertions (was 42): argv shapes updated to the
+  canonical contract + three `db_session_charset` resolution cases
 
 ## [v1.9.0] - 2026-09-13 — Follow-It §4: strict layer boundaries
 

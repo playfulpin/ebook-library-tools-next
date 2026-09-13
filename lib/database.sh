@@ -3,10 +3,10 @@
 # lib/database.sh
 #
 # Thin MySQL client helpers for the ebook-library-tools toolchain
-# (Phase 3, plan §7 + Blueprint §22).
+# (Phase 3, plan §7 + Blueprint §22; Follow-It §8 canonical contract).
 #
-# Version:       1.0.0
-# Last updated:  2026-09-12
+# Version:       1.1.0
+# Last updated:  2026-09-13
 #
 # Provides (seeded verbatim from the argv block repeated in
 # books_reconcile.sh / library_report.sh / authors_export.sh):
@@ -19,10 +19,32 @@
 # lib/mariadb_lifecycle.sh, which this library deliberately does not source —
 # tools source both and compose them.
 #
+# Canonical argv contract (v1.1.0, Follow-It §8 — the shape the five DB
+# tools already emit, adopted verbatim so migration is byte-identical):
+#   mysql [-h HOST --protocol=TCP] [-P PORT] [-u USER] [MYSQL_EXTRA_ARGS...]
+#         --init-command="SET NAMES <charset>" [DB] -B --skip-column-names --raw
+#
+#   Charset resolution: the session charset comes from
+#   MYSQL_EXTRA_ARGS --default-character-set=<c> when present (the server
+#   may ignore the handshake charset — e.g. configured with
+#   skip-character-set-client-handshake — and transcode results to its
+#   own default such as cp1251, corrupting UTF-8 payloads; --init-command
+#   is always applied by the server), falling back to MYSQL_CHARSET,
+#   then utf8.  This is why the flag is init-command-only.
+#
+#   Password handling: MYSQL_PASSWORD is NEVER placed on the argv; callers
+#   (db_run_query/db_run_sql and the tools) pass it via the MYSQL_PWD
+#   environment variable per invocation.
+#
+#   Connect timeout: --connect-timeout is NOT emitted by default (the
+#   tools that need the WSL2 hung-connect guard add it themselves —
+#   currently library_populate and library_backup; it is mysql-only and
+#   its mysqldump sibling does not accept the flag).
+#
 # Environment consumed (all optional):
 #   MYSQL_CLIENT (default mysql), MYSQL_HOST, MYSQL_PORT, MYSQL_USER,
 #   MYSQL_PASSWORD (passed via MYSQL_PWD), MYSQL_DATABASE, MYSQL_EXTRA_ARGS,
-#   MYSQL_CHARSET (default utf8)
+#   MYSQL_CHARSET (fallback for the session charset; default utf8)
 # -----------------------------------------------------------------------------
 # shellcheck shell=bash
 
@@ -32,15 +54,31 @@ _ETL_DATABASE_SH=1
 # shellcheck source=mariadb_lifecycle.sh
 [[ -n "${_ETL_MARIADB_LIFECYCLE_SH:-}" ]] || true   # compose, don't force
 
+# db_session_charset -> the effective session charset on stdout.
+# Resolution order: MYSQL_EXTRA_ARGS --default-character-set=<c>
+# (highest — the operator's explicit client flag), then MYSQL_CHARSET,
+# then utf8.
+db_session_charset() {
+    local charset="${MYSQL_CHARSET:-utf8}"
+    case " ${MYSQL_EXTRA_ARGS:-} " in
+        *" --default-character-set="*)
+            charset="${MYSQL_EXTRA_ARGS##*--default-character-set=}"
+            charset="${charset%% *}"
+            ;;
+    esac
+    printf '%s' "$charset"
+}
+
 db_mysql_argv() { # [$1 = database] -> argv on stdout (space-safe: array)
     local db="${1:-${MYSQL_DATABASE:-}}"
+    local charset
+    charset="$(db_session_charset)"
     local args=("${MYSQL_CLIENT:-mysql}")
     [[ -n "${MYSQL_HOST:-}"     ]] && args+=(-h "$MYSQL_HOST" --protocol=TCP)
     [[ -n "${MYSQL_PORT:-}"     ]] && args+=(-P "$MYSQL_PORT")
     [[ -n "${MYSQL_USER:-}"     ]] && args+=(-u "$MYSQL_USER")
     [[ -n "${MYSQL_EXTRA_ARGS:-}" ]] && args+=("$MYSQL_EXTRA_ARGS")
-    args+=(--default-character-set="${MYSQL_CHARSET:-utf8}")
-    args+=(--init-command="SET NAMES ${MYSQL_CHARSET:-utf8}")
+    args+=(--init-command="SET NAMES $charset")
     [[ -n "$db" ]] && args+=("$db")
     args+=(-B --skip-column-names --raw)
     printf '%s\n' "${args[@]}"
