@@ -1,7 +1,7 @@
-# Flibusta FB2 Extraction
+# Flibusta FB2 / USR Extraction
 
-> Last updated: 2026-09-13
-> Tool: `bin/flibusta/extract_flibusta_fb2.sh` v0.1.0 (branch
+> Last updated: 2026-09-13 (v0.2.0)
+> Tool: `bin/flibusta/extract_flibusta_fb2.sh` (branch
 > `feature/flibusta-fb2-extract`)
 
 ## Purpose
@@ -13,35 +13,59 @@ massive range bundles with the naming convention
 f.FILETYPE-<START>-<END>.zip        e.g. f.fb2-800000-849999.zip
 ```
 
-where each archive holds individually-compressed members named
+where each archive holds individually-compressed members.  Member naming
+was verified against the real `/mnt/x/flibusta` dataset (2026-09-13):
 
-```
-<FILENUMBER>.FILETYPE               e.g. 811194.fb2
-```
+| Family | Members | Example |
+|---|---|---|
+| `f.fb2-*` (201 archives) | `<N>.fb2`, unpadded | `811194.fb2` |
+| `f.usr-*` (200 archives) | `<N>.<realext>` — pdf, djvu, epub, double-suffixed `.pdf.zip` / `.pdf.rar`; the OLDEST usr archives are fully title-named (`Author_Title.rar`) with no number mapping | `811226.pdf.zip` |
+| legacy `fb2-*` / `usr-*` / `d.*` | outside this tool's scope (ignored) | |
 
-Given a Flibusta `FileNumber`, the tool:
+Given one or more Flibusta `FileNumber`s, the tool:
 
-1. Finds `f.fb2-START-END.zip` under `FLIBUSTA_SOURCE_DIR` whose inclusive
-   window contains the number.
-2. Extracts ONLY the member `FileNumber.fb2` (via `unzip -p`).
+1. Finds `f.<TYPE>-START-END.zip` whose inclusive window contains each number.
+2. Resolves the member (`<N>.fb2` exactly; for usr, prefix `<N>.` with any
+   real extension — the output keeps the member's real basename).
 3. Writes it atomically (temp file + `mv`) into `FB2_OUTPUT_DIR`.
 
-The archive itself is never copied or unpacked wholesale.
+Numbers are SPARSE: a number inside an archive's range may be absent from
+it (`811194` owns `f.usr-811194-815075.zip` but the member is not there).
+Per-item failures are reported and summarized, never fatal to the batch.
 
 ## Usage
 
 ```bash
+# single FB2
 ./bin/flibusta/extract_flibusta_fb2.sh 811194
-# -> /mnt/c/Backup_Go7/ToLoad/811194.fb2
+
+# usr family (keeps the real extension: .pdf, .djvu, .pdf.zip ...)
+./bin/flibusta/extract_flibusta_fb2.sh --type usr 811215
+
+# try fb2 first, fall back to usr
+./bin/flibusta/extract_flibusta_fb2.sh --type both 811194
+
+# batch: several numbers on the command line
+./bin/flibusta/extract_flibusta_fb2.sh 173909 173910 811194
+
+# batch from a list file (one number per line; BOM/CR/blank/#-comments
+# tolerated) mixed with positionals
+./bin/flibusta/extract_flibusta_fb2.sh --from-file numbers.txt 173911
+
+# re-extract over existing outputs
+./bin/flibusta/extract_flibusta_fb2.sh --force 173909
 ```
 
 Options:
 
 | Option | Effect |
 |---|---|
+| `-t, --type fb2\|usr\|both` | archive family (default `fb2`; `both` = fb2 first, usr fallback) |
+| `-f, --from-file LIST` | FileNumbers from a list file |
 | `-s, --source-dir DIR` | archive source root (default `/mnt/x/flibusta`) |
 | `-o, --output-dir DIR` | extraction target (default `/mnt/c/Backup_Go7/ToLoad`) |
-| `-n, --dry-run` | resolve archive + member, extract nothing |
+| `--force` | re-extract even when the output already exists |
+| `-n, --dry-run` | resolve every number, extract nothing |
 | `-d, --debug` | verbose diagnostics on stderr |
 | `-h, --help` / `-v, --version` | house CLI contract |
 
@@ -49,7 +73,7 @@ Configuration precedence: flag > environment (`FLIBUSTA_SOURCE_DIR`,
 `FB2_OUTPUT_DIR`) > `config/flibusta_fb2.conf` (override the file itself
 with `FLIBUSTA_FB2_CONF_FILE`).
 
-Exit codes: 0 success, 1 operational failure, 2 usage error.
+Exit codes: 0 all numbers delivered, 1 at least one failed, 2 usage error.
 
 ## Conventions honored
 
@@ -65,11 +89,19 @@ Exit codes: 0 success, 1 operational failure, 2 usage error.
 
 ## Scope (deliberately limited)
 
-- FB2 archives only (`.usr` handling comes later).
-- One FileNumber per invocation.
-- Range detection from the archive filename.
-- Extraction of one archive member.
+- FB2 and USR range archives only (legacy `fb2-*`/`usr-*`/`d.*` ignored).
+- Extraction of one member per number; no conversion, no packaging.
 - No database access.
+
+## Batch semantics
+
+- Every number is attempted independently; the run is summarized
+  (`N delivered, M of them skipped (exist), K failed`).
+- `--type both` is a FALLBACK CHAIN: fb2 first, then usr; a fb2 miss is
+  not a failure when usr delivers (and vice versa with `--type usr`).
+- Existing non-empty outputs are skipped by default; `--force` re-extracts.
+- Exit 1 when anything failed, so orchestrators can react even when most
+  numbers were delivered.
 
 ## Range-match details
 
@@ -104,7 +136,7 @@ violation the layer gate and review will reject.
 
 ## Testing
 
-`tests/unit/test_extract_flibusta_fb2.sh` (15 assertions, hermetic —
+`tests/unit/test_extract_flibusta_fb2.sh` (24 assertions, hermetic —
 real zip fixtures in a temp dir, no network, no MariaDB):
 
 ```bash
