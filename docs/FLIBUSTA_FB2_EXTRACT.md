@@ -138,7 +138,7 @@ violation the layer gate and review will reject.
 
 ```bash
 bash tests/unit/test_extract_flibusta_fb2.sh    # 24 assertions
-bash tests/unit/test_place_flibusta_book.sh     # 23 assertions
+bash tests/unit/test_place_flibusta_book.sh     # 27 assertions
 tests/run_all.sh unit                           # part of the standard battery
 ```
 
@@ -148,7 +148,7 @@ MariaDB.
 
 ---
 
-# Stage 2 — placement (`bin/flibusta/place_flibusta_book.sh` v0.2.0)
+# Stage 2 — placement (`bin/flibusta/place_flibusta_book.sh` v0.3.0)
 
 > Last updated: 2026-09-13
 
@@ -214,6 +214,32 @@ Options: `-i/--input-dir` (stage-1 output, default `/mnt/c/Backup_Go7/ToLoad`),
 `flibusta`), `--force`, `--keep-source`, `--rm-source` (no-op),
 `--report-dir`, `-n/--dry-run`, `-d/--debug`, `-h/-v`.  Exit codes:
 0 all placed, 1 any failed, 2 usage error.
+
+## Library use (v0.3.0)
+
+The file doubles as a **sourceable library**: with `PLACE_LIB_ONLY=1` set
+before sourcing it defines the API without running, so an orchestrator
+(a future `run_round.sh`) can drive stage 2 in-process:
+
+```bash
+PLACE_LIB_ONLY=1 source "$PROJECT_ROOT/bin/flibusta/place_flibusta_book.sh"
+place_parse_args -n 811194 && place_run
+```
+
+| Function | Contract |
+|---|---|
+| `place_parse_args ARGS...` | sets the `PLACE_*` run parameters; **returns** 2 on a usage error (never exits) |
+| `place_run` | executes the batch; **returns** 1 when anything failed, 0 on success — never exits |
+| `place_lookup NUMBER` | raw catalog row (TSV) on stdout |
+| `place_sanitize_name RAW` | Windows-safe path component on stdout |
+| `place_find_source N DIR` | stage-1 file path for number N |
+| `place_zip SRC DST` | single-file zip, atomic temp+`mv` |
+
+Sourcing implications (documented, by design): the house `set -Eeuo
+pipefail` regime is enabled; config/env resolution happens at source time;
+`place_run` installs its own EXIT cleanup trap for the MariaDB lifecycle
+and removes it when done.  Sourcing **without** the guard keeps the exact
+script-mode behavior (the bottom-of-file guard evaluates once).
 
 ## Database boundary
 

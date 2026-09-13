@@ -2,7 +2,7 @@
 #
 # bin/flibusta/place_flibusta_book.sh
 #
-# Version:       0.2.0
+# Version:       0.3.0
 # Last updated:  2026-09-13
 #
 # -----------------------------------------------------------------------------
@@ -89,6 +89,46 @@
 #   Exit codes: 0 all numbers placed, 1 at least one failed, 2 usage error.
 #
 # -----------------------------------------------------------------------------
+# LIBRARY USE (v0.3.0)
+# -----------------------------------------------------------------------------
+#   The file doubles as a sourceable library so orchestrators (a future
+#   run_round.sh) can call stage 2 in-process:
+#
+#       PLACE_LIB_ONLY=1 \
+#           source "$PROJECT_ROOT/bin/flibusta/place_flibusta_book.sh"
+#       PLACE_FORCE=0 PLACE_KEEP_SOURCE=0
+#       place_parse_args -n 811194 && place_run
+#
+#   API:
+#       place_print_help            - usage text on stderr
+#       place_parse_args ARGS...    - set the PLACE_* run parameters;
+#                                     returns 2 on a usage error (prints
+#                                     the reason; does NOT exit); -h/-v
+#                                     exit 0 (script-mode convenience -
+#                                     embedders should not pass them)
+#       place_run                   - execute the batch; returns 1 when at
+#                                     least one number failed, 0 on full
+#                                     success; on hard configuration
+#                                     errors it logs "error: ..." and
+#                                     returns 1 (it does NOT exit, so an
+#                                     embedder keeps control)
+#       place_lookup NUMBER         - raw catalog row (TSV) on stdout
+#       place_sanitize_name RAW     - Windows-safe path component
+#       place_find_source N DIR     - stage-1 file path for number N
+#       place_zip SRC DST           - single-file zip, atomic
+#
+#   Sourcing implications (documented, by design):
+#     - the house `set -Eeuo pipefail` regime is enabled (via lib/common.sh);
+#     - all run state lives in PLACE_* variables; config/env resolution
+#       happens at source time (flag > env > config file);
+#     - place_run installs its own EXIT cleanup trap for the MariaDB
+#       lifecycle and removes it when done - a caller's pre-existing EXIT
+#       trap is not preserved across the call.
+#     - PLACE_LIB_ONLY=1 must be set BEFORE sourcing to suppress the
+#       automatic script-mode run; the script-mode guard is evaluated once
+#       at the bottom of the file.
+#
+# -----------------------------------------------------------------------------
 # CONFIGURATION
 # -----------------------------------------------------------------------------
 #   config/flibusta_place.conf provides defaults via house
@@ -109,10 +149,17 @@
 #   temp file next to the target and mv.
 #
 #   Batch semantics: every number is attempted independently; failures
-#   are collected and summarized; exit 1 when anything failed.  Titles
-#   are expected tab-free (the TSV parse would shift on an embedded tab);
-#   the catalog data has none - noted as a known constraint.
+#   are collected and summarized; the run result is 1 when anything
+#   failed.  Titles are expected tab-free (the TSV parse would shift on
+#   an embedded tab); the catalog data has none - noted as a known
+#   constraint.
 # -----------------------------------------------------------------------------
+
+# Source guard: a file sourced twice must not re-declare readonly globals.
+if [[ -n "${_ETL_PLACE_FLIBUSTA_SH:-}" ]]; then
+    return 0
+fi
+_ETL_PLACE_FLIBUSTA_SH=1
 
 set -Eeuo pipefail
 
@@ -124,7 +171,8 @@ common_init
 
 # SCRIPT_VERSION is parsed from this file's own header (version-sync contract).
 # shellcheck disable=SC2155  # sed+head pipeline cannot fail; masking not a concern
-readonly SCRIPT_VERSION="$(sed -n 's/^# Version:[[:space:]]*//p' "$0" | head -n 1)"
+readonly SCRIPT_VERSION="$(sed -n 's/^# Version:[[:space:]]*//p' "${BASH_SOURCE[0]}" | head -n 1)"
+readonly CLI_INVOCATION="bin/flibusta/place_flibusta_book.sh"
 
 # shellcheck disable=SC2034  # read by lib/logging.sh at runtime
 DEBUG="${DEBUG:-0}"
@@ -143,10 +191,6 @@ ROOT_LOAD="${ROOT_LOAD:-}"
 PLACE_INPUT_DIR="${PLACE_INPUT_DIR:-}"
 FLIBUSTA_DB="${FLIBUSTA_DB:-}"
 PLACE_REPORT_DIR="${PLACE_REPORT_DIR:-}"
-FROM_FILE=""
-FORCE=0
-KEEP_SOURCE=0
-DRY_RUN=0
 
 CONF_FILE="${FLIBUSTA_PLACE_CONF_FILE:-$PROJECT_ROOT/config/flibusta_place.conf}"
 if [[ -f "$CONF_FILE" ]]; then
@@ -154,8 +198,15 @@ if [[ -f "$CONF_FILE" ]]; then
     source "$CONF_FILE"
 fi
 
+# --- run parameters (set by place_parse_args, consumed by place_run) ------------
+PLACE_FROM_FILE=""
+PLACE_FORCE=0
+PLACE_KEEP_SOURCE=0
+DRY_RUN=0                     # lifecycle-contract variable (read by mariadb_lifecycle)
+PLACE_POSITIONAL=()
+
 # --- help -----------------------------------------------------------------------
-print_help() {
+place_print_help() {
     cat >&2 <<'EOF'
 Usage: place_flibusta_book.sh [options] FILE_NUMBER... | --from-file LIST
 
@@ -192,6 +243,9 @@ Options:
 
 Exit codes: 0 all numbers placed, 1 any failed, 2 usage error.
 
+Library use (v0.3.0):  PLACE_LIB_ONLY=1 source <this file>, then
+place_parse_args ARGS... && place_run.  See the LIBRARY USE header section.
+
 Environment (also settable in config/flibusta_place.conf):
   ROOT_LOAD               library root
   PLACE_INPUT_DIR         stage-1 extraction output
@@ -201,59 +255,85 @@ Environment (also settable in config/flibusta_place.conf):
 EOF
 }
 
-# --- arg parsing ----------------------------------------------------------------
-positional=()
-while (( $# > 0 )); do
-    case "$1" in
-        -t|--type)                      # accepted, documented no-op (pipeline symmetry)
-            [[ $# -ge 2 ]] || { echo "Error: $1 needs a TYPE argument" >&2; exit 2; }
-            shift 2 ;;
-        --type=*) shift ;;
-        -f|--from-file)
-            [[ $# -ge 2 ]] || { echo "Error: $1 needs a FILE argument" >&2; exit 2; }
-            FROM_FILE="$2"; shift 2 ;;
-        --from-file=*) FROM_FILE="${1#*=}"; shift ;;
-        -i|--input-dir)
-            [[ $# -ge 2 ]] || { echo "Error: $1 needs a DIR argument" >&2; exit 2; }
-            PLACE_INPUT_DIR="$2"; shift 2 ;;
-        --input-dir=*) PLACE_INPUT_DIR="${1#*=}"; shift ;;
-        -r|--root-load)
-            [[ $# -ge 2 ]] || { echo "Error: $1 needs a DIR argument" >&2; exit 2; }
-            ROOT_LOAD="$2"; shift 2 ;;
-        --root-load=*) ROOT_LOAD="${1#*=}"; shift ;;
-        --db)
-            [[ $# -ge 2 ]] || { echo "Error: $1 needs a NAME argument" >&2; exit 2; }
-            FLIBUSTA_DB="$2"; shift 2 ;;
-        --db=*) FLIBUSTA_DB="${1#*=}"; shift ;;
-        --force) FORCE=1; shift ;;
-        --keep-source) KEEP_SOURCE=1; shift ;;
-        --rm-source) : ;;   # compat: removal is the default since v0.2.0
-        --report-dir)
-            [[ $# -ge 2 ]] || { echo "Error: $1 needs a DIR argument" >&2; exit 2; }
-            PLACE_REPORT_DIR="$2"; shift 2 ;;
-        --report-dir=*) PLACE_REPORT_DIR="${1#*=}"; shift ;;
-        -n|--dry-run) DRY_RUN=1; shift ;;
-        -d|--debug)
-            # shellcheck disable=SC2034  # read by lib/logging.sh at runtime
-            DEBUG=1; shift ;;
-        -h|--help)    print_help; exit 0 ;;
-        -v|--version) echo "bin/flibusta/place_flibusta_book.sh v$SCRIPT_VERSION"; exit 0 ;;
-        -*) echo "Error: unknown option '$1'" >&2; echo "Try '$0 --help'." >&2; exit 2 ;;
-        *)
-            positional+=("$1"); shift ;;
-    esac
-done
+# print_help: the name lib/cli.sh's cli_try_global looks up for -h/--help
+# (house hook - must keep this exact name).
+print_help() { place_print_help; }
 
-# --- report infra: one TSV row per attempted number, written at run end ----
-REPORT_TS="$(date +%Y%m%d-%H%M%S)"
-declare -a report_rows=()
+# --- arg parsing ------------------------------------------------------------------
+# Sets PLACE_POSITIONAL / PLACE_FROM_FILE / PLACE_FORCE / PLACE_KEEP_SOURCE /
+# DRY_RUN.  Returns 2 on a usage error (reason already on stderr); does NOT
+# exit, so library callers keep control.  -h/-v exit 0 (script-mode flags).
+place_parse_args() {
+    PLACE_POSITIONAL=()
+    PLACE_FROM_FILE=""
+    PLACE_FORCE=0
+    PLACE_KEEP_SOURCE=0
+    DRY_RUN=0
+    while (( $# > 0 )); do
+        case "$1" in
+            -t|--type)                      # accepted, documented no-op (pipeline symmetry)
+                [[ $# -ge 2 ]] || { echo "Error: $1 needs a TYPE argument" >&2; return 2; }
+                shift 2 ;;
+            --type=*) shift ;;
+            -f|--from-file)
+                [[ $# -ge 2 ]] || { echo "Error: $1 needs a FILE argument" >&2; return 2; }
+                PLACE_FROM_FILE="$2"; shift 2 ;;
+            --from-file=*) PLACE_FROM_FILE="${1#*=}"; shift ;;
+            -i|--input-dir)
+                [[ $# -ge 2 ]] || { echo "Error: $1 needs a DIR argument" >&2; return 2; }
+                PLACE_INPUT_DIR="$2"; shift 2 ;;
+            --input-dir=*) PLACE_INPUT_DIR="${1#*=}"; shift ;;
+            -r|--root-load)
+                [[ $# -ge 2 ]] || { echo "Error: $1 needs a DIR argument" >&2; return 2; }
+                ROOT_LOAD="$2"; shift 2 ;;
+            --root-load=*) ROOT_LOAD="${1#*=}"; shift ;;
+            --db)
+                [[ $# -ge 2 ]] || { echo "Error: $1 needs a NAME argument" >&2; return 2; }
+                FLIBUSTA_DB="$2"; shift 2 ;;
+            --db=*) FLIBUSTA_DB="${1#*=}"; shift ;;
+            --force) PLACE_FORCE=1; shift ;;
+            --keep-source) PLACE_KEEP_SOURCE=1; shift ;;
+            --rm-source) : ;;   # compat: removal is the default since v0.2.0
+            --report-dir)
+                [[ $# -ge 2 ]] || { echo "Error: $1 needs a DIR argument" >&2; return 2; }
+                PLACE_REPORT_DIR="$2"; shift 2 ;;
+            --report-dir=*) PLACE_REPORT_DIR="${1#*=}"; shift ;;
+            -n|--dry-run) DRY_RUN=1; shift ;;
+            -d|--debug)
+                # shellcheck disable=SC2034  # read by lib/logging.sh at runtime
+                DEBUG=1; shift ;;
+            -h|--help)    print_help; exit 0 ;;
+            -v|--version) cli_print_version "$CLI_INVOCATION" "$SCRIPT_VERSION"; exit 0 ;;
+            -*) echo "Error: unknown option '$1'" >&2; echo "Try '$CLI_INVOCATION --help'." >&2; return 2 ;;
+            *)
+                PLACE_POSITIONAL+=("$1"); shift ;;
+        esac
+    done
+    return 0
+}
 
-push_report() { # $1=file_number $2=bookid $3=status $4=target $5=reason
-    report_rows+=("$(printf '%s\t%s\t%s\t%s\t%s\t%s' \
+# --- report infra: one TSV row per attempted number, written at run end ----------
+PLACE_REPORT_ROWS=()
+
+place_push_report() { # $1=file_number $2=bookid $3=status $4=target $5=reason
+    PLACE_REPORT_ROWS+=("$(printf '%s\t%s\t%s\t%s\t%s\t%s' \
         "$(timestamp_now)" "$1" "$2" "$3" "$4" "$5")")
 }
 
-# --- lib: placement primitives (inlined; lib/ stays domain-free per §4) ---------
+# place_write_report DIR -> report file path on stdout (header + rows).
+place_write_report() { # $1 = report directory
+    local dir="$1" ts file
+    ts="$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$dir"
+    file="$dir/place_flibusta_$ts.tsv"
+    {
+        printf 'processed_at\tfile_number\tbookid\tstatus\ttarget_zip\treason\n'
+        printf '%s\n' "${PLACE_REPORT_ROWS[@]}"
+    } > "$file"
+    printf '%s\n' "$file"
+}
+
+# --- lib: placement primitives (inlined; lib/ stays domain-free per §4) -----------
 # House rule (Follow-It §4, books_merge precedent): domain logic lives with
 # its only consumer.  Extract back out only when a second consumer appears.
 
@@ -346,172 +426,211 @@ place_zip() { # $1 = source file, $2 = target zip path
     mv -- "$tmp_dst" "$dst"
 }
 
-# --- assemble the work list: positionals + --from-file --------------------------
-declare -a numbers=()
-for n in "${positional[@]}"; do
-    numbers+=("$n")
-done
-if [[ -n "$FROM_FILE" ]]; then
-    mapfile -t file_numbers < <(place_read_numbers "$FROM_FILE")
-    for n in "${file_numbers[@]}"; do
-        numbers+=("$n")
-    done
-fi
+# --- the run: validations -> lifecycle -> batch loop -> report -> summary -------
+# Returns 1 when at least one number failed (or on a hard configuration
+# error); never exits, so library callers keep control.
 
-if (( ${#numbers[@]} == 0 )); then
-    print_help
-    exit 2
-fi
-
-# --- validation -----------------------------------------------------------------
-[[ -n "$ROOT_LOAD" ]] || die "ROOT_LOAD is empty (set it or use --root-load)"
-[[ -n "$PLACE_INPUT_DIR" ]] || die "PLACE_INPUT_DIR is empty (set it or use --input-dir)"
-[[ -n "$FLIBUSTA_DB" ]] || die "FLIBUSTA_DB is empty (set it or use --db)"
-[[ -n "$PLACE_REPORT_DIR" ]] || die "PLACE_REPORT_DIR is empty (set it or use --report-dir)"
-fs_require_dir "$PLACE_INPUT_DIR" "input directory (stage-1 output)"
-require_command zip
-if ! command -v "${MYSQL_CLIENT:-mysql}" >/dev/null 2>&1; then
-    die "${MYSQL_CLIENT:-mysql} not found; install a mysql/mariadb client or set MYSQL_CLIENT"
-fi
-
-# --- MariaDB lifecycle: start when down, stop on exit when we started it --------
-cleanup() {
+place_cleanup() {
     mariadb_stop_if_started
     return 0
 }
-trap cleanup EXIT
 
-mariadb_maybe_start \
-    || die "cannot start MariaDB (accept the UAC prompt or start the server manually)"
+place_run() {
+    local fail_count=0 ok_count=0 skip_count=0 is_batch=0
+    local row bookid title fullname seqname seqnum
+    local safe_title safe_author target_dir base_name target_zip source_file
+    local file_number report_file
+    declare -a PLACE_FAILURES=() numbers=() file_numbers=()
 
-# --- batch execution -------------------------------------------------------------
-# Each number is attempted independently; failures are collected and
-# summarized.  Exit 1 when anything failed.
-fail_count=0
-ok_count=0
-skip_count=0
-declare -a failures=()
-
-is_batch=0
-(( ${#numbers[@]} > 1 )) && is_batch=1
-
-for file_number in "${numbers[@]}"; do
-    if ! place_validate_number "$file_number"; then
-        failures+=("$file_number: invalid FileNumber (expected digits, greater than zero)")
-        log_warn "$file_number: invalid FileNumber (expected digits, greater than zero)"
-        push_report "$file_number" "-" "failed" "-" "invalid FileNumber (expected digits, greater than zero)"
-        fail_count=$((fail_count + 1))
-        continue
+    # --- validation (return-based: library callers keep control) ---------------
+    if [[ -z "$ROOT_LOAD" ]]; then
+        log "error: ROOT_LOAD is empty (set it or use --root-load)"; return 1
+    fi
+    if [[ -z "$PLACE_INPUT_DIR" ]]; then
+        log "error: PLACE_INPUT_DIR is empty (set it or use --input-dir)"; return 1
+    fi
+    if [[ -z "$FLIBUSTA_DB" ]]; then
+        log "error: FLIBUSTA_DB is empty (set it or use --db)"; return 1
+    fi
+    if [[ -z "$PLACE_REPORT_DIR" ]]; then
+        log "error: PLACE_REPORT_DIR is empty (set it or use --report-dir)"; return 1
+    fi
+    if [[ ! -d "$PLACE_INPUT_DIR" ]]; then
+        log "error: input directory (stage-1 output) does not exist: $PLACE_INPUT_DIR"; return 1
+    fi
+    if ! command -v zip >/dev/null 2>&1; then
+        log "error: required command 'zip' not found on PATH"; return 1
+    fi
+    if ! command -v "${MYSQL_CLIENT:-mysql}" >/dev/null 2>&1; then
+        log "error: ${MYSQL_CLIENT:-mysql} not found; install a mysql/mariadb client or set MYSQL_CLIENT"
+        return 1
     fi
 
-    # catalog lookup ------------------------------------------------------------
-    row="$(place_lookup "$file_number")" || {
-        failures+=("$file_number: not found in the catalog (mlbook.filename)")
-        log_warn "$file_number: not found in the catalog"
-        push_report "$file_number" "-" "failed" "-" "not found in the catalog (mlbook.filename)"
-        fail_count=$((fail_count + 1))
-        continue
-    }
-    IFS=$'\t' read -r bookid title fullname seqname seqnum <<< "$row"
-
-    if [[ -z "$fullname" ]]; then
-        failures+=("$file_number: bookid $bookid has no author (mlauthor/mlauthorname)")
-        log_warn "$file_number: bookid $bookid has no author"
-        push_report "$file_number" "$bookid" "failed" "-" "bookid $bookid has no author (mlauthor/mlauthorname)"
-        fail_count=$((fail_count + 1))
-        continue
-    fi
-
-    # target path -----------------------------------------------------------------
-    safe_title="$(place_sanitize_name "$title")"
-    safe_author="$(place_sanitize_name "$fullname")"
-    target_dir="$ROOT_LOAD/$safe_author"
-    if [[ -n "$seqname" ]]; then
-        target_dir="$target_dir/$(place_sanitize_name "$seqname")"
-        base_name="$(printf '%02d' "$(( 10#$seqnum ))") - $safe_title"
-    else
-        base_name="$safe_title"
-    fi
-    target_zip="$target_dir/$base_name.zip"
-
-    # source file -----------------------------------------------------------------
-    source_file="$(place_find_source "$file_number" "$PLACE_INPUT_DIR")" || {
-        failures+=("$file_number: extracted file not found in $PLACE_INPUT_DIR (run stage 1 first)")
-        log_warn "$file_number: extracted file not found in $PLACE_INPUT_DIR"
-        push_report "$file_number" "$bookid" "failed" "$target_zip" "extracted file not found in $PLACE_INPUT_DIR (run stage 1 first)"
-        fail_count=$((fail_count + 1))
-        continue
-    }
-
-    # report + skip/force -----------------------------------------------------------
-    if (( is_batch )); then
-        log_info "$file_number (bookid $bookid): $source_file -> $target_zip"
-    else
-        log_info "bookid : $bookid"
-        log_info "author : $fullname"
-        [[ -n "$seqname" ]] && log_info "series : $seqname ($seqnum)"
-        log_info "source : $source_file"
-        log_info "target : $target_zip"
-    fi
-
-    if [[ -s "$target_zip" ]] && (( ! FORCE )); then
-        log_info "$file_number: target exists, skipping ($target_zip)"
-        if (( DRY_RUN )); then
-            push_report "$file_number" "$bookid" "would-skip" "$target_zip" "target exists (dry run: nothing was written)"
-        else
-            push_report "$file_number" "$bookid" "skipped" "$target_zip" "target exists"
-        fi
-        ok_count=$((ok_count + 1))
-        skip_count=$((skip_count + 1))
-        continue
-    fi
-
-    if (( DRY_RUN )); then
-        push_report "$file_number" "$bookid" "would-place" "$target_zip" "dry run: nothing was written"
-        ok_count=$((ok_count + 1))
-        continue
-    fi
-
-    # place --------------------------------------------------------------------------
-    mkdir -p "$target_dir"
-    if place_zip "$source_file" "$target_zip"; then
-        ok_count=$((ok_count + 1))
-        (( is_batch )) && log_info "$file_number: placed -> $target_zip"
-        push_report "$file_number" "$bookid" "placed" "$target_zip" "-"
-        if (( ! KEEP_SOURCE )); then
-            rm -f -- "$source_file"
-            debug "$file_number: source trashed (default; --keep-source retains)"
-        fi
-    else
-        failures+=("$file_number: zip failed for $source_file -> $target_zip")
-        log_warn "$file_number: zip failed"
-        push_report "$file_number" "$bookid" "failed" "$target_zip" "zip failed (source kept)"
-        fail_count=$((fail_count + 1))
-    fi
-done
-
-# --- report file (the persistent error/retry log) --------------------------------
-mkdir -p "$PLACE_REPORT_DIR"
-report_file="$PLACE_REPORT_DIR/place_flibusta_$REPORT_TS.tsv"
-{
-    printf 'processed_at\tfile_number\tbookid\tstatus\ttarget_zip\treason\n'
-    printf '%s\n' "${report_rows[@]}"
-} > "$report_file"
-
-# --- summary ---------------------------------------------------------------------
-if (( DRY_RUN )); then
-    log_info "dry-run: $ok_count number(s) resolvable, $fail_count failed, $skip_count existing; nothing was written"
-else
-    log_info "summary: $ok_count placed, $skip_count of them skipped (exist), $fail_count failed"
-fi
-log_info "report: $report_file"
-
-if (( fail_count > 0 )); then
-    if (( is_batch )); then
-        for f in "${failures[@]}"; do
-            log_error "$f"
+    # --- assemble the work list: positionals + --from-file ----------------------
+    for file_number in "${PLACE_POSITIONAL[@]}"; do
+        numbers+=("$file_number")
+    done
+    if [[ -n "$PLACE_FROM_FILE" ]]; then
+        mapfile -t file_numbers < <(place_read_numbers "$PLACE_FROM_FILE")
+        for file_number in "${file_numbers[@]}"; do
+            numbers+=("$file_number")
         done
     fi
-    exit 1
+    if (( ${#numbers[@]} == 0 )); then
+        place_print_help
+        return 2
+    fi
+
+    # --- MariaDB lifecycle: start when down, stop on exit when we started it ----
+    trap place_cleanup EXIT
+    if ! mariadb_maybe_start; then
+        log "error: cannot start MariaDB (accept the UAC prompt or start the server manually)"
+        trap - EXIT
+        return 1
+    fi
+
+    (( ${#numbers[@]} > 1 )) && is_batch=1
+
+    for file_number in "${numbers[@]}"; do
+        if ! place_validate_number "$file_number"; then
+            PLACE_FAILURES+=("$file_number: invalid FileNumber (expected digits, greater than zero)")
+            log_warn "$file_number: invalid FileNumber (expected digits, greater than zero)"
+            place_push_report "$file_number" "-" "failed" "-" "invalid FileNumber (expected digits, greater than zero)"
+            fail_count=$((fail_count + 1))
+            continue
+        fi
+
+        # catalog lookup ----------------------------------------------------------
+        row="$(place_lookup "$file_number")" || {
+            PLACE_FAILURES+=("$file_number: not found in the catalog (mlbook.filename)")
+            log_warn "$file_number: not found in the catalog"
+            place_push_report "$file_number" "-" "failed" "-" "not found in the catalog (mlbook.filename)"
+            fail_count=$((fail_count + 1))
+            continue
+        }
+        IFS=$'\t' read -r bookid title fullname seqname seqnum <<< "$row"
+
+        if [[ -z "$fullname" ]]; then
+            PLACE_FAILURES+=("$file_number: bookid $bookid has no author (mlauthor/mlauthorname)")
+            log_warn "$file_number: bookid $bookid has no author"
+            place_push_report "$file_number" "$bookid" "failed" "-" "bookid $bookid has no author (mlauthor/mlauthorname)"
+            fail_count=$((fail_count + 1))
+            continue
+        fi
+
+        # target path --------------------------------------------------------------
+        safe_title="$(place_sanitize_name "$title")"
+        safe_author="$(place_sanitize_name "$fullname")"
+        target_dir="$ROOT_LOAD/$safe_author"
+        if [[ -n "$seqname" ]]; then
+            target_dir="$target_dir/$(place_sanitize_name "$seqname")"
+            base_name="$(printf '%02d' "$(( 10#$seqnum ))") - $safe_title"
+        else
+            base_name="$safe_title"
+        fi
+        target_zip="$target_dir/$base_name.zip"
+
+        # source file ---------------------------------------------------------------
+        source_file="$(place_find_source "$file_number" "$PLACE_INPUT_DIR")" || {
+            PLACE_FAILURES+=("$file_number: extracted file not found in $PLACE_INPUT_DIR (run stage 1 first)")
+            log_warn "$file_number: extracted file not found in $PLACE_INPUT_DIR"
+            place_push_report "$file_number" "$bookid" "failed" "$target_zip" "extracted file not found in $PLACE_INPUT_DIR (run stage 1 first)"
+            fail_count=$((fail_count + 1))
+            continue
+        }
+
+        # report + skip/force ---------------------------------------------------------
+        if (( is_batch )); then
+            log_info "$file_number (bookid $bookid): $source_file -> $target_zip"
+        else
+            log_info "bookid : $bookid"
+            log_info "author : $fullname"
+            [[ -n "$seqname" ]] && log_info "series : $seqname ($seqnum)"
+            log_info "source : $source_file"
+            log_info "target : $target_zip"
+        fi
+
+        if [[ -s "$target_zip" ]] && (( ! PLACE_FORCE )); then
+            log_info "$file_number: target exists, skipping ($target_zip)"
+            if (( DRY_RUN )); then
+                place_push_report "$file_number" "$bookid" "would-skip" "$target_zip" "target exists (dry run: nothing was written)"
+            else
+                place_push_report "$file_number" "$bookid" "skipped" "$target_zip" "target exists"
+            fi
+            ok_count=$((ok_count + 1))
+            skip_count=$((skip_count + 1))
+            continue
+        fi
+
+        if (( DRY_RUN )); then
+            place_push_report "$file_number" "$bookid" "would-place" "$target_zip" "dry run: nothing was written"
+            ok_count=$((ok_count + 1))
+            continue
+        fi
+
+        # place ------------------------------------------------------------------------
+        mkdir -p "$target_dir"
+        if place_zip "$source_file" "$target_zip"; then
+            ok_count=$((ok_count + 1))
+            if (( is_batch )); then
+                log_info "$file_number: placed -> $target_zip"
+            fi
+            place_push_report "$file_number" "$bookid" "placed" "$target_zip" "-"
+            if (( ! PLACE_KEEP_SOURCE )); then
+                rm -f -- "$source_file"
+                debug "$file_number: source trashed (default; --keep-source retains)"
+            fi
+        else
+            PLACE_FAILURES+=("$file_number: zip failed for $source_file -> $target_zip")
+            log_warn "$file_number: zip failed"
+            place_push_report "$file_number" "$bookid" "failed" "$target_zip" "zip failed (source kept)"
+            fail_count=$((fail_count + 1))
+        fi
+    done
+
+    # --- report file (the persistent error/retry log) --------------------------------
+    report_file="$(place_write_report "$PLACE_REPORT_DIR")"
+
+    # --- summary -----------------------------------------------------------------------
+    if (( DRY_RUN )); then
+        log_info "dry-run: $ok_count number(s) resolvable, $fail_count failed, $skip_count existing; nothing was written"
+    else
+        log_info "summary: $ok_count placed, $skip_count of them skipped (exist), $fail_count failed"
+    fi
+    log_info "report: $report_file"
+
+    if (( fail_count > 0 )); then
+        if (( is_batch )); then
+            for file_number in "${PLACE_FAILURES[@]}"; do
+                log_error "$file_number"
+            done
+        fi
+        mariadb_stop_if_started
+        trap - EXIT
+        return 1
+    fi
+    mariadb_stop_if_started
+    trap - EXIT
+    return 0
+}
+
+# --- script-mode entry point -------------------------------------------------------
+# place_main is the script-mode main(): leading global flags (-h/-v/--debug)
+# go through lib/cli.sh, the rest through place_parse_args, then place_run.
+# Exit codes: 0 ok, 1 run failure, 2 usage error (house CLI contract).
+place_main() {
+    cli_try_global "$@"
+    local -a rest=()
+    if (( CLI_REMAINING_COUNT > 0 )); then
+        rest=("${@: $(( $# - CLI_REMAINING_COUNT + 1 ))}")
+    fi
+    place_parse_args "${rest[@]}" || return $?
+    place_run || return $?
+    return 0
+}
+
+# Script mode runs automatically UNLESS the file was sourced as a library
+# (PLACE_LIB_ONLY=1 before sourcing).  Evaluated once, at the bottom.
+if [[ -z "${PLACE_LIB_ONLY:-}" ]]; then
+    place_main "$@" || exit $?
 fi
-exit 0

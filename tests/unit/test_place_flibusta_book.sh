@@ -38,8 +38,12 @@ unset SHELLOPTS BASHOPTS 2>/dev/null || true
 #     any number failed (unknown number, missing source), partial delivery
 #   - CLI contract: --help exits 0, --version prints the header version,
 #     unknown option exits 2, no numbers exits 2, bad numbers are failures
+#   - library mode (v0.3.0): PLACE_LIB_ONLY=1 source <tool> defines the
+#     place_* API without running; place_parse_args + place_run return
+#     (never exit); script behavior is preserved when sourced without
+#     the guard
 #
-# Version header stays in sync with --version (0.2.x).
+# Version header stays in sync with --version (0.3.x).
 #
 # Usage:  bash tests/unit/test_place_flibusta_book.sh
 # -----------------------------------------------------------------------------
@@ -145,10 +149,10 @@ echo "== place_flibusta_book =="
 
 # --- version / usage --------------------------------------------------------------
 version="$(sed -n 's/^# Version:[[:space:]]*//p' "$TOOL" | head -n 1)"
-if [[ "$version" =~ ^0\.2\.[0-9]+$ ]]; then
+if [[ "$version" =~ ^0\.3\.[0-9]+$ ]]; then
     report "version_header" ok "header $version"
 else
-    report "version_header" fail "got '$version', expected ^0.2.[0-9]+$"
+    report "version_header" fail "got '$version', expected ^0.3.[0-9]+$"
 fi
 
 bash "$TOOL" --version >"$TMPDIR/v.txt" 2>&1
@@ -360,6 +364,97 @@ if (( RC == 1 )) && grep -q "invalid FileNumber" "$ERR"; then
     report "invalid_number_failure" ok
 else
     report "invalid_number_failure" fail "rc=$RC"
+fi
+
+# --- library mode (v0.3.0) ------------------------------------------------------------------------
+# PLACE_LIB_ONLY=1 source <tool>: defines the API, runs nothing.
+LIB_OUT="$TMPDIR/lib_out.txt" LIB_ERR="$TMPDIR/lib_err.txt"
+(
+    export MYSQL_CLIENT="$MOCK_BIN/mysql" \
+           PLACE_INPUT_DIR="$INPUT_DIR" ROOT_LOAD="$ROOT_LOAD" FLIBUSTA_DB=flibusta \
+           PLACE_REPORT_DIR="$REPORT_DIR" \
+           MARIA_TASKLIST="$TMPDIR/no-such-tasklist"
+    export PLACE_LIB_ONLY=1
+    # shellcheck disable=SC1090  # path is $TOOL, verified by the script-mode tests
+    source "$TOOL"
+    echo "lib_functions: $(declare -F place_parse_args place_run place_lookup place_sanitize_name place_find_source place_zip | wc -l)" >&2
+    echo "lib_version: $SCRIPT_VERSION" >&2
+) >"$LIB_OUT" 2>"$LIB_ERR"
+if grep -q "lib_functions: 6" "$LIB_ERR" && grep -q "lib_version: $version" "$LIB_ERR" \
+   && [[ "$(cat "$LIB_OUT")" == "" ]]; then
+    report "library_mode_no_autorun" ok
+else
+    report "library_mode_no_autorun" fail "out=$(cat "$LIB_OUT") err=$(cat "$LIB_ERR")"
+fi
+
+# library run: parse + run return (never exit); a place works in-process.
+printf 'pdf payload of 100002\n' > "$INPUT_DIR/100002.pdf"   # restore (trashed earlier)
+printf 'djvu payload of 100003\n' > "$INPUT_DIR/100003.djvu" # restore (trashed earlier)
+(
+    export MYSQL_CLIENT="$MOCK_BIN/mysql" \
+           PLACE_INPUT_DIR="$INPUT_DIR" ROOT_LOAD="$ROOT_LOAD" FLIBUSTA_DB=flibusta \
+           PLACE_REPORT_DIR="$REPORT_DIR" \
+           MARIA_TASKLIST="$TMPDIR/no-such-tasklist"
+    export PLACE_LIB_ONLY=1
+    # shellcheck disable=SC1090  # path is $TOOL, verified by the script-mode tests
+    source "$TOOL"
+    rm -rf "${ROOT_LOAD:?}"/*; mkdir -p "$ROOT_LOAD"
+    place_parse_args 100002 100003 || { echo "lib_parse_rc: $?" >&2; exit 97; }
+    place_run
+    rc=$?
+    echo "lib_run_rc: $rc" >&2
+    [[ -f "$ROOT_LOAD/Tolkien John/The Lord of the Rings/01 - Fellowship of the Ring.zip" ]] \
+        && echo "lib_placed: yes" >&2 || echo "lib_placed: no" >&2
+    exit 0
+) >"$LIB_OUT" 2>"$LIB_ERR"
+if grep -q "lib_run_rc: 0" "$LIB_ERR" && grep -q "lib_placed: yes" "$LIB_ERR" \
+   && grep -q "summary: 2 placed" "$LIB_ERR"; then
+    report "library_run_batch" ok
+else
+    report "library_run_batch" fail "err=$(cat "$LIB_ERR")"
+fi
+
+# library failure path: unknown number -> place_run returns 1 (no exit, no trap leak)
+(
+    export MYSQL_CLIENT="$MOCK_BIN/mysql" \
+           PLACE_INPUT_DIR="$INPUT_DIR" ROOT_LOAD="$ROOT_LOAD" FLIBUSTA_DB=flibusta \
+           PLACE_REPORT_DIR="$REPORT_DIR" \
+           MARIA_TASKLIST="$TMPDIR/no-such-tasklist"
+    export PLACE_LIB_ONLY=1
+    # shellcheck disable=SC1090  # path is $TOOL, verified by the script-mode tests
+    source "$TOOL"
+    place_parse_args 999999 || { echo "lib_parse_rc: $?" >&2; exit 97; }
+    if place_run; then
+        echo "lib_fail_rc: 0" >&2
+    else
+        echo "lib_fail_rc: $?" >&2
+    fi
+    echo "lib_survived: yes" >&2
+    exit 0
+) >"$LIB_OUT" 2>"$LIB_ERR"
+if grep -q "lib_fail_rc: 1" "$LIB_ERR" && grep -q "lib_survived: yes" "$LIB_ERR" \
+   && grep -q "not found in the catalog" "$LIB_ERR"; then
+    report "library_failure_returns" ok
+else
+    report "library_failure_returns" fail "err=$(cat "$LIB_ERR")"
+fi
+
+# library usage error: parse returns 2 without exiting; no numbers -> run returns 2
+(
+    export PLACE_LIB_ONLY=1
+    # shellcheck disable=SC1090  # path is $TOOL, verified by the script-mode tests
+    source "$TOOL" 2>/dev/null
+    rc=0; place_parse_args --bogus >/dev/null 2>&1 || rc=$?
+    echo "lib_usage_rc: $rc" >&2
+    rc=0; place_parse_args >/dev/null 2>&1 || rc=$?
+    rc=0; place_run >/dev/null 2>&1 || rc=$?
+    echo "lib_noargs_rc: $rc" >&2
+    exit 0
+) >"$LIB_OUT" 2>"$LIB_ERR"
+if grep -q "lib_usage_rc: 2" "$LIB_ERR" && grep -q "lib_noargs_rc: 2" "$LIB_ERR"; then
+    report "library_usage_error" ok
+else
+    report "library_usage_error" fail "err=$(cat "$LIB_ERR")"
 fi
 
 # --- summary ---------------------------------------------------------------------------

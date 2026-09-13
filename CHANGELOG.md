@@ -9,6 +9,19 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+### `feature/flibusta-fb2-extract` — stage 2 v0.3.0 (dual-mode: script + library)
+- **bin/flibusta/place_flibusta_book.sh 0.2.0 → 0.3.0** — the file can now be
+  **sourced as a library** (`PLACE_LIB_ONLY=1`): it exposes
+  `place_parse_args`/`place_run`/`place_lookup`/`place_sanitize_name`/
+  `place_find_source`/`place_zip` and returns (never exits) from every
+  failure path, so an orchestrator (a future `run_round.sh`) can drive
+  stage 2 in-process.  Script-mode behavior, CLI contract, and exit codes
+  are unchanged; the lib/cli.sh `print_help` hook makes `-h` work again
+  through `cli_try_global`.
+- Suite grown to **27 assertions** (library mode: no auto-run, in-process
+  batch place, failure path returns without killing the caller, usage-error
+  rc preserved through `set -e`).
+
 ### `feature/flibusta-fb2-extract` — stage 2 v0.2.0 (trash-default + TSV report)
 - **bin/flibusta/place_flibusta_book.sh 0.1.0 → 0.2.0** — live-test feedback
   applied:
