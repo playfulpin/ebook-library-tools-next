@@ -10,6 +10,10 @@ All notable changes to the author-toolchain scripts in this repository:
 ## [Unreleased]
 
 ### Follow-It §8 — database access as a hard boundary (in progress)
+- **bin/books/books_estimate.sh + bin/books/books_reconcile.sh** migrated to
+  `db_mysql_argv` (inline argv builders removed; reconcile keeps its
+  `--no-db` offline path untouched); suites 22/22 + 23/23 with byte-identical
+  argv expectations
 - **bin/authors/authors_export.sh** migrated to the shared mysql argv via
   `db_mysql_argv` (first tool off inline argv assembly); mock suite 18/18
   with byte-identical `argv_contract` — zero behavior change

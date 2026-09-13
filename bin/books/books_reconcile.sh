@@ -121,6 +121,11 @@ DRY_RUN=0
 # shellcheck source=../lib/mariadb_lifecycle.sh
 source "$PROJECT_ROOT/lib/mariadb_lifecycle.sh"
 
+# Shared mysql argv assembly (lib/database.sh — Follow-It §8: the DB client
+# command line is a hard boundary owned by the lib, not by tools).
+# shellcheck source=../lib/database.sh
+source "$PROJECT_ROOT/lib/database.sh"
+
 cleanup() {
     [[ -n "${tmp_dir:-}" ]] && rm -rf "$tmp_dir"
     mariadb_stop_if_started
@@ -216,20 +221,10 @@ if (( RECON_DB )); then
     mariadb_maybe_start \
         || die "cannot start MariaDB (accept the UAC prompt or run WSL2 elevated, or start the server manually)"
 
-    mysql_args=("${MYSQL_CLIENT:-mysql}")
-    [[ -n "${MYSQL_HOST:-}" ]] && mysql_args+=(-h "$MYSQL_HOST" --protocol=TCP)
-    [[ -n "${MYSQL_PORT:-}" ]] && mysql_args+=(-P "$MYSQL_PORT")
-    [[ -n "${MYSQL_USER:-}" ]] && mysql_args+=(-u "$MYSQL_USER")
-    [[ -n "${MYSQL_EXTRA_ARGS:-}" ]] && mysql_args+=("$MYSQL_EXTRA_ARGS")
-    charset="utf8"
-    case " ${MYSQL_EXTRA_ARGS:-} " in
-        *" --default-character-set="*)
-            charset="${MYSQL_EXTRA_ARGS##*--default-character-set=}"
-            charset="${charset%% *}" ;;
-    esac
-    mysql_args+=(--init-command="SET NAMES $charset")
-    [[ -n "${MYSQL_DATABASE:-}" ]] && mysql_args+=("$MYSQL_DATABASE")
-    mysql_args+=(-B --skip-column-names --raw)
+    mysql_args=()
+    while IFS= read -r arg; do mysql_args+=("$arg"); done < <(db_mysql_argv "${MYSQL_DATABASE:-}")
+    # (db_mysql_argv owns host/port/user/charset/EXTRA_ARGS passthrough; see
+    #  lib/database.sh for the canonical contract.)
 
     debug "catalog snapshot: SELECT FullName, TotalCount FROM mlauthorname"
     if [[ -n "${MYSQL_PASSWORD:-}" ]]; then
