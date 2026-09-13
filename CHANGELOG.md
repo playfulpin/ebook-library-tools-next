@@ -9,6 +9,16 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+- **`lib/mariadb_lifecycle.sh` 1.0.2 — zero-timeout readiness wait fixed.**  With
+  `MARIA_START_TIMEOUT=0`, the start-wait loop computed `deadline == now` and
+  skipped its body entirely: the mock server that answers instantly was never
+  probed and every lifecycle test failed with "MariaDB did not become ready
+  within 0s".  The loop now probes at least once before honoring the deadline
+  (post-test instead of pre-test), so a timeout of 0 means "check once, no
+  waiting" — a sensible reading — instead of "never check".  Affects every
+  tool that sources the shared lib (estimate, refresh, populate, report,
+  reconcile, export).
+
 - **`bin/books/books_merge.sh` 0.2.1 — config default repaired.**  The Phase 4
   rename of `config/merge_books.conf` → `config/books_merge.conf` was applied
   everywhere except the lib's built-in default path (`lib/books_functions.sh`

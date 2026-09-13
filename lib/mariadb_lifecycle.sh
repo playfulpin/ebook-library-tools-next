@@ -2,7 +2,7 @@
 # -----------------------------------------------------------------------------
 # lib/mariadb_lifecycle.sh
 #
-# Version:       1.0.1
+# Version:       1.0.2
 # Last updated:  2026-09-12
 #
 # -----------------------------------------------------------------------------
@@ -125,11 +125,15 @@ mariadb_start() {
     _STARTED_MARIADB=1
     log "info : MariaDB start command issued; waiting for the server to answer..."
     deadline=$(( $(date +%s) + timeout ))
-    while (( $(date +%s) < deadline )); do
+    # Probe at least once even with MARIA_START_TIMEOUT=0 (deadline == now
+    # would otherwise skip the loop body entirely and fail without ever
+    # asking the server): post-test instead of pre-test.
+    while :; do
         if mariadb_ready; then
             log "info : MariaDB ready"
             return 0
         fi
+        (( $(date +%s) < deadline )) || break
         sleep 1
     done
     log "error: MariaDB did not become ready within ${timeout}s (accept the UAC prompt or run WSL2 elevated)"
