@@ -238,6 +238,8 @@ fb2_index_load() { # $1 = fb2|usr
         return 1
     fi
 
+    # shellcheck disable=SC2034  # FB2_*/USR_* arrays are read via namerefs
+    # in fb2_find_archive, which shellcheck cannot see across the indirection
     case "$type" in
         fb2) FB2_STARTS=("${starts[@]}") FB2_ENDS=("${ends[@]}") FB2_PATHS=("${paths[@]}") FB2_INDEXED=1 ;;
         usr) USR_STARTS=("${starts[@]}") USR_ENDS=("${ends[@]}") USR_PATHS=("${paths[@]}") USR_INDEXED=1 ;;
