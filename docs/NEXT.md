@@ -29,21 +29,21 @@
 
 ## Suggested next steps
 
-0. **OPEN: CI red on main — needs an authenticated log pull.**  All
-   three runs of the flibusta thread failed at the **Unit suites** step
-   (branch 384a31a, merge e22b0c7, release-prep 4ffa305; CI was green
-   on 2026-09-13 before the branch).  What was ruled out: `unzip` was
-   missing from the runner's apt list (fixed in d195d31, still red);
-   locale simulated `C.UTF-8` locally -> all 21 suites green; git file
-   modes irrelevant (`run_all` uses `bash suite`); checkout complete
-   (no untracked fixture gaps).  Job logs are 403 for anonymous API and
-   "Sign in to view logs" on the web.  **Ask Mike:** open
-   https://github.com/playfulpin/ebook-library-tools-next/actions/runs/34805704705
-   and paste the failing unit-suite output (or run `gh run view
-   34805704705 --log-failed` locally where gh is authenticated).
-   Suspects if the log shows a specific suite: tmpdir/`/home/runner`
-   assumptions in the new flibusta suites, or an ordering/parallelism
-   artifact in `run_all unit`.
+0. **RESOLVED: CI red on main — two root causes, both fixed (2026-09-14).**
+   All three runs of the flibusta thread failed at the **Unit suites**
+   step (branch 384a31a, merge e22b0c7, release-prep 4ffa305; CI was
+   green on 2026-09-13 before the branch).  Mike pulled the log, which
+   pinned a single assertion: `library_usage_error` in
+   `test_place_flibusta_book.sh`.  Root causes, in order:
+   (1) `unzip` was missing from the runner's apt list — fixed in
+   d195d31 (real but insufficient alone);  (2) `place_run` validated
+   the environment BEFORE assembling the work list, so a no-numbers
+   call returned 1 on the runner (no `/mnt/c/Backup_Go7/ToLoad` there)
+   but 2 on a dev box — fixed in place 0.3.3: usage-first ordering,
+   mirroring `fb2_run`, pinned by the new hermetic assertion
+   `library_noargs_rc2_before_env` (invalid env + no numbers -> still
+   2).  Lesson recorded: a library's usage contract must never depend
+   on the ambient environment; local-only validity can hide rc drift.
 1. **Pilot live round through the orchestrator** (now one command):
    `./bin/flibusta/run_round.sh --dry-run --from-file list_authors.txt`,
    then without `--dry-run`; check the round report under

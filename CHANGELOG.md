@@ -16,7 +16,21 @@ All notable changes to the author-toolchain scripts in this repository:
   falls back to `/usr/bin/unzip`; place/run_round call `unzip -p`
   directly), but CI installed only `zip` — unit suites failed on the
   runner while passing locally (WSL has unzip).  First failure: PR #1's
-  branch run (384a31a); the release-prep push (4ffa305) carries the fix.
+  branch run (384a31a).
+
+### place_flibusta_book.sh 0.3.2 -> 0.3.3 — usage-before-env ordering (2026-09-14)
+- **The CI red that survived the unzip fix**: `place_run` validated the
+  environment BEFORE assembling the work list, so a no-numbers call
+  returned 1 ("input directory does not exist") on a runner where the
+  default `/mnt/c/Backup_Go7/ToLoad` is absent — but 2 (usage) on a
+  dev box where it exists.  Environment-dependent return codes for the
+  same call violate the library contract; the usage check (no numbers
+  -> help + rc 2) now fires FIRST, mirroring `fb2_run`'s ordering.
+  Caught by `test_place_flibusta_book.sh library_usage_error`; new
+  hermetic assertion `library_noargs_rc2_before_env` (invalid env + no
+  numbers must still give 2) pins the ordering so it cannot regress.
+  Suite 27 -> 28 assertions.
+
 ### `feature/flibusta-fb2-extract` — orchestrator + both stages as libraries (2026-09-13)
 - **bin/flibusta/run_round.sh 0.1.0** — one-command round: stage 1 (extract)
   and stage 2 (place) run in a SINGLE process, both stage tools sourced as

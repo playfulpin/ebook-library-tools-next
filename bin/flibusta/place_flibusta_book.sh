@@ -2,8 +2,8 @@
 #
 # bin/flibusta/place_flibusta_book.sh
 #
-# Version:       0.3.2
-# Last updated:  2026-09-13
+# Version:       0.3.3
+# Last updated:  2026-09-14
 #
 # -----------------------------------------------------------------------------
 # PURPOSE
@@ -454,6 +454,23 @@ place_run() {
     local file_number report_file
     declare -a PLACE_FAILURES=() numbers=() file_numbers=()
 
+    # --- assemble the work list FIRST: the usage contract (no numbers -> 2)
+    # --- must not depend on the environment (a CI runner has no /mnt/c,
+    # --- so an env check would win with 1 before the numbers check) --------
+    for file_number in "${PLACE_POSITIONAL[@]}"; do
+        numbers+=("$file_number")
+    done
+    if [[ -n "$PLACE_FROM_FILE" ]]; then
+        mapfile -t file_numbers < <(place_read_numbers "$PLACE_FROM_FILE")
+        for file_number in "${file_numbers[@]}"; do
+            numbers+=("$file_number")
+        done
+    fi
+    if (( ${#numbers[@]} == 0 )); then
+        place_print_help
+        return 2
+    fi
+
     # --- validation (return-based: library callers keep control) ---------------
     if [[ -z "$ROOT_LOAD" ]]; then
         log "error: ROOT_LOAD is empty (set it or use --root-load)"; return 1
@@ -476,21 +493,6 @@ place_run() {
     if ! command -v "${MYSQL_CLIENT:-mysql}" >/dev/null 2>&1; then
         log "error: ${MYSQL_CLIENT:-mysql} not found; install a mysql/mariadb client or set MYSQL_CLIENT"
         return 1
-    fi
-
-    # --- assemble the work list: positionals + --from-file ----------------------
-    for file_number in "${PLACE_POSITIONAL[@]}"; do
-        numbers+=("$file_number")
-    done
-    if [[ -n "$PLACE_FROM_FILE" ]]; then
-        mapfile -t file_numbers < <(place_read_numbers "$PLACE_FROM_FILE")
-        for file_number in "${file_numbers[@]}"; do
-            numbers+=("$file_number")
-        done
-    fi
-    if (( ${#numbers[@]} == 0 )); then
-        place_print_help
-        return 2
     fi
 
     # --- MariaDB lifecycle: start when down, stop on exit when we started it ----

@@ -457,6 +457,29 @@ else
     report "library_usage_error" fail "err=$(cat "$LIB_ERR")"
 fi
 
+# regression (CI 2026-09-14): the no-numbers usage contract (rc 2) must fire
+# BEFORE environment validation -- on the runner the default input dir does
+# not exist, so the old env-first ordering returned 1 there but 2 locally.
+# Deliberately INVALID env (missing input dir): usage-first must still give 2.
+(
+    export PLACE_LIB_ONLY=1 \
+           PLACE_INPUT_DIR="$TMPDIR/definitely-missing-input-dir" \
+           ROOT_LOAD="$ROOT_LOAD" FLIBUSTA_DB=flibusta \
+           PLACE_REPORT_DIR="$REPORT_DIR" \
+           MYSQL_CLIENT="$MOCK_BIN/mysql"
+    # shellcheck disable=SC1090  # path is $TOOL, verified by the script-mode tests
+    source "$TOOL" 2>/dev/null
+    place_parse_args >/dev/null 2>&1 || true
+    rc=0; place_run >/dev/null 2>&1 || rc=$?
+    echo "lib_noargs_validenv_rc: $rc" >&2
+    exit 0
+) >"$LIB_OUT" 2>"$LIB_ERR"
+if grep -q "lib_noargs_validenv_rc: 2" "$LIB_ERR"; then
+    report "library_noargs_rc2_before_env" ok
+else
+    report "library_noargs_rc2_before_env" fail "err=$(cat "$LIB_ERR")"
+fi
+
 # --- summary ---------------------------------------------------------------------------
 echo
 if (( FAIL_COUNT == 0 )); then
