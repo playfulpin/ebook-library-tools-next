@@ -9,6 +9,114 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+### `feature/flibusta-fb2-extract` — orchestrator + both stages as libraries (2026-09-13)
+- **bin/flibusta/run_round.sh 0.1.0** — one-command round: stage 1 (extract)
+  and stage 2 (place) run in a SINGLE process, both stage tools sourced as
+  libraries.  One summary, one MariaDB lifecycle, and a per-number TSV round
+  report joining both stages' outcomes (`run_round_<ts>.tsv`: status placed /
+  skipped / extracted / failed-stage1 / failed-stage2) — the retry workflow
+  is "failed-* rows -> a new list -> re-run" (idempotent: placed targets are
+  skipped automatically).  New suite `tests/unit/test_run_round.sh` 15
+  assertions (hermetic: mock mysql + real zip fixtures; covers the full
+  round, sparse numbers, catalog misses, extract-only, dry-run, retry).
+- **extract_bookid_flibusta.sh 0.3.1 -> 0.4.0** — dual-mode like place:
+  source with `FB2_LIB_ONLY=1`, drive via `fb2_parse_args` / `fb2_run`
+  (return codes, never exit), per-number results in `FB2_DELIVERED[]`.
+  Script mode is behavior-identical to 0.3.x.  Suite grown 24 -> 28
+  assertions (library contract, dual-source guard, usage-error rc).
+- **place_flibusta_book.sh 0.3.1 -> 0.3.2** — version constants are now
+  PREFIXED (`PLACE_SCRIPT_VERSION`/`PLACE_CLI_INVOCATION`): a bare readonly
+  `SCRIPT_VERSION` aborted the whole shell when an orchestrator sourced a
+  second stage library (readonly re-assignment).  Also: in **dry-run**, a
+  number whose source file is not extracted yet now reports `would-place`
+  ("stage 1 would deliver it") instead of failing — a dry round has no
+  stage-1 output by definition.  Suite 27 assertions.
+- **check_layers.sh 1.1.0 -> 1.2.0** — sanctioned orchestrator rule: only
+  `bin/<group>/run_*.sh` may source the other tools of its own group (as
+  `*_LIB_ONLY` libraries, no orchestrator chaining); plain tool-to-tool
+  sourcing stays forbidden.  The gate was previously blind to
+  `$SCRIPT_DIR`-relative sibling sources — the new branch captures and
+  constrains them instead of leaving the hole.
+- **lib/cli.sh** — `SCRIPT_VERSION_ALIAS` fallback: prefixed version
+  constants keep working through `cli_try_global`'s -v path when several
+  libraries coexist in one process.
+
+### `feature/flibusta-fb2-extract` — extractor family + hot-path overhaul (2026-09-13)
+- **Family rename & growth** — `extract_flibusta_fb2.sh` is now
+  `extract_bookid_flibusta.sh` (0.3.1), and two DB-driven siblings join it:
+  `extract_author_flibusta.sh` 0.1.1 (author-name substring → their fb2
+  books) and `extract_series_flibusta.sh` 0.1.1 (series-name substring →
+  its fb2 books).  Shared mechanics moved to the intra-group include
+  `bin/flibusta/_flibusta_extract_common.sh` 1.2.0 (layer gate v1.1.0
+  allows `bin/<group>/_*.sh`); the config file became
+  `config/flibusta_extract.conf` / `FLIBUSTA_EXTRACT_CONF_FILE`.  usr stays
+  bookid-only by design.  New suites: 18 + 17 assertions; stage-1 suite
+  tracks the rename (24 assertions).
+- **30× batch speedup on live data (1m53s → 52s for 1,510 books; single
+  lookups ~1.8s)** — two compounding defects found by timing a live dry-run:
+  (1) `flb_find_archive` / `flb_resolve_member` were invoked via `$( ... )`,
+  so every call ran in a subshell where the range index and the new archive
+  listing cache died at call end — each number re-globbed 201 archives and
+  re-listed its archive over the slow WSL mount.  Result delivery now goes
+  through the `FLB_ARCHIVE` / `FLB_MEMBER` globals (documented contract in
+  the include); the listing cache (`FLB_LISTINGS`) keeps one `unzip -Z1` per
+  distinct archive per run.  (2) skip-existing now runs BEFORE archive
+  resolution in the DB-driven tools — an already-extracted number costs
+  nothing on re-runs.
+- **Query-plan finding (live, MariaDB 10.4)** — the books-by-author query
+  with `authorid IN (subquery)` ran 62s; the identical query with the ids
+  spelled out runs 0.13-0.47s.  The tools already send literal ids, so the
+  shipped path is the fast one; documented here as a hazard for future
+  query changes.  `filename REGEXP` also gained a trailing-whitespace
+  tolerance (`^[0-9]+[[:space:]]*$`) matching the load pipeline.
+
+### `feature/flibusta-fb2-extract` — live-test bug fixes (2026-09-13)
+Two real defects found only by running against real data; both mock suites
+were blind to them:
+- **extract_flibusta_fb2.sh 0.2.0 → 0.2.1** — `fb2_resolve_member` fed the
+  archive listing through `grep -m1`, which closes the pipe after the first
+  match: on large listings unzip died with SIGPIPE (141) under `pipefail`
+  and the member was reported missing **even though it exists** (observed on
+  `f.usr-811194-815075.zip`, ~3.9k members).  The listing is now consumed
+  whole (mapfile) and scanned in bash - no early-closing consumer, no race.
+- **place_flibusta_book.sh 0.3.0 → 0.3.1** — catalog resolution could never
+  succeed for non-fb2 books: `mlbook.filename` stores `<N>.<ext>` for usr
+  books (live-verified: `811215.djvu`, `811226.pdf`) and a bare number only
+  for fb2.  The lookup now matches both forms (`b.filename = 'N' OR
+  b.filename LIKE 'N.%'`, exact bare match preferred).  Live-verified
+  end-to-end: `811215` -> extracted `811215.djvu` -> placed as
+  `ToLoad/Корытко Роман/Криптонім.zip`, source trashed, report written,
+  MariaDB started and stopped gracefully.
+
+### `feature/flibusta-fb2-extract` — stage 2 v0.3.0 (dual-mode: script + library)
+- **bin/flibusta/place_flibusta_book.sh 0.2.0 → 0.3.0** — the file can now be
+  **sourced as a library** (`PLACE_LIB_ONLY=1`): it exposes
+  `place_parse_args`/`place_run`/`place_lookup`/`place_sanitize_name`/
+  `place_find_source`/`place_zip` and returns (never exits) from every
+  failure path, so an orchestrator (a future `run_round.sh`) can drive
+  stage 2 in-process.  Script-mode behavior, CLI contract, and exit codes
+  are unchanged; the lib/cli.sh `print_help` hook makes `-h` work again
+  through `cli_try_global`.
+- Suite grown to **27 assertions** (library mode: no auto-run, in-process
+  batch place, failure path returns without killing the caller, usage-error
+  rc preserved through `set -e`).
+
+### `feature/flibusta-fb2-extract` — stage 2 v0.2.0 (trash-default + TSV report)
+- **bin/flibusta/place_flibusta_book.sh 0.1.0 → 0.2.0** — live-test feedback
+  applied:
+  - **Source trashed by default** — after a successful placement the stage-1
+    extracted file is removed; `--keep-source` retains it; `--rm-source` is
+    a documented no-op kept for pipeline symmetry.  A failed placement never
+    removes the source.
+  - **Per-run TSV report** — one row per attempted number
+    (`processed_at, file_number, bookid, status, target_zip, reason`) written
+    to `--report-dir` (default `/mnt/c/Backup_Go7/merge-reports`); dry-run
+    rows use `would-place`/`would-skip`.  Persistent error/retry log the
+    stderr-only house logging did not provide.
+- Suite grown to **23 assertions** (trash default, keep-source, failed-run
+  source retention, placed/would-place report rows); config gains the
+  `PLACE_REPORT_DIR` default.
+
 ### Follow-It §8 — database access as a hard boundary (in progress)
 - **lib/database.sh 1.2.0** — new `db_mysqldump_argv` (mysqldump argv: no batch
   flags, no --init-command, no --connect-timeout — mysqldump rejects them; the

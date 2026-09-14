@@ -12,8 +12,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Install test dependencies (gawk, rsync, pv)
-        run: sudo apt-get update && sudo apt-get install -y gawk rsync pv
+      - name: Install test dependencies (gawk, rsync, pv, zip)
+        run: sudo apt-get update && sudo apt-get install -y gawk rsync pv zip
 
       - name: Shell syntax check
         run: |
