@@ -2,7 +2,7 @@
 #
 # bin/flibusta/extract_flibusta_fb2.sh
 #
-# Version:       0.2.0
+# Version:       0.2.1
 # Last updated:  2026-09-13
 #
 # -----------------------------------------------------------------------------
@@ -275,18 +275,30 @@ fb2_find_archive() { # $1 = FileNumber, $2 = fb2|usr
 # fb2_resolve_member ARCHIVE NUMBER TYPE -> member name on stdout; rc 1 when
 # the archive holds no member for the number.  fb2: exact "<N>.fb2".
 # usr: prefix "<N>." with any real extension (pdf, djvu, .pdf.zip, ...).
+# Implementation note (live-tested 2026-09-13): the listing is consumed
+# WHOLE (mapfile) and scanned in bash - the previous `grep -m1` pipeline
+# closed the pipe after the first match, so unzip died with SIGPIPE (141)
+# on large listings under pipefail and the member was reported missing
+# even though it exists.  No early-closing consumer, no race.
 fb2_resolve_member() { # $1 = archive, $2 = FileNumber, $3 = fb2|usr
     local archive="$1" file_number="$2" type="$3"
-    local member
-    member="$(unzip -Z1 -- "$archive" 2>/dev/null | tr -d '\r' \
-        | { if [[ "$type" == fb2 ]]; then
-                grep -Fx "${file_number}.fb2"
-            else
-                grep -m1 -E "^${file_number}\."
-            fi; })" || return 1
-    [[ -n "$member" ]] || return 1
-    printf '%s\n' "$member"
-    return 0
+    local -a listing=()
+    mapfile -t listing < <(unzip -Z1 -- "$archive" 2>/dev/null | tr -d '\r')
+    local entry
+    for entry in "${listing[@]}"; do
+        if [[ "$type" == fb2 ]]; then
+            if [[ "$entry" == "${file_number}.fb2" ]]; then
+                printf '%s\n' "$entry"
+                return 0
+            fi
+        else
+            if [[ "$entry" == "${file_number}."* ]]; then
+                printf '%s\n' "$entry"
+                return 0
+            fi
+        fi
+    done
+    return 1
 }
 
 # fb2_extract ARCHIVE MEMBER OUTPUT_FILE -> atomic member extraction.

@@ -9,6 +9,24 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+### `feature/flibusta-fb2-extract` — live-test bug fixes (2026-09-13)
+Two real defects found only by running against real data; both mock suites
+were blind to them:
+- **extract_flibusta_fb2.sh 0.2.0 → 0.2.1** — `fb2_resolve_member` fed the
+  archive listing through `grep -m1`, which closes the pipe after the first
+  match: on large listings unzip died with SIGPIPE (141) under `pipefail`
+  and the member was reported missing **even though it exists** (observed on
+  `f.usr-811194-815075.zip`, ~3.9k members).  The listing is now consumed
+  whole (mapfile) and scanned in bash - no early-closing consumer, no race.
+- **place_flibusta_book.sh 0.3.0 → 0.3.1** — catalog resolution could never
+  succeed for non-fb2 books: `mlbook.filename` stores `<N>.<ext>` for usr
+  books (live-verified: `811215.djvu`, `811226.pdf`) and a bare number only
+  for fb2.  The lookup now matches both forms (`b.filename = 'N' OR
+  b.filename LIKE 'N.%'`, exact bare match preferred).  Live-verified
+  end-to-end: `811215` -> extracted `811215.djvu` -> placed as
+  `ToLoad/Корытко Роман/Криптонім.zip`, source trashed, report written,
+  MariaDB started and stopped gracefully.
+
 ### `feature/flibusta-fb2-extract` — stage 2 v0.3.0 (dual-mode: script + library)
 - **bin/flibusta/place_flibusta_book.sh 0.2.0 → 0.3.0** — the file can now be
   **sourced as a library** (`PLACE_LIB_ONLY=1`): it exposes

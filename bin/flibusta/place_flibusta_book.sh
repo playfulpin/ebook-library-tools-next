@@ -2,7 +2,7 @@
 #
 # bin/flibusta/place_flibusta_book.sh
 #
-# Version:       0.3.0
+# Version:       0.3.1
 # Last updated:  2026-09-13
 #
 # -----------------------------------------------------------------------------
@@ -375,7 +375,10 @@ place_sanitize_name() { # $1 = raw name
 # seqnum) on stdout via lib/database.sh; rc 1 when the number is unknown.
 # Aggregated derived tables guarantee one row: MIN(authorid) and MIN(seqid)
 # per bookid (both decisions confirmed 2026-09-13).  The number is validated
-# digits-only before interpolation, so the inline literal is injection-safe.
+# digits-only before interpolation, so the inline literals are injection-safe.
+# Filename convention (live-tested 2026-09-13): fb2 books store a bare
+# number in mlbook.filename, non-fb2 (usr) books store "<N>.<ext>"
+# (811215.djvu, 811226.pdf) - so match both forms, exact bare match first.
 place_lookup() { # $1 = FileNumber
     local n="$1"
     local sql row
@@ -386,7 +389,9 @@ LEFT JOIN mlauthorname an ON an.authorid = a.authorid
 LEFT JOIN (SELECT bookid, MIN(seqid) AS seqid FROM mlseq GROUP BY bookid) ms ON ms.bookid = b.bookid
 LEFT JOIN mlseq s ON s.bookid = b.bookid AND s.seqid = ms.seqid
 LEFT JOIN mlseqname sn ON sn.seqid = s.seqid
-WHERE b.filename = '$n' LIMIT 1;"
+WHERE b.filename = '$n' OR b.filename LIKE '$n.%'
+ORDER BY (b.filename = '$n') DESC, b.bookid
+LIMIT 1;"
     row="$(db_run_sql "$sql" "$FLIBUSTA_DB" 2>/dev/null)" || return 1
     [[ -n "$row" ]] || return 1
     printf '%s\n' "$row"

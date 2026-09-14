@@ -94,7 +94,7 @@ for a in "\$@"; do
     [[ "\$prev" == "-e" ]] && sql="\$a"
     prev="\$a"
 done
-n="\$(printf '%s' "\$sql" | sed -n "s/.*b\\.filename *= *'\\([0-9]*\\)'.*/\\1/p")"
+n="\$(printf '%s' "\$sql" | sed -n "s/.*WHERE b\\.filename *= *'\\([0-9]*\\)'.*/\\1/p")"
 case "\$n" in
     100001) printf '100001\tThe Trial\tKafka Franz\t\t\n' ;;
     100002) printf '100002\tFellowship of the Ring\tTolkien John\tThe Lord of the Rings\t1\n' ;;
