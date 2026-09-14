@@ -9,6 +9,14 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+### CI fix — unzip missing on the runner (2026-09-14)
+- **.github/workflows/ci.yml** — the apt-get dependency list gained
+  `unzip`.  The Flibusta suites landed with real `unzip` requirements
+  (the extract fixtures build real zip archives and stage-1's PATH shim
+  falls back to `/usr/bin/unzip`; place/run_round call `unzip -p`
+  directly), but CI installed only `zip` — unit suites failed on the
+  runner while passing locally (WSL has unzip).  First failure: PR #1's
+  branch run (384a31a); the release-prep push (4ffa305) carries the fix.
 ### `feature/flibusta-fb2-extract` — orchestrator + both stages as libraries (2026-09-13)
 - **bin/flibusta/run_round.sh 0.1.0** — one-command round: stage 1 (extract)
   and stage 2 (place) run in a SINGLE process, both stage tools sourced as
