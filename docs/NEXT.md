@@ -29,6 +29,21 @@
 
 ## Suggested next steps
 
+0. **OPEN: CI red on main — needs an authenticated log pull.**  All
+   three runs of the flibusta thread failed at the **Unit suites** step
+   (branch 384a31a, merge e22b0c7, release-prep 4ffa305; CI was green
+   on 2026-09-13 before the branch).  What was ruled out: `unzip` was
+   missing from the runner's apt list (fixed in d195d31, still red);
+   locale simulated `C.UTF-8` locally -> all 21 suites green; git file
+   modes irrelevant (`run_all` uses `bash suite`); checkout complete
+   (no untracked fixture gaps).  Job logs are 403 for anonymous API and
+   "Sign in to view logs" on the web.  **Ask Mike:** open
+   https://github.com/playfulpin/ebook-library-tools-next/actions/runs/34805704705
+   and paste the failing unit-suite output (or run `gh run view
+   34805704705 --log-failed` locally where gh is authenticated).
+   Suspects if the log shows a specific suite: tmpdir/`/home/runner`
+   assumptions in the new flibusta suites, or an ordering/parallelism
+   artifact in `run_all unit`.
 1. **Pilot live round through the orchestrator** (now one command):
    `./bin/flibusta/run_round.sh --dry-run --from-file list_authors.txt`,
    then without `--dry-run`; check the round report under
