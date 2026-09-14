@@ -34,7 +34,9 @@ unset SHELLOPTS BASHOPTS 2>/dev/null || true
 #     unknown option exits 2, bad --type exits 2, no numbers exits 2
 #   - dry-run resolves and writes nothing
 #
-# Version header stays in sync with --version (0.3.x).
+# Version header stays in sync with --version (0.4.x; the 0.4.0 dual-mode
+# rewrite also carries the FB2_* library API asserted in the LIBRARY MODE
+# section below).
 #
 # Usage:  bash tests/unit/test_extract_bookid_flibusta.sh
 # -----------------------------------------------------------------------------
@@ -109,10 +111,10 @@ echo "== extract_bookid_flibusta =="
 
 # --- version / usage --------------------------------------------------------------
 version="$(sed -n 's/^# Version:[[:space:]]*//p' "$TOOL" | head -n 1)"
-if [[ "$version" =~ ^0\.3\.[0-9]+$ ]]; then
+if [[ "$version" =~ ^0\.4\.[0-9]+$ ]]; then
     report "version_header" ok "header $version"
 else
-    report "version_header" fail "got '$version', expected ^0.3.[0-9]+$"
+    report "version_header" fail "got '$version', expected ^0.4.[0-9]+$"
 fi
 
 bash "$TOOL" --version >"$TMPDIR/v.txt" 2>&1
@@ -312,6 +314,94 @@ if (( RC == 0 )) && out_has "$ALT_OUT/100011.fb2" "content of 100011" \
     report "output_dir_flag_override" ok
 else
     report "output_dir_flag_override" fail "rc=$RC"
+fi
+
+# --- LIBRARY MODE: source with FB2_LIB_ONLY=1, drive fb2_parse_args/fb2_run -------------
+# The orchestrator contract: both functions RETURN (never exit); fb2_run
+# delivers per-number rows in FB2_DELIVERED[] (number<TAB>status<TAB>detail);
+# a failed batch returns 1 while the caller keeps control.
+LIB_TMP="$TMPDIR/librun"
+mkdir -p "$LIB_TMP/out" "$LIB_TMP/bin"
+# mock mysql on PATH for this section (library mode runs in THIS shell, so a
+# PATH shim is the cleanest injection; stage-1 needs no DB, but unzip must exist)
+cat > "$LIB_TMP/bin/unzip" <<'SHIM_EOF'
+#!/usr/bin/env bash
+exec "$(command -v -p unzip || echo /usr/bin/unzip)" "$@"
+SHIM_EOF
+chmod +x "$LIB_TMP/bin/unzip"
+
+# NB: the probe runs from a script FILE, not `bash -c '...'` - the single-
+# quoted -c body would suppress every $TOOL/$SOURCE_DIR expansion, and the
+# sourced tool's set -e demands the if/else rc-preserving pattern.
+cat > "$LIB_TMP/probe.sh" <<PROBE_EOF
+export FB2_LIB_ONLY=1
+export PATH="$LIB_TMP/bin:\$PATH"
+export FLIBUSTA_SOURCE_DIR="$SOURCE_DIR"
+export FB2_OUTPUT_DIR="$LIB_TMP/out"
+source "$TOOL"
+fb2_parse_args --type both 20011 300005 || { echo "parse failed rc=\$?"; exit 9; }
+# the sourced tool enables set -e; protect the expected-failure run so the
+# probe survives to print the FB2_DELIVERED rows
+set +e
+fb2_run
+rc=\$?
+# results contract: one row per number, tab-separated
+printf 'ROWS=%s\n' "\${#FB2_DELIVERED[@]}"
+for row in "\${FB2_DELIVERED[@]}"; do printf 'ROW:%s\n' "\$row"; done
+exit \$rc
+PROBE_EOF
+lib_rc=$(bash "$LIB_TMP/probe.sh" 2>"$LIB_TMP/err.txt")
+lib_rc_code=$?
+
+row_20011="$(printf '%s\n' "$lib_rc" | grep '^ROW:20011' | head -1)"
+row_300005="$(printf '%s\n' "$lib_rc" | grep '^ROW:300005' | head -1)"
+rows_count="$(printf '%s\n' "$lib_rc" | grep -c '^ROW:')"
+
+if [[ "$row_20011" == *$'\t'delivered$'\t'* ]]; then
+    report "library_run_delivers" ok "row: ${row_20011%%$'\t'*} delivered (usr fallback)"
+else
+    report "library_run_delivers" fail "rc=$lib_rc_code out=$(printf '%s' "$lib_rc" | head -3 | tr '\n' ';') err=$(head -2 "$LIB_TMP/err.txt")"
+fi
+
+if [[ "$row_300005" == *$'\t'failed$'\t'* ]] && (( lib_rc_code == 1 )) && (( rows_count == 2 )); then
+    report "library_failed_rows_and_rc1" ok
+else
+    report "library_failed_rows_and_rc1" fail "rc=$lib_rc_code rows=$rows_count row300005=$row_300005"
+fi
+
+# library parse-args usage error returns 2 (never exits the caller)
+# NB: the sourced tool enables set -e in this shell, so a bare
+# "fb2_parse_args --bogus; echo $?" would die at the first command - the
+# if/else protects the non-zero return from errexit (the rc-preserving
+# pattern the place suite uses).  Probe from a script FILE for expansion.
+cat > "$LIB_TMP/probe2.sh" <<PROBE2_EOF
+export FB2_LIB_ONLY=1
+source "$TOOL"
+if fb2_parse_args --bogus; then
+    echo "returned=0"
+else
+    echo "returned=\$?"
+fi
+PROBE2_EOF
+lib_rc2=$(bash "$LIB_TMP/probe2.sh" 2>/dev/null)
+if [[ "$lib_rc2" == *"returned=2"* ]]; then
+    report "library_parse_args_returns_2" ok
+else
+    report "library_parse_args_returns_2" fail "got: $lib_rc2"
+fi
+
+# dual-source safety: sourcing twice does not crash (guard fires)
+cat > "$LIB_TMP/probe3.sh" <<PROBE3_EOF
+export FB2_LIB_ONLY=1
+source "$TOOL"
+source "$TOOL"
+echo "dual-source-ok"
+PROBE3_EOF
+lib_rc3=$(bash "$LIB_TMP/probe3.sh" 2>&1)
+if [[ "$lib_rc3" == *"dual-source-ok"* ]]; then
+    report "library_dual_source_guard" ok
+else
+    report "library_dual_source_guard" fail "got: $(printf '%s' "$lib_rc3" | head -2)"
 fi
 
 # --- summary ---------------------------------------------------------------------------

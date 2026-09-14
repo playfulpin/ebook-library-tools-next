@@ -9,6 +9,38 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+### `feature/flibusta-fb2-extract` — orchestrator + both stages as libraries (2026-09-13)
+- **bin/flibusta/run_round.sh 0.1.0** — one-command round: stage 1 (extract)
+  and stage 2 (place) run in a SINGLE process, both stage tools sourced as
+  libraries.  One summary, one MariaDB lifecycle, and a per-number TSV round
+  report joining both stages' outcomes (`run_round_<ts>.tsv`: status placed /
+  skipped / extracted / failed-stage1 / failed-stage2) — the retry workflow
+  is "failed-* rows -> a new list -> re-run" (idempotent: placed targets are
+  skipped automatically).  New suite `tests/unit/test_run_round.sh` 15
+  assertions (hermetic: mock mysql + real zip fixtures; covers the full
+  round, sparse numbers, catalog misses, extract-only, dry-run, retry).
+- **extract_bookid_flibusta.sh 0.3.1 -> 0.4.0** — dual-mode like place:
+  source with `FB2_LIB_ONLY=1`, drive via `fb2_parse_args` / `fb2_run`
+  (return codes, never exit), per-number results in `FB2_DELIVERED[]`.
+  Script mode is behavior-identical to 0.3.x.  Suite grown 24 -> 28
+  assertions (library contract, dual-source guard, usage-error rc).
+- **place_flibusta_book.sh 0.3.1 -> 0.3.2** — version constants are now
+  PREFIXED (`PLACE_SCRIPT_VERSION`/`PLACE_CLI_INVOCATION`): a bare readonly
+  `SCRIPT_VERSION` aborted the whole shell when an orchestrator sourced a
+  second stage library (readonly re-assignment).  Also: in **dry-run**, a
+  number whose source file is not extracted yet now reports `would-place`
+  ("stage 1 would deliver it") instead of failing — a dry round has no
+  stage-1 output by definition.  Suite 27 assertions.
+- **check_layers.sh 1.1.0 -> 1.2.0** — sanctioned orchestrator rule: only
+  `bin/<group>/run_*.sh` may source the other tools of its own group (as
+  `*_LIB_ONLY` libraries, no orchestrator chaining); plain tool-to-tool
+  sourcing stays forbidden.  The gate was previously blind to
+  `$SCRIPT_DIR`-relative sibling sources — the new branch captures and
+  constrains them instead of leaving the hole.
+- **lib/cli.sh** — `SCRIPT_VERSION_ALIAS` fallback: prefixed version
+  constants keep working through `cli_try_global`'s -v path when several
+  libraries coexist in one process.
+
 ### `feature/flibusta-fb2-extract` — extractor family + hot-path overhaul (2026-09-13)
 - **Family rename & growth** — `extract_flibusta_fb2.sh` is now
   `extract_bookid_flibusta.sh` (0.3.1), and two DB-driven siblings join it:

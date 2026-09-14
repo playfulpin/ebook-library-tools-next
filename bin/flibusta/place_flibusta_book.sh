@@ -2,7 +2,7 @@
 #
 # bin/flibusta/place_flibusta_book.sh
 #
-# Version:       0.3.1
+# Version:       0.3.2
 # Last updated:  2026-09-13
 #
 # -----------------------------------------------------------------------------
@@ -170,9 +170,16 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../lib" && pwd)/common.sh"
 common_init
 
 # SCRIPT_VERSION is parsed from this file's own header (version-sync contract).
+# The constant is PREFIXED (PLACE_): run_round sources BOTH stage libraries in
+# one process, and a bare readonly SCRIPT_VERSION would collide with stage 1's
+# declaration (readonly re-assignment aborts the shell).  The unprefixed names
+# stay as non-readonly ALIASES for lib/cli.sh (first writer wins; harmless
+# because every library parses its own identical header contract).
 # shellcheck disable=SC2155  # sed+head pipeline cannot fail; masking not a concern
-readonly SCRIPT_VERSION="$(sed -n 's/^# Version:[[:space:]]*//p' "${BASH_SOURCE[0]}" | head -n 1)"
-readonly CLI_INVOCATION="bin/flibusta/place_flibusta_book.sh"
+readonly PLACE_SCRIPT_VERSION="$(sed -n 's/^# Version:[[:space:]]*//p' "${BASH_SOURCE[0]}" | head -n 1)"
+readonly PLACE_CLI_INVOCATION="bin/flibusta/place_flibusta_book.sh"
+[[ -n "${SCRIPT_VERSION:-}" ]] || SCRIPT_VERSION="$PLACE_SCRIPT_VERSION"
+[[ -n "${CLI_INVOCATION:-}" ]] || CLI_INVOCATION="$PLACE_CLI_INVOCATION"
 
 # shellcheck disable=SC2034  # read by lib/logging.sh at runtime
 DEBUG="${DEBUG:-0}"
@@ -303,7 +310,7 @@ place_parse_args() {
                 # shellcheck disable=SC2034  # read by lib/logging.sh at runtime
                 DEBUG=1; shift ;;
             -h|--help)    print_help; exit 0 ;;
-            -v|--version) cli_print_version "$CLI_INVOCATION" "$SCRIPT_VERSION"; exit 0 ;;
+            -v|--version) cli_print_version "$PLACE_CLI_INVOCATION" "$PLACE_SCRIPT_VERSION"; exit 0 ;;
             -*) echo "Error: unknown option '$1'" >&2; echo "Try '$CLI_INVOCATION --help'." >&2; return 2 ;;
             *)
                 PLACE_POSITIONAL+=("$1"); shift ;;
@@ -537,6 +544,14 @@ place_run() {
 
         # source file ---------------------------------------------------------------
         source_file="$(place_find_source "$file_number" "$PLACE_INPUT_DIR")" || {
+            if (( DRY_RUN )); then
+                # dry-run resolves as far as possible: no source only means
+                # stage 1 has not run yet (e.g. a --dry-run round where stage
+                # 1 wrote nothing) - that is still a would-place outcome.
+                place_push_report "$file_number" "$bookid" "would-place" "$target_zip" "source not extracted yet (dry run: stage 1 would deliver it)"
+                ok_count=$((ok_count + 1))
+                continue
+            fi
             PLACE_FAILURES+=("$file_number: extracted file not found in $PLACE_INPUT_DIR (run stage 1 first)")
             log_warn "$file_number: extracted file not found in $PLACE_INPUT_DIR"
             place_push_report "$file_number" "$bookid" "failed" "$target_zip" "extracted file not found in $PLACE_INPUT_DIR (run stage 1 first)"

@@ -71,7 +71,14 @@ cli_try_global() {
                 exit "$CLI_EXIT_OK"
                 ;;
             -v|--version)
-                cli_print_version "${CLI_INVOCATION:-$0}" "${SCRIPT_VERSION:-0.0.0}"
+                # Prefixed tools (the flibusta family declares FB2_/PLACE_/RR_
+                # constants so several stage libraries coexist inside one
+                # orchestrator process) declare an ALIAS instead: SCRIPT_VERSION
+                # stays the lib contract; the tool sets it to its prefixed
+                # constant when that exists.  Bare declarations keep working.
+                local _cli_ver="${SCRIPT_VERSION:-}"
+                [[ -n "$_cli_ver" ]] || _cli_ver="${SCRIPT_VERSION_ALIAS:-0.0.0}"
+                cli_print_version "${CLI_INVOCATION:-$0}" "$_cli_ver"
                 exit "$CLI_EXIT_OK"
                 ;;
             --debug)

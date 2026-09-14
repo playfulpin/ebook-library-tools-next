@@ -1,7 +1,8 @@
 # Flibusta Extractor Family (bookid / author / series)
 
-> Last updated: 2026-09-13 (extract_bookid 0.3.1, extract_author 0.1.1,
-> extract_series 0.1.1, place 0.3.1, _flibusta_extract_common 1.2.0)
+> Last updated: 2026-09-13 (extract_bookid 0.4.0, extract_author 0.1.1,
+> extract_series 0.1.1, place 0.3.2, run_round 0.1.0,
+> _flibusta_extract_common 1.2.0)
 > Tools: `bin/flibusta/extract_bookid_flibusta.sh`,
 > `bin/flibusta/extract_author_flibusta.sh`,
 > `bin/flibusta/extract_series_flibusta.sh`,
@@ -173,9 +174,10 @@ violation the layer gate and review will reject.
 ## Testing
 
 ```bash
-bash tests/unit/test_extract_bookid_flibusta.sh   # 24 assertions
+bash tests/unit/test_extract_bookid_flibusta.sh   # 28 assertions
 bash tests/unit/test_extract_author_flibusta.sh   # 18 assertions
 bash tests/unit/test_extract_series_flibusta.sh   # 17 assertions
+bash tests/unit/test_run_round.sh                 # 15 assertions
 bash tests/unit/test_place_flibusta_book.sh     # 27 assertions
 tests/run_all.sh unit                           # part of the standard battery
 ```
@@ -253,21 +255,43 @@ Options: `-i/--input-dir` (stage-1 output, default `/mnt/c/Backup_Go7/ToLoad`),
 `--report-dir`, `-n/--dry-run`, `-d/--debug`, `-h/-v`.  Exit codes:
 0 all placed, 1 any failed, 2 usage error.
 
-## Library use (v0.3.0)
+## Library use (place v0.3.0; extract_bookid v0.4.0; orchestrator v0.1.0)
 
-The file doubles as a **sourceable library**: with `PLACE_LIB_ONLY=1` set
-before sourcing it defines the API without running, so an orchestrator
-(a future `run_round.sh`) can drive stage 2 in-process:
+**Both** stage tools double as **sourceable libraries**: with
+`PLACE_LIB_ONLY=1` / `FB2_LIB_ONLY=1` set before sourcing they define their
+APIs without running.  `bin/flibusta/run_round.sh` is the sanctioned
+consumer — the single-process round orchestrator (extract → place, one
+summary, one joined TSV round report; see `run_round.sh --help`):
 
 ```bash
+# the orchestrator, one command for a whole round:
+./bin/flibusta/run_round.sh --from-file numbers.txt
+# retry: failed-* rows of the round report -> a new list -> re-run
+
+# manual in-process composition (what run_round does internally):
+FB2_LIB_ONLY=1  source "$PROJECT_ROOT/bin/flibusta/extract_bookid_flibusta.sh"
 PLACE_LIB_ONLY=1 source "$PROJECT_ROOT/bin/flibusta/place_flibusta_book.sh"
-place_parse_args -n 811194 && place_run
+fb2_parse_args --type both 100031 && fb2_run          # stage 1
+PLACE_POSITIONAL=(100031) && place_run                # stage 2
 ```
+
+**Stage 1 library API** (extract_bookid v0.4.0, mirrors place):
+
+| Function | Contract |
+|---|---|
+| `fb2_parse_args ARGS...` | sets the `FB2_*` run parameters; **returns** 2 on a usage error (never exits) |
+| `fb2_run` | executes the batch; **returns** 1 when anything failed, 0 on success — never exits |
+| `FB2_DELIVERED[]` | per-number results after `fb2_run`: `number<TAB>status<TAB>detail` (delivered / skipped / failed) |
+| `fb2_assemble_numbers` | fills `FB2_NUMBERS[]` from positionals + `--from-file` |
+| `fb2_validate_run` | prereq check (unzip, dirs, index) — returns 1 with the reason logged |
+
+**Stage 2 library API** (place v0.3.0):
 
 | Function | Contract |
 |---|---|
 | `place_parse_args ARGS...` | sets the `PLACE_*` run parameters; **returns** 2 on a usage error (never exits) |
 | `place_run` | executes the batch; **returns** 1 when anything failed, 0 on success — never exits |
+| `PLACE_REPORT_ROWS[]` | per-number results: `processed_at, number, bookid, status, target, reason` |
 | `place_lookup NUMBER` | raw catalog row (TSV) on stdout |
 | `place_sanitize_name RAW` | Windows-safe path component on stdout |
 | `place_find_source N DIR` | stage-1 file path for number N |
