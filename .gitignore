@@ -38,3 +38,6 @@ books_finalize_*.tsv
 # Legacy report names from before the Phase 4 books rename
 merge_books_*.tsv
 merge_skeleton_into_books_*.tsv
+
+# User's scratch author lists for live pilot batches (not repo fixtures)
+data/fixtures/list_authors*.txt

@@ -1,14 +1,48 @@
 # NEXT — where to resume
 
-> Updated: 2026-09-13 (session 2) — **Follow-It §8 COMPLETE: database
-> access as a hard boundary.**  All six steps landed (f86ca2b / 7bde7e3 /
-> 6013067 / ee48795 / abe488c + this docs pass): lib/database.sh 1.2.0
-> owns client argv assembly for BOTH clients (db_mysql_argv,
-> db_mysqldump_argv, db_run_query, db_run_sql, db_session_charset,
-> db_require_server), all 6 DB-backed tools migrated with byte-identical
-> argv, strict positional-DB semantics regression-locked.  **Next
-> session: §5 audit findings below remain open; every fix waits for
-> explicit confirmation.**
+> Updated: 2026-09-13 (session 3) — **ACTIVE THREAD: the
+> `feature/flibusta-fb2-extract` branch.**  The extractor family landed
+> (b053af8, pushed): `extract_bookid_flibusta.sh` 0.3.1 (renamed from
+> extract_flibusta_fb2.sh), new DB-driven `extract_author_flibusta.sh`
+> 0.1.1 and `extract_series_flibusta.sh` 0.1.1, shared engine
+> `bin/flibusta/_flibusta_extract_common.sh` 1.2.0, config renamed to
+> `config/flibusta_extract.conf` (`FLIBUSTA_EXTRACT_CONF_FILE`).  CI has
+> NOT run on the branch yet (workflow listens on main + PRs only — it
+> fires when the PR opens).
+
+## Branch state & live-verified facts (2026-09-13)
+
+- **Performance is now sane** (was the session's headline bug):
+  command-substitution calls killed the range index/listing cache per
+  number — 1m53s for 1,510 books; with the `FLB_ARCHIVE`/`FLB_MEMBER`
+  globals + per-archive listing cache + skip-existing-before-archive it
+  is **52s**; repeat lookups on a warm archive are instant.  Series
+  live dry-run: 157 books / 9.7s.
+- **Sparse numbers are normal**: catalog rows can lack archives
+  ("Эмис Мартин: 164471 no fb2 archive") and archives can lack members;
+  per-item failures with a summary are the designed behavior.
+- **MariaDB 10.4 hazard** (CHANGELOG-documented): `authorid IN
+  (subquery)` ran 62s server-side; literal id lists run 0.13-0.47s.  The
+  tools send literals — keep it that way when editing queries.
+- `data/fixtures/list_authors*.txt` is git-ignored (Mike's scratch
+  pilot lists, per his call).
+
+## Suggested next steps (branch thread)
+
+1. **Pilot live round** with a small name list:
+   `extract_author_flibusta.sh --dry-run --from-file list_authors.txt`,
+   then without `--dry-run`; then place the extracted numbers
+   (`place_flibusta_book.sh --dry-run` → real) and eyeball the TSV
+   report + `ToLoad/` tree.
+2. **run_round.sh** — the one-command orchestrator (list file in →
+   extract + place + per-number TSV + single summary).  Both stages are
+   sourceable libraries now (`place_parse_args`/`place_run`; stage-1
+   library conversion was started but NOT finished — only stage 2 is
+   dual-mode today).
+3. **Open the PR to main** → CI green → fold CHANGELOG `[Unreleased]`
+   into a tagged release for the whole flibusta thread.
+4. Only after the merge: resume the main-line Follow-It §5 audit below
+   (still parked, confirmation-gated).
 
 ## Resume checklist
 
