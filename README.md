@@ -10,7 +10,7 @@ scripts) and depends on one hard contract: **the author list is sorted in
 
 ## Pipeline
 
-Two families of tools live here:
+Three families of tools live here:
 
 ```
 bin/authors/authors_prefix_build.sh ──> bin/authors/authors_prefix_check.sh ──> bin/authors/authors_prefix_tree.sh
@@ -27,7 +27,24 @@ bin/books/books_merge.sh
 bin/books/books_finalize.sh
    (rsync the BooksInput_* staging tree into the Books library,
     destination wins -- the old rename/prune/copy loop is gone)
+
+bin/flibusta/extract_bookid_flibusta.sh ──> bin/flibusta/place_flibusta_book.sh
+   (extract a FileNumber's member from          (resolve through the flibusta
+    the f.<TYPE>-START-END.zip range            catalog and place it as
+    archives; --type fb2|usr|both)              ROOT_LOAD/<Author>[/<Series>]/<NN - Title>.zip)
+
+bin/flibusta/extract_author_flibusta.sh    bin/flibusta/extract_series_flibusta.sh
+   (same chain, books selected by              (same chain, books selected by
+    author-name substring)                      series-name substring)
+
+bin/flibusta/run_round.sh
+   (one command: extract + place in a single process, joined TSV round
+    report, grep-and-rerun retry workflow)
 ```
+
+The Flibusta family (v1.10.0) is documented in detail in
+`docs/FLIBUSTA_FB2_EXTRACT.md`, including the library APIs both stage
+tools expose for in-process composition.
 
 The canonical prefix table format is TAB-separated with four columns:
 

@@ -1,18 +1,18 @@
 # NEXT — where to resume
 
-> Updated: 2026-09-13 (session 3) — **ACTIVE THREAD: the
-> `feature/flibusta-fb2-extract` branch.**  The extractor family landed
-> (b053af8, pushed): `extract_bookid_flibusta.sh` 0.3.1 (renamed from
-> extract_flibusta_fb2.sh), new DB-driven `extract_author_flibusta.sh`
-> 0.1.1 and `extract_series_flibusta.sh` 0.1.1, shared engine
-> `bin/flibusta/_flibusta_extract_common.sh` 1.2.0, config renamed to
-> `config/flibusta_extract.conf` (`FLIBUSTA_EXTRACT_CONF_FILE`).  CI has
-> NOT run on the branch yet (workflow listens on main + PRs only — it
-> fires when the PR opens).
+> Updated: 2026-09-13 (session 3, post-release) — **v1.10.0 SHIPPED:**
+> the whole `feature/flibusta-fb2-extract` thread merged to main (PR #1,
+> merge `e22b0c7`) and tagged.  The branch is deleted (local + remote);
+> main carries the full Flibusta pipeline: extractor family (bookid 0.4.0
+> dual-mode library / author 0.1.1 / series 0.1.1), place 0.3.2,
+> run_round orchestrator 0.1.0, shared engine 1.2.0, layer gate 1.2.0.
+> CI green through the PR.  **Next session: the pilot live round through
+> `run_round.sh`, then the parked Follow-It §5 audit below
+> (confirmation-gated).**
 
-## Branch state & live-verified facts (2026-09-13)
+## Flibusta thread — as-shipped (v1.10.0)
 
-- **Performance is now sane** (was the session's headline bug):
+- **Performance is sane** (was the session's headline bug):
   command-substitution calls killed the range index/listing cache per
   number — 1m53s for 1,510 books; with the `FLB_ARCHIVE`/`FLB_MEMBER`
   globals + per-archive listing cache + skip-existing-before-archive it
@@ -27,35 +27,31 @@
 - `data/fixtures/list_authors*.txt` is git-ignored (Mike's scratch
   pilot lists, per his call).
 
-## Suggested next steps (branch thread)
+## Suggested next steps
 
-1. **Pilot live round** with a small name list:
-   `extract_author_flibusta.sh --dry-run --from-file list_authors.txt`,
-   then without `--dry-run`; then place the extracted numbers
-   (`place_flibusta_book.sh --dry-run` → real) and eyeball the TSV
-   report + `ToLoad/` tree.
-2. **run_round.sh** — the one-command orchestrator (list file in →
-   extract + place + per-number TSV + single summary).  Both stages are
-   sourceable libraries now (`place_parse_args`/`place_run`; stage-1
-   library conversion was started but NOT finished — only stage 2 is
-   dual-mode today).
-3. **Open the PR to main** → CI green → fold CHANGELOG `[Unreleased]`
-   into a tagged release for the whole flibusta thread.
-4. Only after the merge: resume the main-line Follow-It §5 audit below
-   (still parked, confirmation-gated).
+1. **Pilot live round through the orchestrator** (now one command):
+   `./bin/flibusta/run_round.sh --dry-run --from-file list_authors.txt`,
+   then without `--dry-run`; check the round report under
+   `/mnt/c/Backup_Go7/merge-reports/` (statuses placed / skipped /
+   failed-stage1 / failed-stage2) and the `ToLoad/` → `ROOT_LOAD` tree;
+   retry = failed-* rows → new list → re-run.
+2. **Resume the main-line Follow-It §5 audit** below — still parked,
+   every fix waits for explicit confirmation.
+3. Optional later: covers/annotations workstream, wishlist expansions
+   (see `docs/archive/` for the parked plans).
 
 ## Resume checklist
 
 ```bash
 cd /c/git_root/ebook-library-tools-next
 git status             # expect: clean tree, on main, up to date with origin/main
-git log --oneline -3   # §8 docs pass on top of abe488c / ee48795 / 6013067
+git log --oneline -3   # e22b0c7 merge (PR #1) on top of 384a31a / 857e241
 git pull
 bash tests/unit/test_version_sync.sh       # 15/15 (fast, mock-only)
 bash tests/unit/test_lib_infrastructure.sh # 46/46 (db contract incl. positional-DB)
 shellcheck --severity=warning bin/*.sh bin/*/*.sh lib/*.sh && echo clean
 bin/check_layers.sh                        # layer gate: boundaries hold
-tests/run_all.sh -q    # 16 suites: 12 unit + 3 integration + 1 e2e
+tests/run_all.sh -q    # 21 suites: 17 unit + 3 integration + 1 e2e
 ```
 
 ### Pending release — decided 2026-09-13, NOT yet executed
