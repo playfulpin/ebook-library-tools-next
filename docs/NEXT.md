@@ -4,7 +4,7 @@
 > the whole `feature/flibusta-fb2-extract` thread merged to main (PR #1,
 > merge `e22b0c7`) and tagged.  The branch is deleted (local + remote);
 > main carries the full Flibusta pipeline: extractor family (bookid 0.4.0
-> dual-mode library / author 0.1.1 / series 0.1.1), place 0.3.2,
+> dual-mode library / author 0.1.1 / series 0.1.1), place 0.3.3,
 > run_round orchestrator 0.1.0, shared engine 1.2.0, layer gate 1.2.0.
 > CI green through the PR.  **Next session: the pilot live round through
 > `run_round.sh`, then the parked Follow-It §5 audit below

@@ -1,7 +1,7 @@
 # Flibusta Extractor Family (bookid / author / series)
 
 > Last updated: 2026-09-13 (extract_bookid 0.4.0, extract_author 0.1.1,
-> extract_series 0.1.1, place 0.3.2, run_round 0.1.0,
+> extract_series 0.1.1, place 0.3.3, run_round 0.1.0,
 > _flibusta_extract_common 1.2.0)
 > Tools: `bin/flibusta/extract_bookid_flibusta.sh`,
 > `bin/flibusta/extract_author_flibusta.sh`,
