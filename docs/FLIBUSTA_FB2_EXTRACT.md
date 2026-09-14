@@ -1,7 +1,11 @@
-# Flibusta FB2 / USR Extraction
+# Flibusta Extractor Family (bookid / author / series)
 
-> Last updated: 2026-09-13 (v0.2.0)
-> Tool: `bin/flibusta/extract_flibusta_fb2.sh` (branch
+> Last updated: 2026-09-13 (extract_bookid 0.3.1, extract_author 0.1.1,
+> extract_series 0.1.1, place 0.3.1, _flibusta_extract_common 1.2.0)
+> Tools: `bin/flibusta/extract_bookid_flibusta.sh`,
+> `bin/flibusta/extract_author_flibusta.sh`,
+> `bin/flibusta/extract_series_flibusta.sh`,
+> `bin/flibusta/place_flibusta_book.sh` (branch
 > `feature/flibusta-fb2-extract`)
 
 ## Purpose
@@ -22,12 +26,38 @@ was verified against the real `/mnt/x/flibusta` dataset (2026-09-13):
 | `f.usr-*` (200 archives) | `<N>.<realext>` — pdf, djvu, epub, double-suffixed `.pdf.zip` / `.pdf.rar`; the OLDEST usr archives are fully title-named (`Author_Title.rar`) with no number mapping | `811226.pdf.zip` |
 | legacy `fb2-*` / `usr-*` / `d.*` | outside this tool's scope (ignored) | |
 
-Given one or more Flibusta `FileNumber`s, the tool:
+Given one or more Flibusta `FileNumber`s, the tools:
 
-1. Finds `f.<TYPE>-START-END.zip` whose inclusive window contains each number.
-2. Resolves the member (`<N>.fb2` exactly; for usr, prefix `<N>.` with any
+1. Find `f.<TYPE>-START-END.zip` whose inclusive window contains each number.
+2. Resolve the member (`<N>.fb2` exactly; for usr, prefix `<N>.` with any
    real extension — the output keeps the member's real basename).
-3. Writes it atomically (temp file + `mv`) into `FB2_OUTPUT_DIR`.
+3. Write it atomically (temp file + `mv`) into `FB2_OUTPUT_DIR`.
+
+## The extractor family
+
+Three extractors share one range-index / member-resolution / extraction
+engine in `bin/flibusta/_flibusta_extract_common.sh` (intra-group include,
+allowed by the layer gate v1.1.0).  Each tool owns its own CLI, batch loop
+and — for the two DB-driven ones — its catalog query (Follow-It §8: all SQL
+via `lib/database.sh`).
+
+| Tool | Selects books by | Catalog source | Families |
+|---|---|---|---|
+| `extract_bookid_flibusta.sh` | FileNumber(s) | none (numbers given) | fb2, usr, both |
+| `extract_author_flibusta.sh` | author name substring (`mlauthorname.FullName LIKE`) | `flibusta` DB | fb2 only |
+| `extract_series_flibusta.sh` | series name substring (`mlseqname.seqname LIKE`) | `flibusta` DB | fb2 only |
+
+The DB-driven tools resolve names → authorids/seqids → fb2 bare-number
+filenames (numbers) → the same extraction chain.  usr stays bookid-only
+(by design: usr members carry real extensions and the oldest usr archives
+are title-named, so number-based selection is not meaningful there).
+
+Result-delivery contract in the common engine: `flb_find_archive` sets
+`FLB_ARCHIVE`, `flb_resolve_member` sets `FLB_MEMBER` (return code signals
+success).  Call sites must invoke them directly — wrapping in `$( ... )`
+would run them in a subshell where the range index and listing cache die
+at call end (this exact mistake cost a 30× slowdown on live data before
+being caught by timing tests).
 
 Numbers are SPARSE: a number inside an archive's range may be absent from
 it (`811194` owns `f.usr-811194-815075.zip` but the member is not there).
@@ -36,24 +66,30 @@ Per-item failures are reported and summarized, never fatal to the batch.
 ## Usage
 
 ```bash
-# single FB2
-./bin/flibusta/extract_flibusta_fb2.sh 811194
+# single FB2 (bookid extractor)
+./bin/flibusta/extract_bookid_flibusta.sh 811194
 
 # usr family (keeps the real extension: .pdf, .djvu, .pdf.zip ...)
-./bin/flibusta/extract_flibusta_fb2.sh --type usr 811215
+./bin/flibusta/extract_bookid_flibusta.sh --type usr 811215
 
 # try fb2 first, fall back to usr
-./bin/flibusta/extract_flibusta_fb2.sh --type both 811194
+./bin/flibusta/extract_bookid_flibusta.sh --type both 811194
 
 # batch: several numbers on the command line
-./bin/flibusta/extract_flibusta_fb2.sh 173909 173910 811194
+./bin/flibusta/extract_bookid_flibusta.sh 173909 173910 811194
 
 # batch from a list file (one number per line; BOM/CR/blank/#-comments
 # tolerated) mixed with positionals
-./bin/flibusta/extract_flibusta_fb2.sh --from-file numbers.txt 173911
+./bin/flibusta/extract_bookid_flibusta.sh --from-file numbers.txt 173911
 
 # re-extract over existing outputs
-./bin/flibusta/extract_flibusta_fb2.sh --force 173909
+./bin/flibusta/extract_bookid_flibusta.sh --force 173909
+
+# all fb2 books of every author matching a name substring (DB-driven)
+./bin/flibusta/extract_author_flibusta.sh "Мартин"
+
+# all fb2 books of every series matching a name substring (DB-driven)
+./bin/flibusta/extract_series_flibusta.sh "Забытые королевства"
 ```
 
 Options:
@@ -137,7 +173,9 @@ violation the layer gate and review will reject.
 ## Testing
 
 ```bash
-bash tests/unit/test_extract_flibusta_fb2.sh    # 24 assertions
+bash tests/unit/test_extract_bookid_flibusta.sh   # 24 assertions
+bash tests/unit/test_extract_author_flibusta.sh   # 18 assertions
+bash tests/unit/test_extract_series_flibusta.sh   # 17 assertions
 bash tests/unit/test_place_flibusta_book.sh     # 27 assertions
 tests/run_all.sh unit                           # part of the standard battery
 ```

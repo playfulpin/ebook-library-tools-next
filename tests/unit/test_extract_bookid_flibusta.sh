@@ -9,9 +9,9 @@ fi
 unset SHELLOPTS BASHOPTS 2>/dev/null || true
 
 # -----------------------------------------------------------------------------
-# tests/unit/test_extract_flibusta_fb2.sh
+# tests/unit/test_extract_bookid_flibusta.sh
 #
-# Regression suite for bin/flibusta/extract_flibusta_fb2.sh (stage-1 Flibusta
+# Regression suite for bin/flibusta/extract_bookid_flibusta.sh (stage-1 Flibusta
 # range-archive extractor, fb2 + usr families, batch mode).  Fully hermetic:
 # real zip fixtures are created in a temp dir; no network, no MariaDB.
 #
@@ -34,16 +34,16 @@ unset SHELLOPTS BASHOPTS 2>/dev/null || true
 #     unknown option exits 2, bad --type exits 2, no numbers exits 2
 #   - dry-run resolves and writes nothing
 #
-# Version header stays in sync with --version (0.2.x).
+# Version header stays in sync with --version (0.3.x).
 #
-# Usage:  bash tests/unit/test_extract_flibusta_fb2.sh
+# Usage:  bash tests/unit/test_extract_bookid_flibusta.sh
 # -----------------------------------------------------------------------------
 
 set -uo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$SCRIPT_DIR/../.."
-TOOL="$REPO_ROOT/bin/flibusta/extract_flibusta_fb2.sh"
+TOOL="$REPO_ROOT/bin/flibusta/extract_bookid_flibusta.sh"
 
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -105,18 +105,18 @@ out_has() { # $1 = file, $2 = expected content -> 0/1
     [[ -f "$1" ]] && [[ "$(cat "$1" 2>/dev/null)" == "$2" ]]
 }
 
-echo "== extract_flibusta_fb2 =="
+echo "== extract_bookid_flibusta =="
 
 # --- version / usage --------------------------------------------------------------
 version="$(sed -n 's/^# Version:[[:space:]]*//p' "$TOOL" | head -n 1)"
-if [[ "$version" =~ ^0\.2\.[0-9]+$ ]]; then
+if [[ "$version" =~ ^0\.3\.[0-9]+$ ]]; then
     report "version_header" ok "header $version"
 else
-    report "version_header" fail "got '$version', expected ^0.2.[0-9]+$"
+    report "version_header" fail "got '$version', expected ^0.3.[0-9]+$"
 fi
 
 bash "$TOOL" --version >"$TMPDIR/v.txt" 2>&1
-if [[ "$(cat "$TMPDIR/v.txt")" == "bin/flibusta/extract_flibusta_fb2.sh v$version" ]]; then
+if [[ "$(cat "$TMPDIR/v.txt")" == "bin/flibusta/extract_bookid_flibusta.sh v$version" ]]; then
     report "version_flag" ok
 else
     report "version_flag" fail "got '$(cat "$TMPDIR/v.txt")'"

@@ -3,7 +3,7 @@
 ###############################################################################
 # bin/check_layers.sh
 #
-# Version:       1.0.0
+# Version:       1.1.0
 # Last updated:  2026-09-13
 #
 # -----------------------------------------------------------------------------
@@ -24,10 +24,16 @@
 #      creeping back into the infrastructure layer.
 #
 #   2. CORRECT DEPENDENCY DIRECTION
-#      Every bin/**.sh may source only its own lib/ files.  A tool sourcing
-#      another tool (bin/ -> bin/) would create a hidden application-to-
-#      application dependency; anything sourcing outside lib/ from within
-#      the repo (docs, config, data) is likewise a boundary violation.
+#      Every bin/**.sh may source only lib/ files, config files, or the
+#      underscore-prefixed INCLUDES OF ITS OWN GROUP (bin/<group>/_*.sh).
+#      A tool sourcing another tool (bin/ -> bin/, non-underscore) would
+#      create a hidden application-to-application dependency; anything
+#      sourcing outside lib/ from within the repo (docs, data) is likewise
+#      a boundary violation.  The _*.sh include carve-out exists for shared
+#      DOMAIN primitives within one tool family (the Flibusta extractor
+#      family shares _flibusta_extract_common.sh; the shared code may not
+#      live in lib/ because lib/ is domain-free) - it is still intra-
+#      application, so the §4 direction rule is untouched.
 #
 #   Exit codes: 0 = both rules hold, 1 = violation(s) found.
 #
@@ -105,9 +111,12 @@ echo "== layer check: bin/ sources only lib/ =="
 
 while IFS= read -r tool; do
     rel="${tool#"$REPO_ROOT"/}"
+    tool_dir="$(dirname "$tool")"
     # every "source" or "." line that references a repo-internal path
+    # (also keep lines referencing "/_<name>.sh" - intra-group includes
+    # sourced via $SCRIPT_DIR, which mention neither lib/ nor bin/)
     hits="$(grep -nE '^\s*(source|\.)\s+' "$tool" \
-        | grep -E 'lib/|bin/|docs/|config/|data/' || true)"
+        | grep -E 'lib/|bin/|docs/|config/|data/|/_[^/]*\.sh' || true)"
     while IFS= read -r line; do
         [[ -z "$line" ]] && continue
         lineno="${line%%:*}"
@@ -118,6 +127,16 @@ while IFS= read -r tool; do
             *lib/*.sh*) ;;
             # allowed: sourcing a config file is data, not a dependency
             *config/*) ;;
+            # allowed: an underscore-prefixed include, but ONLY when the
+            # file exists in the tool's own directory (intra-group shared
+            # domain primitives; sourcing another group's include, or a
+            # non-underscore bin/ sibling, stays forbidden).  Basename
+            # comparison - immune to variable-prefixed paths.
+            *_*.sh*)
+                inc_base="$(basename "$(printf '%s' "$src" | tr -d '"' | sed 's|.*/||')")"
+                [[ -f "$tool_dir/$inc_base" ]] \
+                    || fail "$rel:$lineno sources an include outside its own group: $src"
+                ;;
             *)
                 fail "$rel:$lineno sources outside lib/: $src"
                 ;;

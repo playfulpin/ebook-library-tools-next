@@ -11,7 +11,7 @@
 #   Stage-2 Flibusta placement utility.  Takes one or more Flibusta
 #   FileNumbers (the plain number, no extension), resolves each through the
 #   'flibusta' catalog database to its canonical identity, and places the
-#   file that stage 1 (extract_flibusta_fb2.sh) left in the input dir into
+#   file that stage 1 (extract_bookid_flibusta.sh) left in the input dir into
 #   the library tree under the proper folder and file name:
 #
 #     ROOT_LOAD/<FullName>/<seqname>/<0><seqnum> - <title>.zip

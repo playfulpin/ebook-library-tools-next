@@ -9,6 +9,35 @@ All notable changes to the author-toolchain scripts in this repository:
 
 ## [Unreleased]
 
+### `feature/flibusta-fb2-extract` — extractor family + hot-path overhaul (2026-09-13)
+- **Family rename & growth** — `extract_flibusta_fb2.sh` is now
+  `extract_bookid_flibusta.sh` (0.3.1), and two DB-driven siblings join it:
+  `extract_author_flibusta.sh` 0.1.1 (author-name substring → their fb2
+  books) and `extract_series_flibusta.sh` 0.1.1 (series-name substring →
+  its fb2 books).  Shared mechanics moved to the intra-group include
+  `bin/flibusta/_flibusta_extract_common.sh` 1.2.0 (layer gate v1.1.0
+  allows `bin/<group>/_*.sh`); the config file became
+  `config/flibusta_extract.conf` / `FLIBUSTA_EXTRACT_CONF_FILE`.  usr stays
+  bookid-only by design.  New suites: 18 + 17 assertions; stage-1 suite
+  tracks the rename (24 assertions).
+- **30× batch speedup on live data (1m53s → 52s for 1,510 books; single
+  lookups ~1.8s)** — two compounding defects found by timing a live dry-run:
+  (1) `flb_find_archive` / `flb_resolve_member` were invoked via `$( ... )`,
+  so every call ran in a subshell where the range index and the new archive
+  listing cache died at call end — each number re-globbed 201 archives and
+  re-listed its archive over the slow WSL mount.  Result delivery now goes
+  through the `FLB_ARCHIVE` / `FLB_MEMBER` globals (documented contract in
+  the include); the listing cache (`FLB_LISTINGS`) keeps one `unzip -Z1` per
+  distinct archive per run.  (2) skip-existing now runs BEFORE archive
+  resolution in the DB-driven tools — an already-extracted number costs
+  nothing on re-runs.
+- **Query-plan finding (live, MariaDB 10.4)** — the books-by-author query
+  with `authorid IN (subquery)` ran 62s; the identical query with the ids
+  spelled out runs 0.13-0.47s.  The tools already send literal ids, so the
+  shipped path is the fast one; documented here as a hazard for future
+  query changes.  `filename REGEXP` also gained a trailing-whitespace
+  tolerance (`^[0-9]+[[:space:]]*$`) matching the load pipeline.
+
 ### `feature/flibusta-fb2-extract` — live-test bug fixes (2026-09-13)
 Two real defects found only by running against real data; both mock suites
 were blind to them:
